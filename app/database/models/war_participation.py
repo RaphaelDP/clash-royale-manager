@@ -34,7 +34,7 @@ class WarParticipation(Base):
         war_season: Many-to-one relationship with WarSeason.
     """
 
-    __tablename__ = "war_participation"
+    __tablename__ = "war_participations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     member_tag: Mapped[str] = mapped_column(String, ForeignKey("members.tag"))

@@ -81,7 +81,7 @@ DIR ?= .
 # make tree DIR="./models/" for exemple to change
 tree:
 	@echo "Displaying the project's tree in $(DIR):"
-	tree $(DIR) -I ".venv|__pycache__|.git|"
+	tree $(DIR) -I ".venv|__pycache__|.git"
 
 # -----------------------------------------
 # Commit (only if checks )
@@ -101,3 +101,35 @@ commit:
 			*) echo "Done committing."; break ;; \
 		esac; \
 	done
+
+clean:
+	@echo "Cleaning database and cache files..."
+
+	@find . -type f \( -name "*.db" -o -name "*.sqlite" -o -name "*.sqlite3" \) -delete
+	@find . -type d -name "__pycache__" -exec rm -rf {} +
+	@find . -type f -name "*.pyc" -delete
+
+	@echo "Clean complete."
+
+reset-db:
+	@read -p "FULL RESET: DB + migrations + cache will be deleted. Continue? [y/N] " ans && \
+	[ "$$ans" = "y" ] || [ "$$ans" = "Y" ] || exit 1
+
+	@echo "Step 1: cleaning files..."
+	@make clean
+
+	@echo "Step 2: removing migration versions..."
+	@find app/database/migrations/versions \
+		-type f \
+		-name "*.py" \
+		-not -name "__init__.py" \
+		-not -name ".gitkeep" \
+		-delete
+
+	@echo "Step 3: generating initial migration..."
+	@alembic revision --autogenerate -m "initial schema"
+
+	@echo "Step 4: applying migration..."
+	@alembic upgrade head
+
+	@echo "RESET COMPLETE."
