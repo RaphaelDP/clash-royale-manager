@@ -1,0 +1,30 @@
+# ================================================================================
+# Filename: docker-compose.yml
+# Description: Docker Compose configuration for FastAPI and Streamlit services.
+# Author: Raphael Smilet
+# Date Created: 2026-06-06
+# Last Modified: 2026-06-06
+# Version: 0.1.0
+# Dependencies: Docker
+# ================================================================================
+
+
+
+version: '3.8'
+
+services:
+  app:
+    build: .
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - CR_API_TOKEN=${CR_API_TOKEN}
+      - CLAN_TAG=${CLAN_TAG}
+      - DATABASE_URL=${DATABASE_URL}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_FILE=${LOG_FILE}
+    ports:
+      - "8000:8000"  # FastAPI
+      - "8501:8501"  # Streamlit
+    restart: unless-stopped
