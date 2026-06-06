@@ -5,7 +5,7 @@ Description: SQLAlchemy model for tracking war seasons.
 Author: Raphael Smilet
 Date Created: 2026-06-06
 Last Modified: 2026-06-06
-Version: 0.1.0
+Version: 0.1.1
 Python Version: 3.11
 Dependencies: sqlalchemy
 ================================================================================
