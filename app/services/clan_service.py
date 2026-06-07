@@ -5,7 +5,7 @@ Description: Service for managing clan data, including fetching and updating mem
 Author: Raphael Smilet
 Date Created: 2026-06-06
 Last Modified: 2026-06-07
-Version: 0.2.0
+Version: 0.2.2
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models
 ================================================================================
@@ -15,6 +15,7 @@ from typing import List, Dict, Any
 from datetime import datetime, UTC
 from sqlalchemy.orm import Session
 from app.database.models.member import Member
+
 # from app.database.models.snapshot import Snapshot
 from app.services.clash_api import ClashAPIClient
 from app.core.logger import logger
@@ -36,9 +37,6 @@ class ClanService:
         self.db: Session = db_session
         self.api_client: ClashAPIClient = api_client or ClashAPIClient()
 
-
-
-
     def sync_clan_members(self, clan_tag: str) -> List[Member]:
         """
         Fetch clan members from the API and update the database.
@@ -53,11 +51,15 @@ class ClanService:
             clan_data: Dict[str, Any] = self.api_client.get_clan(clan_tag)
             members_data: List[Dict[str, Any]] = clan_data.get("memberList", [])
 
+            current_tags: set[str] = {member["tag"] for member in members_data}
+
             members: List[Member] = []
             for member_data in members_data:
                 member: Member = self._upsert_member(member_data)
                 members.append(member)
                 # self._create_snapshot(member, member_data)
+
+            self._remove_departed_members(current_tags)
 
             self.db.commit()
             logger.info("Synced %d members for clan %s.", len(members), clan_tag)
@@ -78,18 +80,24 @@ class ClanService:
             Member: The updated/created Member object.
         """
         tag: str = member_data.get("tag", "")
-        existing_member: Member | None = self.db.query(Member).filter_by(tag=tag).first()
+        existing_member: Member | None = (
+            self.db.query(Member).filter_by(tag=tag).first()
+        )
         now = datetime.now(UTC)
-    
+
         if existing_member:
             # Update existing member
             existing_member.name = member_data.get("name", existing_member.name)
             existing_member.role = member_data.get("role", existing_member.role)
-            existing_member.trophies = member_data.get("trophies", existing_member.trophies)
-            existing_member.donations = member_data.get("donations", existing_member.donations)
+            existing_member.trophies = member_data.get(
+                "trophies", existing_member.trophies
+            )
+            existing_member.donations = member_data.get(
+                "donations", existing_member.donations
+            )
             existing_member.last_seen = now
             return existing_member
-        
+
         # If not existing, create new member
         new_member: Member = Member(
             tag=tag,
@@ -122,3 +130,21 @@ class ClanService:
     #     )
     #     self.db.add(snapshot)
     #     return snapshot
+
+    def _remove_departed_members(self, current_tags: set[str]) -> None:
+        """
+        Remove members from the database who are no longer in the clan.
+
+        Args:
+            current_tags: Set of member tags currently in the clan.
+        """
+        departed_members: List[Member] = (
+            self.db.query(Member).filter(~Member.tag.in_(current_tags)).all()
+        )
+        for member in departed_members:
+            logger.info(
+                "Removing departed member %s (%s) from database.",
+                member.name,
+                member.tag,
+            )
+            self.db.delete(member)
