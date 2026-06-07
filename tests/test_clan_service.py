@@ -11,13 +11,12 @@ Dependencies: pytest, app.services.clan_service, app.database.session
 ================================================================================
 """
 
-
-
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.database.base import Base
 from app.database.models.member import Member
+
 # from app.database.models.snapshot import Snapshot
 from app.services.clan_service import ClanService
 
@@ -27,11 +26,14 @@ def db_session():
     """Create an in-memory SQLite database for testing."""
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) # pylint: disable=invalid-name
+    SessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine
+    )  # pylint: disable=invalid-name
     session = SessionLocal()
     yield session
     session.close()
     Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture
 def mock_clan_data():
@@ -57,6 +59,7 @@ def mock_clan_data():
         ],
     }
 
+
 # @pytest.fixture
 # def mock_api_client(mocker):
 #     """Mock the ClashAPIClient to avoid real API calls."""
@@ -75,6 +78,7 @@ def mock_clan_data():
 #         ],
 #     }
 #     return mock_client
+
 
 def test_upsert_member(db_session, mock_clan_data):
     """Test the _upsert_member method of ClanService."""
@@ -99,6 +103,7 @@ def test_upsert_member(db_session, mock_clan_data):
     assert updated_member.trophies == 5500
     assert updated_member.tag == "#PLAYER1"
 
+
 # def test_create_snapshot(db_session, mock_clan_data):
 #     """Test the _create_snapshot method of ClanService."""
 #     clan_service = ClanService(db_session)
@@ -113,6 +118,7 @@ def test_upsert_member(db_session, mock_clan_data):
 #     assert snapshot.trophies == 5000
 #     assert snapshot.donations == 100
 #     assert snapshot.collected_at is not None
+
 
 def test_sync_clan_members(db_session, mocker, mock_clan_data):
     """Test the sync_clan_members method of ClanService."""
@@ -134,16 +140,15 @@ def test_sync_clan_members(db_session, mocker, mock_clan_data):
     # assert snapshots[0].member_tag == "#PLAYER1"
     # assert snapshots[1].member_tag == "#PLAYER2"
 
+
 def test_sync_clan_members_rollback(db_session, mocker):
     """Test that sync_clan_members rolls back on error."""
-    
 
     # Mock the API client to raise an exception
     mock_client = mocker.MagicMock()
     mock_client.get_clan.side_effect = Exception("API Error")
     clan_service = ClanService(db_session, api_client=mock_client)
 
-  
     with pytest.raises(Exception, match="API Error"):
         clan_service.sync_clan_members("#TEST123")
 
@@ -154,14 +159,11 @@ def test_sync_clan_members_rollback(db_session, mocker):
     # assert len(snapshots) == 0
 
 
-def test_sync_clan_members_updates_existing_member(
-    db_session, mocker, mock_clan_data
-):
+def test_sync_clan_members_updates_existing_member(db_session, mocker, mock_clan_data):
     """Test that sync_clan_members updates existing members."""
 
     mock_client = mocker.MagicMock()
     mock_client.get_clan.return_value = mock_clan_data
-
 
     clan_service = ClanService(db_session, api_client=mock_client)
 
