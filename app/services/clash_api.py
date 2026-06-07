@@ -11,14 +11,20 @@ Dependencies: requests, requests-cache, tenacity
 ================================================================================
 """
 
-
 from typing import Optional, Dict, Any
 import requests
 from requests_cache import CachedSession
 from tenacity import retry, stop_after_attempt, wait_exponential
 from app.core.config import settings
 from app.core.logger import logger
-from app.core.constants import DEFAULT_TIMEOUT, MAX_RETRIES, CACHE_EXPIRATION ,CACHE_NAME, CR_API_BASE_URL
+from app.core.constants import (
+    DEFAULT_TIMEOUT,
+    MAX_RETRIES,
+    CACHE_EXPIRATION,
+    CACHE_NAME,
+    CR_API_BASE_URL,
+)
+
 
 class ClashAPIClient:
     """
@@ -34,20 +40,22 @@ class ClashAPIClient:
             None (uses settings.CR_API_TOKEN from config).
         """
 
-
         self.base_url: str = CR_API_BASE_URL
         self.headers: Dict[str, str] = {
             "Authorization": f"Bearer {settings.CR_API_TOKEN}",
             "Accept": "application/json",
         }
         # Use CachedSession for caching API responses
-        self.session : CachedSession = CachedSession(
+        self.session: CachedSession = CachedSession(
             CACHE_NAME,
             backend="sqlite",
             expire_after=CACHE_EXPIRATION,
         )
 
-    @retry(stop=stop_after_attempt(MAX_RETRIES), wait=wait_exponential(multiplier=1, min=4, max=10))
+    @retry(
+        stop=stop_after_attempt(MAX_RETRIES),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+    )
     def _request(self, endpoint: str, params: Optional[Dict] = None) -> Dict[str, Any]:
         """
         Make a request to the Clash Royale API with retries and caching.
@@ -64,10 +72,7 @@ class ClashAPIClient:
         """
         url: str = f"{self.base_url}{endpoint}"
         try:
-            logger.info(
-                "Fetching endpoint %s",
-                endpoint
-            )
+            logger.info("Fetching endpoint %s", endpoint)
             response = self.session.get(
                 url,
                 headers=self.headers,
