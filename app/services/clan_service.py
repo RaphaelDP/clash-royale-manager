@@ -12,7 +12,7 @@ Dependencies: sqlalchemy, app.database.models
 """
 
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy.orm import Session
 from app.database.models.member import Member
 # from app.database.models.snapshot import Snapshot
@@ -25,15 +25,16 @@ class ClanService:
     Service for managing clan data, including fetching, updating, and storing members.
     """
 
-    def __init__(self, db_session):
+    def __init__(self, db_session, api_client=None):
         """
         Initialize the ClanService with a database session.
 
         Args:
             db_session: SQLAlchemy database session for interacting with the database.
+            api_client: Optional ClashAPIClient instance. If not provided, a new instance will be created.
         """
         self.db: Session = db_session
-        self.api_client: ClashAPIClient = ClashAPIClient()
+        self.api_client: ClashAPIClient = api_client or ClashAPIClient()
 
 
 
@@ -78,7 +79,7 @@ class ClanService:
         """
         tag: str = member_data.get("tag", "")
         existing_member: Member | None = self.db.query(Member).filter_by(tag=tag).first()
-        now = datetime.now()
+        now = datetime.now(UTC)
     
         if existing_member:
             # Update existing member
