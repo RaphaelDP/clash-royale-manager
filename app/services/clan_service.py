@@ -5,7 +5,7 @@ Description: Service for managing clan data, including fetching and updating mem
 Author: Raphael Smilet
 Date Created: 2026-06-06
 Last Modified: 2026-06-07
-Version: 0.2.2
+Version: 0.2.3
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models
 ================================================================================
@@ -57,7 +57,6 @@ class ClanService:
             for member_data in members_data:
                 member: Member = self._upsert_member(member_data)
                 members.append(member)
-                # self._create_snapshot(member, member_data)
 
             self._remove_departed_members(current_tags)
 
@@ -110,26 +109,6 @@ class ClanService:
         self.db.add(new_member)
         self.db.flush()  # Flush to assign an ID if needed
         return new_member
-
-    # def _create_snapshot(self, member: Member, member_data: Dict[str, Any]) -> Snapshot:
-    #     """
-    #     Create a snapshot for a member to track historical data.
-
-    #     Args:
-    #         member: The Member object.
-    #         member_data: Member data from the Clash Royale API.
-
-    #     Returns:
-    #         Snapshot: The created Snapshot object.
-    #     """
-    #     snapshot: Snapshot = Snapshot(
-    #         member_tag=member.tag,
-    #         trophies=member_data.get("trophies", 0),
-    #         donations=member_data.get("donations", 0),
-    #         collected_at=now,
-    #     )
-    #     self.db.add(snapshot)
-    #     return snapshot
 
     def _remove_departed_members(self, current_tags: set[str]) -> None:
         """
