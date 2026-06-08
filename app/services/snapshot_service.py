@@ -5,7 +5,7 @@ Description: Service for creating and managing member data snapshots.
 Author: Raphael Smilet
 Date Created: 2026-06-06
 Last Modified: 2026-06-06
-Version: 0.3.0
+Version: 0.3.1
 Python Version: 3.11
 Dependencies: sqlalchemy, app.database.models
 ================================================================================
@@ -33,8 +33,6 @@ class SnapshotService:
         """
         self.db = db_session
 
-
-
     def create_snapshot(self, member: Member) -> Snapshot:
         """
         Create a snapshot for a member.
@@ -51,10 +49,12 @@ class SnapshotService:
             collected_at=datetime.now(UTC),
         )
         self.db.add(snapshot)
-        logger.info("Created snapshot for member %s at %s", member.tag, snapshot.collected_at)
+        logger.info(
+            "Created snapshot for member %s at %s", member.tag, snapshot.collected_at
+        )
         return snapshot
 
-    def create_daily_snapshots(self, members : List[Member] | None) -> List[Snapshot]:
+    def create_daily_snapshots(self, members: List[Member] | None) -> List[Snapshot]:
         """
         Create snapshots for all members in the database.
 
@@ -72,8 +72,9 @@ class SnapshotService:
         logger.info("Created %d snapshots for all members", len(snapshots))
         return snapshots
 
-
-    def get_last_snapshots_for_member(self, member_tag: str, limit: int | None = 10) -> List[Snapshot]:
+    def get_last_snapshots_for_member(
+        self, member_tag: str, limit: int | None = 10
+    ) -> List[Snapshot]:
         """
         Retrieve all snapshots for a specific member.
 
@@ -83,7 +84,11 @@ class SnapshotService:
         Returns:
             List[Snapshot]: List of Snapshot objects for the member.
         """
-        query = self.db.query(Snapshot).filter(Snapshot.member_tag == member_tag).order_by(Snapshot.collected_at.desc())
+        query = (
+            self.db.query(Snapshot)
+            .filter(Snapshot.member_tag == member_tag)
+            .order_by(Snapshot.collected_at.desc())
+        )
         if limit is not None:
             query = query.limit(limit)
         snapshots: List[Snapshot] = query.all()
