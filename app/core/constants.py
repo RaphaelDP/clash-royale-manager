@@ -5,16 +5,17 @@ Description: Global constants for the application, including API endpoints, thre
 Author: Raphael Smilet
 Date Created: 2026-06-06
 Last Modified: 2026-06-06
-Version: 0.2.0
+Version: 0.2.1
 Python Version: 3.11
 Dependencies: None
 ================================================================================
 """
+
 ### Global Constants ###
 # Clash Royale API
 CR_API_BASE_URL = "https://api.clashroyale.com/v1"
 DEFAULT_TIMEOUT = 10
-
+CACHE_EXPIRATION = 300  # Cache expiration time in seconds
 MAX_RETRIES = 3
 
 CACHE_NAME = "cr_cache"
