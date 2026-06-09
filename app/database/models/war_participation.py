@@ -5,17 +5,23 @@ Description: SQLAlchemy model for tracking member participation in war seasons.
 Author: Raphael Smilet
 Date Created: 2026-06-06
 Last Modified: 2026-06-06
-Version: 0.1.1
+Version: 0.1.2
 Python Version: 3.11
 Dependencies: sqlalchemy
 ================================================================================
 """
 
-from __future__ import annotations  # to avoid Pylance: reportUndefinedVariable
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import String, Integer, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.database.base import Base
 
+if TYPE_CHECKING:
+    from app.database.models import Member, WarSeason
 
 class WarParticipation(Base):
     """
@@ -46,9 +52,9 @@ class WarParticipation(Base):
     medals: Mapped[int] = mapped_column(Integer)
 
     # Relationships
-    member: Mapped["Member"] = relationship(
-        "Member", back_populates="war_participations"
+    member: Mapped[Member] = relationship(
+         back_populates="war_participations"
     )
-    war_season: Mapped["WarSeason"] = relationship(
-        "WarSeason", back_populates="war_participations"
+    war_season: Mapped[WarSeason] = relationship(
+         back_populates="war_participations"
     )

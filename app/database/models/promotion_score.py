@@ -12,12 +12,15 @@ Dependencies: sqlalchemy
 """
 
 from __future__ import annotations  # to avoid Pylance: reportUndefinedVariable
+from typing import TYPE_CHECKING
 
 from datetime import datetime
 from sqlalchemy import Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
+if TYPE_CHECKING:
+    from app.database.models import Member
 
 class PromotionScore(Base):
     """
@@ -47,4 +50,4 @@ class PromotionScore(Base):
     calculated_at: Mapped[datetime] = mapped_column(DateTime)
 
     # Relationships
-    member: Mapped["Member"] = relationship("Member", back_populates="promotion_scores")
+    member: Mapped[Member] = relationship( back_populates="promotion_scores")

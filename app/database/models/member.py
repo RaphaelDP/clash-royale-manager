@@ -12,12 +12,14 @@ Dependencies: sqlalchemy
 """
 
 from __future__ import annotations  # to avoid Pylance: reportUndefinedVariable
-from typing import List, Optional
+from typing import List, TYPE_CHECKING
 from datetime import datetime
 from sqlalchemy import String, DateTime, Float, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
+if TYPE_CHECKING:
+    from app.database.models import Snapshot, WarParticipation, PromotionScore
 
 class Member(Base):
     """
@@ -46,9 +48,9 @@ class Member(Base):
     role: Mapped[str] = mapped_column(String)
     trophies: Mapped[int] = mapped_column(Integer, default=0)
     donations: Mapped[int] = mapped_column(Integer, default=0)
-    last_seen: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    promotion_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    promotion_score_updated_at: Mapped[Optional[datetime]] = mapped_column(
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    promotion_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    promotion_score_updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )
 

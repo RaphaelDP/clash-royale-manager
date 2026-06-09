@@ -5,18 +5,24 @@ Description: SQLAlchemy model for tracking daily snapshots of member data.
 Author: Raphael Smilet
 Date Created: 2026-06-06
 Last Modified: 2026-06-06
-Version: 0.1.1
+Version: 0.1.2
 Python Version: 3.11
 Dependencies: sqlalchemy
 ================================================================================
 """
 
-from __future__ import annotations  # to avoid Pylance: reportUndefinedVariable
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from datetime import datetime
-from sqlalchemy import String, DateTime, Integer, ForeignKey
+
+from sqlalchemy import String, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.database.base import Base
 
+if TYPE_CHECKING:
+    from app.database.models import Member
 
 class Snapshot(Base):
     """

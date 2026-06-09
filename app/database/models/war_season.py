@@ -5,19 +5,24 @@ Description: SQLAlchemy model for tracking war seasons.
 Author: Raphael Smilet
 Date Created: 2026-06-06
 Last Modified: 2026-06-06
-Version: 0.1.1
+Version: 0.1.2
 Python Version: 3.11
 Dependencies: sqlalchemy
 ================================================================================
 """
 
 from __future__ import annotations  # to avoid Pylance: reportUndefinedVariable
+
+from typing import TYPE_CHECKING
+
 from typing import List, Optional
 from datetime import datetime
 from sqlalchemy import String, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
+if TYPE_CHECKING:
+    from app.database.models import WarParticipation
 
 class WarSeason(Base):
     """
@@ -39,6 +44,6 @@ class WarSeason(Base):
     end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     # Relationships
-    war_participations: Mapped[List["WarParticipation"]] = relationship(
+    war_participations: Mapped[List[WarParticipation]] = relationship(
         "WarParticipation", back_populates="war_season", cascade="all, delete-orphan"
     )
