@@ -66,19 +66,17 @@ def test_sync_clan_members(db_session, mocker, mock_clan_data):
     assert members[0].tag == "#TEST_PLAYER1"
     assert members[1].tag == "#TEST_PLAYER2"
 
-    
     mock_client.get_clan.assert_called_once_with("#TEST123")
 
     members_in_db = db_session.query(Member).all()
 
     assert len(members_in_db) == 2
 
-    assert {
-        member.tag for member in members_in_db
-    } == {
+    assert {member.tag for member in members_in_db} == {
         "#TEST_PLAYER1",
         "#TEST_PLAYER2",
-}
+    }
+
 
 def test_sync_clan_members_rollback(db_session, mocker):
     """Test that sync_clan_members rolls back on error."""

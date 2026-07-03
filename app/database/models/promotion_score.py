@@ -22,6 +22,7 @@ from app.database.base import Base
 if TYPE_CHECKING:
     from app.database.models import Member
 
+
 class PromotionScore(Base):
     """
     SQLAlchemy model for promotion scores.
@@ -50,4 +51,4 @@ class PromotionScore(Base):
     calculated_at: Mapped[datetime] = mapped_column(DateTime)
 
     # Relationships
-    member: Mapped[Member] = relationship( back_populates="promotion_scores")
+    member: Mapped[Member] = relationship(back_populates="promotion_scores")

@@ -230,6 +230,7 @@ def promotion_score_factory(member_factory):
 # Convenience fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def test_members(db_session, member_factory):
     members = [
@@ -255,6 +256,7 @@ def test_members(db_session, member_factory):
     db_session.commit()
 
     return members
+
 
 @pytest.fixture
 def populated_member_graph(

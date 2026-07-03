@@ -79,6 +79,7 @@ def test_create_or_update_river_race(db_session, war_service):
     assert race.created_date == datetime(2026, 6, 8, 9, 34, 43)
     assert same_race.created_date == datetime(2026, 6, 8, 9, 34, 43)
 
+
 def test_create_or_update_participation(
     db_session,
     war_service,
@@ -140,17 +141,14 @@ def test_create_or_update_participation(
 
     assert len(participations) == 1
 
-    saved = (
-    db_session.query(WarParticipation)
-    .filter_by(member_tag=member.tag)
-    .one()
-    )
+    saved = db_session.query(WarParticipation).filter_by(member_tag=member.tag).one()
 
     assert saved.fame == 150
     assert saved.repair_points == 15
     assert saved.boat_attacks == 6
     assert saved.decks_used == 4
     assert saved.decks_used_today == 3
+
 
 def test_sync_river_race_log(
     db_session,
@@ -173,9 +171,7 @@ def test_sync_river_race_log(
     season = seasons[0]
 
     assert season.season_id == "132"
-    assert season.start_date == convert_timestamp_to_datetime(
-        "20260608T093443.000Z"
-    )
+    assert season.start_date == convert_timestamp_to_datetime("20260608T093443.000Z")
     assert len(seasons) == 1
 
     races = db_session.query(RiverRace).all()
@@ -183,9 +179,7 @@ def test_sync_river_race_log(
 
     assert race.season_id == "132"
     assert race.section_index == 0
-    assert race.created_date == convert_timestamp_to_datetime(
-        "20260608T093443.000Z"
-    )
+    assert race.created_date == convert_timestamp_to_datetime("20260608T093443.000Z")
     assert len(races) == 1
 
     participations = db_session.query(WarParticipation).all()
@@ -198,9 +192,7 @@ def test_sync_river_race_log(
     }
 
     player1 = (
-        db_session.query(WarParticipation)
-        .filter_by(member_tag="#TEST_PLAYER1")
-        .one()
+        db_session.query(WarParticipation).filter_by(member_tag="#TEST_PLAYER1").one()
     )
 
     assert player1.fame == 100
@@ -210,9 +202,7 @@ def test_sync_river_race_log(
     assert player1.decks_used_today == 2
 
     player2 = (
-    db_session.query(WarParticipation)
-    .filter_by(member_tag="#TEST_PLAYER2")
-    .one()
+        db_session.query(WarParticipation).filter_by(member_tag="#TEST_PLAYER2").one()
     )
 
     assert player2.fame == 200
@@ -222,14 +212,8 @@ def test_sync_river_race_log(
     assert player2.decks_used_today == 3
 
 
-
-
 def test_sync_river_race_log_twice_no_duplicates(
-    db_session,
-    war_service,
-    mocker,
-    mock_river_race_log_with_standings,
-    test_members
+    db_session, war_service, mocker, mock_river_race_log_with_standings, test_members
 ):
     """Verify running sync twice does not create duplicates."""
 
@@ -250,16 +234,12 @@ def test_sync_river_race_log_twice_no_duplicates(
     assert len(races) == 1
     assert len(participations) == 2
     assert (
-        db_session.query(WarParticipation)
-        .filter_by(member_tag="#TEST_PLAYER1")
-        .count()
+        db_session.query(WarParticipation).filter_by(member_tag="#TEST_PLAYER1").count()
         == 1
     )
 
     assert (
-        db_session.query(WarParticipation)
-        .filter_by(member_tag="#TEST_PLAYER2")
-        .count()
+        db_session.query(WarParticipation).filter_by(member_tag="#TEST_PLAYER2").count()
         == 1
     )
 
@@ -358,9 +338,7 @@ def test_sync_current_river_race(
     assert len(participations) == 2
 
     player1 = (
-        db_session.query(WarParticipation)
-        .filter_by(member_tag="#TEST_PLAYER1")
-        .one()
+        db_session.query(WarParticipation).filter_by(member_tag="#TEST_PLAYER1").one()
     )
 
     assert player1.fame == 50
@@ -371,9 +349,7 @@ def test_sync_current_river_race(
     assert player1.river_race_id == races[0].id
 
     player2 = (
-        db_session.query(WarParticipation)
-        .filter_by(member_tag="#TEST_PLAYER2")
-        .one()
+        db_session.query(WarParticipation).filter_by(member_tag="#TEST_PLAYER2").one()
     )
 
     assert player2.fame == 75

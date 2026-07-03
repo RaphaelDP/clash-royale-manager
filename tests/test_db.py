@@ -10,7 +10,9 @@ Python Version: 3.12
 Dependencies: pytest, app.database.models
 ================================================================================
 """
+
 from app.database.models import Member
+
 
 def test_create_member(db_session, test_members):
     """
@@ -29,12 +31,8 @@ def test_create_member(db_session, test_members):
     assert member.role == "Leader"
     assert member.trophies == 5000
     assert member.donations == 100
-    
-    saved_member = (
-        db_session.query(Member)
-        .filter_by(tag="#TEST_PLAYER1")
-        .one()
-    )
+
+    saved_member = db_session.query(Member).filter_by(tag="#TEST_PLAYER1").one()
 
     assert saved_member.id == member.id
     assert saved_member.name == member.name

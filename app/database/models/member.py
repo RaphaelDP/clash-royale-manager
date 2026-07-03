@@ -4,9 +4,9 @@ Filename: member.py
 Description: SQLAlchemy model for clan members, including tags, roles, trophies, and activity data.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-06
-Version: 0.1.1
-Python Version: 3.11
+Last Modified: 2026-06-18
+Version: 0.4.2
+Python Version: 3.12
 Dependencies: sqlalchemy
 ================================================================================
 """
@@ -20,6 +20,7 @@ from app.database.base import Base
 
 if TYPE_CHECKING:
     from app.database.models import Snapshot, WarParticipation, PromotionScore
+
 
 class Member(Base):
     """

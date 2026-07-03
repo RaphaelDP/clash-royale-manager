@@ -39,7 +39,7 @@ def test_create_daily_snapshots(
     assert snapshots[1].collected_at is not None
 
     saved_snapshots = snapshot_service.get_last_snapshots_for_member(
-    test_members[0].tag
+        test_members[0].tag
     )
 
     assert len(saved_snapshots) == 1

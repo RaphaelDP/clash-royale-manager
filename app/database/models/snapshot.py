@@ -4,9 +4,9 @@ Filename: snapshot.py
 Description: SQLAlchemy model for tracking daily snapshots of member data.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-06
-Version: 0.1.2
-Python Version: 3.11
+Last Modified: 2026-06-18
+Version: 0.4.2
+Python Version: 3.12
 Dependencies: sqlalchemy
 ================================================================================
 """
@@ -15,14 +15,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from datetime import datetime
-
 from sqlalchemy import String, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from app.database.base import Base
 
 if TYPE_CHECKING:
     from app.database.models import Member
+
 
 class Snapshot(Base):
     """
@@ -46,4 +45,4 @@ class Snapshot(Base):
     collected_at: Mapped[datetime] = mapped_column(DateTime)
 
     # Relationships
-    member: Mapped["Member"] = relationship("Member", back_populates="snapshots")
+    member: Mapped["Member"] = relationship(back_populates="snapshots")
