@@ -5,13 +5,15 @@ Description: Client for interacting with the Clash Royale API, including retries
 Author: Raphael Smilet
 Date Created: 2026-06-06
 Last Modified: 2026-06-07
-Version: 0.2.1
-Python Version: 3.11
+Version: 0.4.1
+Python Version: 3.12
 Dependencies: requests, requests-cache, tenacity
 ================================================================================
+
+All API requests are available through https://developer.clashroyale.com/#/documentation
 """
 
-from typing import Optional, Dict, Any
+from typing import Dict, Any, List
 import requests
 from requests_cache import CachedSession
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -56,7 +58,9 @@ class ClashAPIClient:
         stop=stop_after_attempt(MAX_RETRIES),
         wait=wait_exponential(multiplier=1, min=4, max=10),
     )
-    def _request(self, endpoint: str, params: Optional[Dict] = None) -> Dict[str, Any]:
+    def _request(
+        self, endpoint: str, params: Dict[str, Any] | None = None
+    ) -> Dict[str, Any]:
         """
         Make a request to the Clash Royale API with retries and caching.
 
@@ -111,3 +115,36 @@ class ClashAPIClient:
         """
         encoded_tag: str = player_tag.replace("#", "%23")
         return self._request(f"/players/{encoded_tag}")
+
+    def get_current_river_race(self, clan_tag: str) -> Dict[str, Any]:
+        """
+        Fetch the current river race data for a clan.
+
+        Args:
+            clan_tag: The clan tag (e.g., "#ABC123").
+
+        Returns:
+            Dict[str, Any]: Current river race data, including participants and progress.
+        """
+        encoded_tag: str = clan_tag.replace("#", "%23")
+        return self._request(f"/clans/{encoded_tag}/currentriverrace")
+
+    def get_river_race_log(
+        self, clan_tag: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch the river race log for a clan.
+
+        Args:
+            clan_tag: The clan tag (e.g., "#ABC123").
+            limit: Maximum number of past races to fetch.
+
+        Returns:
+            List[Dict[str, Any]]: List of past river race data.
+        """
+        encoded_tag: str = clan_tag.replace("#", "%23")
+        params: Dict[str, Any] = {"limit": limit}
+        response: Dict[str, Any] = self._request(
+            f"/clans/{encoded_tag}/riverracelog", params
+        )
+        return response.get("items", [])
