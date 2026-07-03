@@ -12,8 +12,8 @@ Dependencies: sqlalchemy, app.database.models
 """
 
 from typing import List, Dict, Any
-from datetime import datetime, UTC
 from sqlalchemy.orm import Session
+from app.core.utils import convert_timestamp_to_datetime
 from app.database.models.member import Member
 
 # from app.database.models.snapshot import Snapshot
@@ -82,7 +82,6 @@ class ClanService:
         existing_member: Member | None = (
             self.db.query(Member).filter_by(tag=tag).first()
         )
-        now = datetime.now(UTC)
 
         if existing_member:
             # Update existing member
@@ -94,7 +93,9 @@ class ClanService:
             existing_member.donations = member_data.get(
                 "donations", existing_member.donations
             )
-            existing_member.last_seen = now
+            existing_member.last_seen = convert_timestamp_to_datetime(
+                member_data.get("lastSeen", "")
+            )
             return existing_member
 
         # If not existing, create new member
@@ -104,7 +105,7 @@ class ClanService:
             role=member_data.get("role", ""),
             trophies=member_data.get("trophies", 0),
             donations=member_data.get("donations", 0),
-            last_seen=now,
+            last_seen=convert_timestamp_to_datetime(member_data.get("lastSeen", "")),
         )
         self.db.add(new_member)
         self.db.flush()  # Flush to assign an ID if needed

@@ -16,6 +16,7 @@ from .member import Member
 from .snapshot import Snapshot
 from .war_participation import WarParticipation
 from .war_season import WarSeason
+from .river_race import RiverRace
 from .promotion_score import PromotionScore
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "WarParticipation",
     "WarSeason",
     "PromotionScore",
+    "RiverRace",
 ]

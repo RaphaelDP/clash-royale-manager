@@ -16,5 +16,13 @@ from app.database.models.snapshot import Snapshot
 from app.database.models.war_season import WarSeason
 from app.database.models.war_participation import WarParticipation
 from app.database.models.promotion_score import PromotionScore
+from app.database.models.river_race import RiverRace
 
-__all__ = ["Member", "Snapshot", "WarSeason", "WarParticipation", "PromotionScore"]
+__all__ = [
+    "Member",
+    "Snapshot",
+    "WarSeason",
+    "WarParticipation",
+    "RiverRace",
+    "PromotionScore",
+]
