@@ -11,14 +11,6 @@ Dependencies: pytest, app.database.models
 ================================================================================
 """
 
-from datetime import UTC, datetime
-
-from app.database.models.member import Member
-from app.database.models.snapshot import Snapshot
-from app.database.models.war_season import WarSeason
-from app.database.models.war_participation import WarParticipation
-from app.database.models.promotion_score import PromotionScore
-
 
 def test_create_member(db_session):
     """
