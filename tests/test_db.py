@@ -4,41 +4,43 @@ Filename: test_db.py
 Description: Unit tests for database models and relationships.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-08
-Version: 0.3.2
+Last Modified: 2026-06-18
+Version: 0.4.0
 Python Version: 3.12
 Dependencies: pytest, app.database.models
 ================================================================================
 """
+from app.database.models import Member
 
-
-def test_create_member(db_session):
+def test_create_member(db_session, test_members):
     """
     Verify a Member can be persisted and retrieved.
     """
 
-    member = Member(
-        tag="#TEST000",
-        name="Raphael",
-        role="Member",
-        trophies=9000,
-        donations=0,
-        last_seen=datetime.now(UTC),
-    )
+    member = test_members[0]
 
     db_session.add(member)
     db_session.commit()
     db_session.refresh(member)
 
     assert member.id is not None
-    assert member.tag == "#TEST000"
-    assert member.name == "Raphael"
-    assert member.role == "Member"
-    assert member.trophies == 9000
-    assert member.donations == 0
+    assert member.tag == "#TEST_PLAYER1"
+    assert member.name == "Player 1"
+    assert member.role == "Leader"
+    assert member.trophies == 5000
+    assert member.donations == 100
+    
+    saved_member = (
+        db_session.query(Member)
+        .filter_by(tag="#TEST_PLAYER1")
+        .one()
+    )
+
+    assert saved_member.id == member.id
+    assert saved_member.name == member.name
 
 
-def test_member_relationships(db_session):
+def test_member_relationships(populated_member_graph):
     """
     Verify Member relationships:
     - snapshots
@@ -46,107 +48,51 @@ def test_member_relationships(db_session):
     - promotion scores
     """
 
-    member = Member(
-        tag="#TEST123",
-        name="Emma",
-        role="Member",
-        trophies=8000,
-        donations=100,
-        last_seen=datetime.now(UTC),
-    )
-
-    war_season = WarSeason(
-        season_id="2026-01",
-        start_date=datetime.now(UTC),
-        end_date=None,
-    )
-
-    db_session.add_all([member, war_season])
-    db_session.commit()
-
-    snapshot = Snapshot(
-        member_tag=member.tag,
-        trophies=8000,
-        donations=100,
-        collected_at=datetime.now(UTC),
-    )
-
-    war_participation = WarParticipation(
-        member_tag=member.tag,
-        season_id=war_season.season_id,
-        attacks_used=10,
-        attacks_possible=10,
-        wins=5,
-        losses=5,
-        medals=100,
-    )
-
-    promotion_score = PromotionScore(
-        member_tag=member.tag,
-        score=95.5,
-        war_activity=0.4,
-        war_win_rate=0.3,
-        donations=0.2,
-        trophy_level=0.1,
-        calculated_at=datetime.now(UTC),
-    )
-
-    db_session.add_all(
-        [
-            snapshot,
-            war_participation,
-            promotion_score,
-        ]
-    )
-    db_session.commit()
-
-    saved_member = (
-        db_session.query(Member)
-        .filter(Member.tag == "#TEST123")
-        .one()
-    )
-
-    saved_war_season = (
-        db_session.query(WarSeason)
-        .filter(WarSeason.season_id == "2026-01")
-        .one()
-    )
+    member = populated_member_graph["member"]
+    war_season = populated_member_graph["war_season"]
 
     # Snapshot relationship
 
-    assert len(saved_member.snapshots) == 1
+    assert len(member.snapshots) == 1
 
-    saved_snapshot = saved_member.snapshots[0]
+    snapshot = member.snapshots[0]
 
-    assert saved_snapshot.member_tag == "#TEST123"
-    assert saved_snapshot.trophies == 8000
-    assert saved_snapshot.donations == 100
+    assert snapshot.member_tag == member.tag
+    assert snapshot.trophies == member.trophies
+    assert snapshot.donations == member.donations
+    assert snapshot.member is member
 
     # WarParticipation relationship
 
-    assert len(saved_member.war_participations) == 1
+    assert len(member.war_participations) == 1
 
-    saved_participation = saved_member.war_participations[0]
+    participation = member.war_participations[0]
 
-    assert saved_participation.member_tag == "#TEST123"
-    assert saved_participation.wins == 5
-    assert saved_participation.losses == 5
-    assert saved_participation.medals == 100
+    assert participation.member_tag == member.tag
+    assert participation.fame == 50
+    assert participation.repair_points == 5
+    assert participation.boat_attacks == 2
+    assert participation.member is member
+    assert participation.river_race is not None
 
     # PromotionScore relationship
 
-    assert len(saved_member.promotion_scores) == 1
+    assert len(member.promotion_scores) == 1
 
-    saved_score = saved_member.promotion_scores[0]
+    score = member.promotion_scores[0]
 
-    assert saved_score.member_tag == "#TEST123"
-    assert saved_score.score == 95.5
+    assert score.member_tag == member.tag
+    assert score.score == 95.5
+    assert score.member is member
 
     # WarSeason relationship
 
-    assert len(saved_war_season.war_participations) == 1
+    assert len(war_season.river_races) == 1
 
-    season_participation = saved_war_season.war_participations[0]
+    race = war_season.river_races[0]
 
-    assert season_participation.season_id == "2026-01"
-    assert season_participation.member_tag == "#TEST123"
+    assert race.season_id == war_season.season_id
+    assert race.section_index == 1
+    assert race.created_date is not None
+    assert race.war_season is war_season
+    assert len(race.war_participations) == 1
