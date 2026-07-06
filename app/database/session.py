@@ -10,7 +10,7 @@ Python Version: 3.11
 Dependencies: sqlalchemy
 ================================================================================
 """
-
+from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
@@ -19,12 +19,13 @@ from app.core.config import settings
 engine = create_engine(settings.DATABASE_URL, echo=False)
 
 # Create session factory
-SessionLocal = sessionmaker(
+SessionLocal = sessionmaker(  # pylint: disable=invalid-name
     autocommit=False, autoflush=False, bind=engine
-)  # pylint: disable=invalid-name
+)
 
 
 # Dependency to get DB session
+@contextmanager
 def get_session():
     """
     Dependency to get a database session for FastAPI routes.
