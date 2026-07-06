@@ -11,12 +11,13 @@ Dependencies: pytest, pytest-mock, sqlalchemy
 ================================================================================
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.core.utils import get_time
 from app.database.base import Base
 from app.database.models import (
     Member,
@@ -27,6 +28,7 @@ from app.database.models import (
     WarParticipation,
 )
 from app.services.war_service import WarService
+from app.services.member_service import MemberService
 
 # =============================================================================
 # Database
@@ -78,7 +80,7 @@ def member_factory():
             "role": "Member",
             "trophies": 5000,
             "donations": 100,
-            "last_seen": datetime.now(UTC),
+            "last_seen": get_time(),
         }
 
         defaults.update(kwargs)
@@ -101,7 +103,7 @@ def war_season_factory():
 
         defaults = {
             "season_id": f"2026-{counter:02d}",
-            "start_date": datetime.now(UTC),
+            "start_date": get_time(),
             "end_date": None,
         }
 
@@ -126,7 +128,7 @@ def river_race_factory(war_season_factory):
         defaults = {
             "war_season": war_season,
             "section_index": 0,
-            "created_date": datetime.now(UTC),
+            "created_date": get_time(),
         }
 
         defaults.update(kwargs)
@@ -188,7 +190,7 @@ def snapshot_factory(member_factory):
             "member": member,
             "trophies": member.trophies,
             "donations": member.donations,
-            "collected_at": datetime.now(UTC),
+            "collected_at": get_time(),
         }
 
         defaults.update(kwargs)
@@ -216,7 +218,7 @@ def promotion_score_factory(member_factory):
             "war_win_rate": 0.3,
             "donations": 0.2,
             "trophy_level": 0.1,
-            "calculated_at": datetime.now(UTC),
+            "calculated_at": get_time(),
         }
 
         defaults.update(kwargs)
@@ -233,6 +235,9 @@ def promotion_score_factory(member_factory):
 
 @pytest.fixture
 def test_members(db_session, member_factory):
+    """
+    Create a set of test members in the database.
+    """
     members = [
         member_factory(
             tag="#TEST_PLAYER1",
@@ -268,6 +273,10 @@ def populated_member_graph(
     war_participation_factory,
     promotion_score_factory,
 ):
+    """
+    Create a member with related snapshots, war participations, and promotion scores.
+    """
+
     member = member_factory(
         tag="#TEST123",
         name="Raph",
@@ -344,6 +353,19 @@ def war_service(db_session, mocker):
     )
 
     return WarService(db_session)
+
+
+@pytest.fixture
+def member_service(db_session, mocker):
+    """
+    Create a MemberService instance with a mocked API client.
+    """
+    mocker.patch(
+        "app.services.member_service.ClashAPIClient",
+        return_value=mocker.MagicMock(),
+    )
+
+    return MemberService(db_session)
 
 
 # =============================================================================
