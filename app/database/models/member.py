@@ -65,3 +65,7 @@ class Member(Base):
     promotion_scores: Mapped[List["PromotionScore"]] = relationship(
         "PromotionScore", back_populates="member", cascade="all, delete-orphan"
     )
+
+    def __repr__(self) -> str:
+        return f"<Member(tag={self.tag}, name={self.name}, role={self.role}, trophies={self.trophies}, donations={self.donations}, last_seen={self.last_seen}, promotion_score={self.promotion_score} at {self.promotion_score_updated_at} )>"
+    
