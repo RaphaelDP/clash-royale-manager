@@ -12,10 +12,10 @@ Dependencies: sqlalchemy, app.database.models
 """
 
 from typing import List
-from datetime import datetime, UTC
 
 from app.core.logger import logger
 from app.database.models import Snapshot, Member
+from app.core.utils import get_time
 
 
 class SnapshotService:
@@ -46,7 +46,7 @@ class SnapshotService:
             member_tag=member.tag,
             trophies=member.trophies,
             donations=member.donations,
-            collected_at=datetime.now(UTC),
+            collected_at=get_time(),
         )
         self.db.add(snapshot)
         logger.info(
