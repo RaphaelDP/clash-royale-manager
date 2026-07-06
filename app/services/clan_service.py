@@ -13,11 +13,11 @@ Dependencies: sqlalchemy, app.database.models
 
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
-from app.core.utils import convert_timestamp_to_datetime
 from app.database.models.member import Member
 
 # from app.database.models.snapshot import Snapshot
 from app.services.clash_api import ClashAPIClient
+from app.services.member_service import MemberService
 from app.core.logger import logger
 
 
@@ -36,6 +36,7 @@ class ClanService:
         """
         self.db: Session = db_session
         self.api_client: ClashAPIClient = api_client or ClashAPIClient()
+        self.member_service: MemberService = MemberService(db_session)
 
     def sync_clan_members(self, clan_tag: str) -> List[Member]:
         """
@@ -55,7 +56,14 @@ class ClanService:
 
             members: List[Member] = []
             for member_data in members_data:
-                member: Member = self._upsert_member(member_data)
+                member: Member = self.member_service.create_or_update_member(
+                                tag=member_data.get("tag", ""),
+                                name=member_data.get("name", ""),
+                                role=member_data.get("role", ""),
+                                trophies=member_data.get("trophies", 0),
+                                donations=member_data.get("donations", 0),
+                                last_seen=member_data.get("lastSeen", ""),
+                            )
                 members.append(member)
 
             self._remove_departed_members(current_tags)
@@ -68,48 +76,6 @@ class ClanService:
             logger.error("Failed to sync clan members: %s", e)
             raise
 
-    def _upsert_member(self, member_data: Dict[str, Any]) -> Member:
-        """
-        Update or insert a member into the database.
-
-        Args:
-            member_data: Member data from the Clash Royale API.
-
-        Returns:
-            Member: The updated/created Member object.
-        """
-        tag: str = member_data.get("tag", "")
-        existing_member: Member | None = (
-            self.db.query(Member).filter_by(tag=tag).first()
-        )
-
-        if existing_member:
-            # Update existing member
-            existing_member.name = member_data.get("name", existing_member.name)
-            existing_member.role = member_data.get("role", existing_member.role)
-            existing_member.trophies = member_data.get(
-                "trophies", existing_member.trophies
-            )
-            existing_member.donations = member_data.get(
-                "donations", existing_member.donations
-            )
-            existing_member.last_seen = convert_timestamp_to_datetime(
-                member_data.get("lastSeen", "")
-            )
-            return existing_member
-
-        # If not existing, create new member
-        new_member: Member = Member(
-            tag=tag,
-            name=member_data.get("name", ""),
-            role=member_data.get("role", ""),
-            trophies=member_data.get("trophies", 0),
-            donations=member_data.get("donations", 0),
-            last_seen=convert_timestamp_to_datetime(member_data.get("lastSeen", "")),
-        )
-        self.db.add(new_member)
-        self.db.flush()  # Flush to assign an ID if needed
-        return new_member
 
     def _remove_departed_members(self, current_tags: set[str]) -> None:
         """
@@ -118,13 +84,14 @@ class ClanService:
         Args:
             current_tags: Set of member tags currently in the clan.
         """
-        departed_members: List[Member] = (
-            self.db.query(Member).filter(~Member.tag.in_(current_tags)).all()
-        )
-        for member in departed_members:
-            logger.info(
-                "Removing departed member %s (%s) from database.",
-                member.name,
-                member.tag,
-            )
-            self.db.delete(member)
+        active_members = self.member_service.get_active_members()
+        departed_tags = {
+            m.tag for m in active_members
+            if m.tag not in current_tags
+        }
+        for tag in departed_tags:
+            self.member_service.remove_member_from_clan(tag, reason="left")
+            logger.info("Member %s left the clan.", tag)
+
+
+   
