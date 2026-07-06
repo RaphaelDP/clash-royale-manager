@@ -37,3 +37,11 @@ def convert_timestamp_to_datetime(timestamp_str: str | None) -> datetime:
     local_dt = utc_dt.astimezone(target_tz)
 
     return local_dt.replace(tzinfo=None)  # Return naive datetime in local time
+
+
+def get_time() -> datetime:
+    """
+    Returns the current time in the SCHEDULER_TIMEZONE as a naive datetime object.
+    """
+    target_tz = ZoneInfo(settings.SCHEDULER_TIMEZONE)
+    return datetime.now(target_tz).replace(tzinfo=None)
