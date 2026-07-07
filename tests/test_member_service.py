@@ -11,10 +11,8 @@ Dependencies: pytest, app.services.member_service, app.database.models
 ================================================================================
 """
 
-
 from app.database.models import Member
 from app.core.utils import convert_timestamp_to_datetime
-
 
 
 def test_create_or_update_member(db_session, member_service, mock_clan_data):
@@ -22,12 +20,14 @@ def test_create_or_update_member(db_session, member_service, mock_clan_data):
 
     member_data = mock_clan_data["memberList"][0]
 
-    new_member = member_service.create_or_update_member(tag=member_data.get("tag", ""),
-                                                        name=member_data.get("name", ""),
-                                                        role=member_data.get("role", ""),
-                                                        trophies=member_data.get("trophies", 0),
-                                                        donations=member_data.get("donations", 0),
-                                                        last_seen=member_data.get("lastSeen", ""))  
+    new_member = member_service.create_or_update_member(
+        tag=member_data.get("tag", ""),
+        name=member_data.get("name", ""),
+        role=member_data.get("role", ""),
+        trophies=member_data.get("trophies", 0),
+        donations=member_data.get("donations", 0),
+        last_seen=member_data.get("lastSeen", ""),
+    )
 
     db_session.flush()
 
@@ -42,13 +42,14 @@ def test_create_or_update_member(db_session, member_service, mock_clan_data):
 
     updated_data["trophies"] = 6767
 
-    updated_member = member_service.create_or_update_member(tag=member_data.get("tag", ""),
-                                                        name=member_data.get("name", ""),
-                                                        role=member_data.get("role", ""),
-                                                        trophies=updated_data.get("trophies", 0),
-                                                        donations=member_data.get("donations", 0),
-                                                        last_seen=member_data.get("lastSeen", ""))  
-
+    updated_member = member_service.create_or_update_member(
+        tag=member_data.get("tag", ""),
+        name=member_data.get("name", ""),
+        role=member_data.get("role", ""),
+        trophies=updated_data.get("trophies", 0),
+        donations=member_data.get("donations", 0),
+        last_seen=member_data.get("lastSeen", ""),
+    )
 
     assert updated_member.trophies == 6767
     assert updated_member.tag == "#TEST_PLAYER1"
@@ -59,10 +60,8 @@ def test_create_or_update_member(db_session, member_service, mock_clan_data):
     assert members[0].tag == "#TEST_PLAYER1"
 
 
-
-
 def test_remove_member_from_clan(db_session, member_service, member_factory):
-    """Test marking a member as left/fired."""   
+    """Test marking a member as left/fired."""
     member = member_factory()
     db_session.add(member)
     db_session.flush()
@@ -71,7 +70,8 @@ def test_remove_member_from_clan(db_session, member_service, member_factory):
     member_service.remove_member_from_clan(tag=member.tag, reason="left")
     updated_member = db_session.query(Member).filter_by(tag=member.tag).first()
     assert updated_member.role == "left"
-    
+
+
 def test_promote_member(db_session, member_service, member_factory):
     """Test promoting a member."""
 
@@ -93,22 +93,22 @@ def test_promote_member(db_session, member_service, member_factory):
     assert updated_member.role == "coLeader"
 
 
-
-
 def test_get_active_members(member_service, test_members):
     """Test filtering active members."""
 
     member_service.remove_member_from_clan(tag=test_members[0].tag, reason="left")
     active_members = member_service.get_active_members()
 
-    
     assert len(active_members) == 1
     assert active_members[0].tag == test_members[1].tag
 
+
 def test_get_inactive_members(db_session, member_service, member_factory):
     """Test filtering inactive members."""
-    active_member=member_factory()  # Recent
-    inactive_member = member_factory(last_seen=convert_timestamp_to_datetime("20160601T120000.000Z"))  # Old
+    active_member = member_factory()  # Recent
+    inactive_member = member_factory(
+        last_seen=convert_timestamp_to_datetime("20160601T120000.000Z")
+    )  # Old
 
     db_session.add_all([active_member, inactive_member])
     db_session.flush()
