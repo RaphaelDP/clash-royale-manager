@@ -1,9 +1,12 @@
 [MASTER]
 init-hook='import sys; sys.path.append(".")'
-ignore=venv,.venv,logs,data,secrets, app/database/migrations/.*
+ignore=venv,.venv,logs,data,secrets, app/database/migrations/
 [MESSAGES CONTROL]
 disable=
     too-few-public-methods,
+    protected-access,
+    redefined-outer-name,
+    exception-escape,
 ;     duplicate-code,
 ;     broad-except,
 

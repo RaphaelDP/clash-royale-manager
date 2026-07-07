@@ -11,7 +11,6 @@ Dependencies: streamlit, app.core.config
 ================================================================================
 """
 
-
 import streamlit as st
 from app.core.config import settings
 
@@ -55,7 +54,11 @@ st.subheader("Logging")
 log_level = st.selectbox(
     "Log Level",
     options=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-    index=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"].index(settings.LOG_LEVEL) if settings.LOG_LEVEL else 1,
+    index=(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"].index(settings.LOG_LEVEL)
+        if settings.LOG_LEVEL
+        else 1
+    ),
     help="Set the logging level for the application.",
 )
 if log_level:
@@ -63,4 +66,6 @@ if log_level:
 
 # --- Save Settings ---
 if st.button("Save Settings"):
-    st.success("Settings saved! (Note: This is a demo. Actual saving requires backend integration.)")
+    st.success(
+        "Settings saved! (Note: This is a demo. Actual saving requires backend integration.)"
+    )

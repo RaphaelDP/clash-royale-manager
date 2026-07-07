@@ -67,5 +67,13 @@ class Member(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Member(tag={self.tag}, name={self.name}, role={self.role}, trophies={self.trophies}, donations={self.donations}, last_seen={self.last_seen}, promotion_score={self.promotion_score} at {self.promotion_score_updated_at} )>"
-    
+        return (
+            f"<Member(tag={self.tag} "
+            f"name={self.name} "
+            f"role={self.role} "
+            f"trophies={self.trophies} "
+            f"donations={self.donations} "
+            f"last_seen={self.last_seen} "
+            f"promotion_score={self.promotion_score} "
+            f"at {self.promotion_score_updated_at} )>"
+        )

@@ -41,18 +41,29 @@ with get_session() as db:
         total_donations = sum(m.donations for m in members)
         st.metric("Total Donations", total_donations)
     with col4:
-        active_members = len([m for m in members if m.last_seen and (get_time() - m.last_seen) < timedelta(days=7)])
+        active_members = len(
+            [
+                m
+                for m in members
+                if m.last_seen and (get_time() - m.last_seen) < timedelta(days=7)
+            ]
+        )
         st.metric("Active (7d)", active_members)
 
     # --- Activity Trends ---
     st.header("📉 Activity Trends")
     if snapshots:
         # Group snapshots by date
-        snapshots_df = pd.DataFrame([{
-            "date": s.collected_at.date(),
-            "trophies": s.trophies,
-            "donations": s.donations,
-        } for s in snapshots])
+        snapshots_df = pd.DataFrame(
+            [
+                {
+                    "date": s.collected_at.date(),
+                    "trophies": s.trophies,
+                    "donations": s.donations,
+                }
+                for s in snapshots
+            ]
+        )
         snapshots_df["date"] = pd.to_datetime(snapshots_df["date"])
         snapshots_df = snapshots_df.groupby("date").mean().reset_index()
 
@@ -73,19 +84,31 @@ with get_session() as db:
             "Select War Season",
             [s.season_id for s in war_seasons],
         )
-        selected_season_obj = db.query(WarSeason).filter_by(season_id=selected_season).first()
+        selected_season_obj = (
+            db.query(WarSeason).filter_by(season_id=selected_season).first()
+        )
         river_races = selected_season_obj.river_races if selected_season_obj else []
 
         if river_races:
             col1, col2, col3 = st.columns(3)
             with col1:
-                total_fame = sum(p.fame for race in river_races for p in race.war_participations)
+                total_fame = sum(
+                    p.fame for race in river_races for p in race.war_participations
+                )
                 st.metric("Total Fame", total_fame)
             with col2:
-                total_repair = sum(p.repair_points for race in river_races for p in race.war_participations)
+                total_repair = sum(
+                    p.repair_points
+                    for race in river_races
+                    for p in race.war_participations
+                )
                 st.metric("Total Repair Points", total_repair)
             with col3:
-                total_decks = sum(p.decks_used for race in river_races for p in race.war_participations)
+                total_decks = sum(
+                    p.decks_used
+                    for race in river_races
+                    for p in race.war_participations
+                )
                 st.metric("Total Decks Used", total_decks)
 
             # Top performers in the selected season
@@ -94,14 +117,21 @@ with get_session() as db:
                 p for race in river_races for p in race.war_participations
             ]
             if all_participations:
-                top_performers = sorted(all_participations, key=lambda x: x.fame, reverse=True)[:5]
-                performers_df = pd.DataFrame([{
-                    "Member": p.member_tag,
-                    "Fame": p.fame,
-                    "Repair Points": p.repair_points,
-                    "Decks Used": p.decks_used,
-                } for p in top_performers])
-                st.dataframe(performers_df, width='stretch')
+                top_performers = sorted(
+                    all_participations, key=lambda x: x.fame, reverse=True
+                )[:5]
+                performers_df = pd.DataFrame(
+                    [
+                        {
+                            "Member": p.member_tag,
+                            "Fame": p.fame,
+                            "Repair Points": p.repair_points,
+                            "Decks Used": p.decks_used,
+                        }
+                        for p in top_performers
+                    ]
+                )
+                st.dataframe(performers_df, width="stretch")
         else:
             st.warning("No river races found for this season.")
     else:

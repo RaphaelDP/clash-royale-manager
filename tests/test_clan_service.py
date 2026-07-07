@@ -17,8 +17,6 @@ from app.database.models.member import Member
 from app.services.clan_service import ClanService
 
 
-
-
 def test_sync_clan_members(db_session, mocker, mock_clan_data):
     """Test the sync_clan_members method of ClanService."""
 

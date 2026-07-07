@@ -34,22 +34,27 @@ with get_session() as db:
 
         # Display top candidates
         st.subheader("Top 10 Promotion Candidates")
-        scores_data = [{
-            "Member": s.member_tag,
-            "Score": f"{s.score:.2f}",
-            "War Activity": f"{s.war_activity:.2f}",
-            "War Win Rate": f"{s.war_win_rate:.2f}",
-            "Donations": f"{s.donations:.2f}",
-            "Trophy Level": f"{s.trophy_level:.2f}",
-            "Last Updated": s.calculated_at,
-        } for s in sorted_scores[:10]]
+        scores_data = [
+            {
+                "Member": s.member_tag,
+                "Score": f"{s.score:.2f}",
+                "War Activity": f"{s.war_activity:.2f}",
+                "War Win Rate": f"{s.war_win_rate:.2f}",
+                "Donations": f"{s.donations:.2f}",
+                "Trophy Level": f"{s.trophy_level:.2f}",
+                "Last Updated": s.calculated_at,
+            }
+            for s in sorted_scores[:10]
+        ]
         df = pd.DataFrame(scores_data)
         st.dataframe(df, width="stretch")
 
         # Score distribution
         st.subheader("Score Distribution")
         st.bar_chart(
-            pd.DataFrame([{"Member": s.member_tag, "Score": s.score} for s in sorted_scores]),
+            pd.DataFrame(
+                [{"Member": s.member_tag, "Score": s.score} for s in sorted_scores]
+            ),
             x="Member",
             y="Score",
         )
@@ -70,17 +75,21 @@ with get_session() as db:
         if latest_snapshot:
             days_inactive = (get_time() - latest_snapshot.collected_at).days
             if days_inactive > inactive_threshold:
-                inactive_members.append({
-                    "Tag": member.tag,
-                    "Name": member.name,
-                    "Days Inactive": days_inactive,
-                    "Last Seen": latest_snapshot.collected_at,
-                })
+                inactive_members.append(
+                    {
+                        "Tag": member.tag,
+                        "Name": member.name,
+                        "Days Inactive": days_inactive,
+                        "Last Seen": latest_snapshot.collected_at,
+                    }
+                )
 
     if inactive_members:
-        st.warning(f"⚠️ {len(inactive_members)} members inactive for more than {inactive_threshold} days.")
+        st.warning(
+            f"⚠️ {len(inactive_members)} members inactive for more than {inactive_threshold} days."
+        )
         inactive_df = pd.DataFrame(inactive_members)
-        st.dataframe(inactive_df, width='stretch')
+        st.dataframe(inactive_df, width="stretch")
     else:
         st.success("No inactive members found!")
 
@@ -94,16 +103,22 @@ with get_session() as db:
             if member_snapshots:
                 latest = max(member_snapshots, key=lambda x: x.collected_at)
                 days_since_last = (get_time() - latest.collected_at).days
-                avg_trophies = sum(s.trophies for s in member_snapshots) / len(member_snapshots)
-                avg_donations = sum(s.donations for s in member_snapshots) / len(member_snapshots)
-                activity_data.append({
-                    "Member": member.tag,
-                    "Days Since Last Activity": days_since_last,
-                    "Avg Trophies": avg_trophies,
-                    "Avg Donations": avg_donations,
-                })
+                avg_trophies = sum(s.trophies for s in member_snapshots) / len(
+                    member_snapshots
+                )
+                avg_donations = sum(s.donations for s in member_snapshots) / len(
+                    member_snapshots
+                )
+                activity_data.append(
+                    {
+                        "Member": member.tag,
+                        "Days Since Last Activity": days_since_last,
+                        "Avg Trophies": avg_trophies,
+                        "Avg Donations": avg_donations,
+                    }
+                )
 
         activity_df = pd.DataFrame(activity_data)
-        st.dataframe(activity_df, width='stretch')
+        st.dataframe(activity_df, width="stretch")
     else:
         st.warning("No snapshot data available for activity trends.")

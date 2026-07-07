@@ -57,13 +57,13 @@ class ClanService:
             members: List[Member] = []
             for member_data in members_data:
                 member: Member = self.member_service.create_or_update_member(
-                                tag=member_data.get("tag", ""),
-                                name=member_data.get("name", ""),
-                                role=member_data.get("role", ""),
-                                trophies=member_data.get("trophies", 0),
-                                donations=member_data.get("donations", 0),
-                                last_seen=member_data.get("lastSeen", ""),
-                            )
+                    tag=member_data.get("tag", ""),
+                    name=member_data.get("name", ""),
+                    role=member_data.get("role", ""),
+                    trophies=member_data.get("trophies", 0),
+                    donations=member_data.get("donations", 0),
+                    last_seen=member_data.get("lastSeen", ""),
+                )
                 members.append(member)
 
             self._remove_departed_members(current_tags)
@@ -76,7 +76,6 @@ class ClanService:
             logger.error("Failed to sync clan members: %s", e)
             raise
 
-
     def _remove_departed_members(self, current_tags: set[str]) -> None:
         """
         Remove members from the database who are no longer in the clan.
@@ -85,13 +84,7 @@ class ClanService:
             current_tags: Set of member tags currently in the clan.
         """
         active_members = self.member_service.get_active_members()
-        departed_tags = {
-            m.tag for m in active_members
-            if m.tag not in current_tags
-        }
+        departed_tags = {m.tag for m in active_members if m.tag not in current_tags}
         for tag in departed_tags:
             self.member_service.remove_member_from_clan(tag, reason="left")
             logger.info("Member %s left the clan.", tag)
-
-
-   

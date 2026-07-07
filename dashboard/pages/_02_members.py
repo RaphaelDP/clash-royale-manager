@@ -40,24 +40,31 @@ with get_session() as db:
 
         # Apply filters
         filtered_members = [
-            m for m in members
+            m
+            for m in members
             if (m.role in role_filter)
             and (m.trophies >= min_trophies)
             and (m.donations >= min_donations)
-            and (not m.last_seen or (get_time() - m.last_seen) <= timedelta(days=inactive_days))
+            and (
+                not m.last_seen
+                or (get_time() - m.last_seen) <= timedelta(days=inactive_days)
+            )
         ]
 
         # --- Member Table ---
         st.subheader(f"Member List ({len(filtered_members)})")
-        members_data = [{
-            "Tag": m.tag,
-            "Name": m.name,
-            "Role": m.role,
-            "Trophies": m.trophies,
-            "Donations": m.donations,
-            "Last Seen": m.last_seen,
-            "Promotion Score": m.promotion_score,
-        } for m in filtered_members]
+        members_data = [
+            {
+                "Tag": m.tag,
+                "Name": m.name,
+                "Role": m.role,
+                "Trophies": m.trophies,
+                "Donations": m.donations,
+                "Last Seen": m.last_seen,
+                "Promotion Score": m.promotion_score,
+            }
+            for m in filtered_members
+        ]
         df = pd.DataFrame(members_data)
         st.dataframe(df, width="stretch")
 
@@ -67,7 +74,11 @@ with get_session() as db:
         with col1:
             st.metric("Filtered Members", len(filtered_members))
         with col2:
-            avg_trophies = sum(m.trophies for m in filtered_members) / len(filtered_members) if filtered_members else 0
+            avg_trophies = (
+                sum(m.trophies for m in filtered_members) / len(filtered_members)
+                if filtered_members
+                else 0
+            )
             st.metric("Avg Trophies", f"{avg_trophies:.0f}")
         with col3:
             total_donations = sum(m.donations for m in filtered_members)
@@ -75,17 +86,27 @@ with get_session() as db:
 
         # --- Inactivity Alert ---
         inactive_members = [
-            m for m in members
-            if m.last_seen and m.role not in ["left", "fired"] and (get_time() - m.last_seen) > timedelta(days=inactive_days)
+            m
+            for m in members
+            if m.last_seen
+            and m.role not in ["left", "fired"]
+            and (get_time() - m.last_seen) > timedelta(days=inactive_days)
         ]
         if inactive_members:
-            st.warning(f"⚠️ {len(inactive_members)} members inactive for more than {inactive_days} days.")
-            inactive_df = pd.DataFrame([{
-                "Tag": m.tag,
-                "Name": m.name,
-                "Last Seen": m.last_seen,
-                "Days Inactive": (get_time() - m.last_seen).days,
-            } for m in inactive_members])
-            st.dataframe(inactive_df, width='stretch')
+            st.warning(
+                f"⚠️ {len(inactive_members)} members inactive for more than {inactive_days} days."
+            )
+            inactive_df = pd.DataFrame(
+                [
+                    {
+                        "Tag": m.tag,
+                        "Name": m.name,
+                        "Last Seen": m.last_seen,
+                        "Days Inactive": (get_time() - m.last_seen).days,
+                    }
+                    for m in inactive_members
+                ]
+            )
+            st.dataframe(inactive_df, width="stretch")
     else:
         st.warning("No members found in the database.")

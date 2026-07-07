@@ -187,8 +187,8 @@ def test_sync_river_race_log(
     assert len(participations) == 2
 
     assert {p.member_tag for p in participations} == {
-        "#TEST_PLAYER1",
-        "#TEST_PLAYER2",
+        test_members[0].tag,
+        test_members[1].tag,
     }
 
     player1 = (
@@ -234,12 +234,16 @@ def test_sync_river_race_log_twice_no_duplicates(
     assert len(races) == 1
     assert len(participations) == 2
     assert (
-        db_session.query(WarParticipation).filter_by(member_tag="#TEST_PLAYER1").count()
+        db_session.query(WarParticipation)
+        .filter_by(member_tag=test_members[0].tag)
+        .count()
         == 1
     )
 
     assert (
-        db_session.query(WarParticipation).filter_by(member_tag="#TEST_PLAYER2").count()
+        db_session.query(WarParticipation)
+        .filter_by(member_tag=test_members[1].tag)
+        .count()
         == 1
     )
 
@@ -338,7 +342,9 @@ def test_sync_current_river_race(
     assert len(participations) == 2
 
     player1 = (
-        db_session.query(WarParticipation).filter_by(member_tag="#TEST_PLAYER1").one()
+        db_session.query(WarParticipation)
+        .filter_by(member_tag=test_members[0].tag)
+        .one()
     )
 
     assert player1.fame == 50
@@ -349,7 +355,9 @@ def test_sync_current_river_race(
     assert player1.river_race_id == races[0].id
 
     player2 = (
-        db_session.query(WarParticipation).filter_by(member_tag="#TEST_PLAYER2").one()
+        db_session.query(WarParticipation)
+        .filter_by(member_tag=test_members[1].tag)
+        .one()
     )
 
     assert player2.fame == 75

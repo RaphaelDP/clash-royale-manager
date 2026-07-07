@@ -11,7 +11,6 @@ Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils
 ================================================================================
 """
 
-
 from typing import List
 from datetime import timedelta
 from sqlalchemy import and_
@@ -20,6 +19,7 @@ from app.core.logger import logger
 from app.core.utils import convert_timestamp_to_datetime, get_time
 from app.database.models import Member
 from app.services.clash_api import ClashAPIClient
+
 
 class MemberService:
     """Service for managing clan members."""
@@ -34,7 +34,6 @@ class MemberService:
         """
         self.db: Session = db_session
         self.api_client: ClashAPIClient = api_client or ClashAPIClient()
-
 
     def create_or_update_member(
         self,
@@ -60,7 +59,9 @@ class MemberService:
         Returns:
             Member: The created or updated Member object.
         """
-        existing_member: Member | None = self.db.query(Member).filter_by(tag=tag).first()
+        existing_member: Member | None = (
+            self.db.query(Member).filter_by(tag=tag).first()
+        )
 
         if existing_member:
             # Update existing member
@@ -68,7 +69,9 @@ class MemberService:
             existing_member.role = role
             existing_member.trophies = trophies
             existing_member.donations = donations
-            existing_member.last_seen = convert_timestamp_to_datetime(last_seen) if last_seen else None
+            existing_member.last_seen = (
+                convert_timestamp_to_datetime(last_seen) if last_seen else None
+            )
             logger.info("Updated member %s with role %s.", tag, role)
         else:
             # Create new member
@@ -78,7 +81,9 @@ class MemberService:
                 role=role,
                 trophies=trophies,
                 donations=donations,
-                last_seen=convert_timestamp_to_datetime(last_seen) if last_seen else None,
+                last_seen=(
+                    convert_timestamp_to_datetime(last_seen) if last_seen else None
+                ),
             )
             self.db.add(new_member)
             logger.info("Created new member %s with role %s.", tag, role)
@@ -86,7 +91,7 @@ class MemberService:
         self.db.commit()
         return existing_member or new_member
 
-    def remove_member_from_clan(self, tag: str, reason: str = "left") -> Member | None  :
+    def remove_member_from_clan(self, tag: str, reason: str = "left") -> Member | None:
         """
         Mark a member as left/fired but preserve their war history.
         Sets role to 'left' or 'fired' and clears active fields.
@@ -113,7 +118,6 @@ class MemberService:
                 last_seen=exmember_data.get("lastSeen", ""),
             )
             return self.db.query(Member).filter_by(tag=tag).first()
-
 
     def promote_member(self, tag: str, new_role: str) -> bool:
         """
@@ -168,9 +172,7 @@ class MemberService:
         Returns:
             List[Member]: List of active members.
         """
-        return self.db.query(Member).filter(
-            Member.role.notin_(["left", "fired"])
-        ).all()
+        return self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
 
     def get_inactive_members(self, days_threshold: int = 7) -> List[Member]:
         """
@@ -183,15 +185,18 @@ class MemberService:
             List[Member]: List of inactive members.
         """
 
-
         cutoff_date = get_time() - timedelta(days=days_threshold)
-        return self.db.query(Member).filter(
-            and_(
-                Member.last_seen.isnot(None),
-                Member.last_seen < cutoff_date,
-                Member.role.notin_(["left", "fired"]),
+        return (
+            self.db.query(Member)
+            .filter(
+                and_(
+                    Member.last_seen.isnot(None),
+                    Member.last_seen < cutoff_date,
+                    Member.role.notin_(["left", "fired"]),
+                )
             )
-        ).all()
+            .all()
+        )
 
     def get_member_history(self, tag: str) -> dict:
         """
@@ -213,9 +218,8 @@ class MemberService:
             "war_participations": member.war_participations,
             "promotion_scores": member.promotion_scores,
         }
-    
 
-    def add_ex_member(self, tag:str) -> None:
+    def add_ex_member(self, tag: str) -> None:
         """
         Add a member to the ex-members list (role = 'left').
 

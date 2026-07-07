@@ -11,12 +11,12 @@ Dependencies: app.services.clan_service, app.services.war_service, app.database.
 ================================================================================
 """
 
-
 from app.database.session import SessionLocal
 from app.services.clan_service import ClanService
 from app.services.war_service import WarService
 from app.core.config import settings
 from app.core.logger import logger
+
 
 def main():
     """Sync clan members and war data."""
@@ -40,6 +40,7 @@ def main():
         logger.error("Failed to sync data: %s", e)
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     main()
