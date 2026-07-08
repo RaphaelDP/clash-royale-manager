@@ -45,3 +45,15 @@ def get_time() -> datetime:
     """
     target_tz = ZoneInfo(settings.SCHEDULER_TIMEZONE)
     return datetime.now(target_tz).replace(tzinfo=None)
+
+
+def count(args) -> int:
+    """
+    Returns the current return of func.count.
+    This is a placeholder function that suppress the pylint flase-positive warning "func.count is not callable".
+    """
+    from sqlalchemy import func  # pylint: disable=import-outside-toplevel
+
+    # Import here to avoid circular imports
+
+    return func.count(args)  # pylint: disable=not-callable

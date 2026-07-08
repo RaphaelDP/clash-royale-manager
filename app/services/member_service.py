@@ -11,10 +11,13 @@ Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils
 ================================================================================
 """
 
-from typing import List
+from pathlib import Path
+import json
+from typing import Any, List
 from datetime import timedelta
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
+
 from app.core.logger import logger
 from app.core.utils import convert_timestamp_to_datetime, get_time
 from app.database.models import Member
@@ -233,3 +236,57 @@ class MemberService:
             logger.info("Member %s added to ex-members list.", tag)
         else:
             logger.warning("Member %s not found. Cannot add to ex-members list.", tag)
+
+    def get_player_profile(
+        self, member_tag: str, all_stats: bool = False, refresh: bool = False
+    ) -> dict[str, Any]:
+        """
+        Returns all information known about a member.
+
+        Args:
+            member_tag: Clash Royale player tag.
+            all_stats: If True, also returns cached/live Clash Royale API data.
+
+        Returns:
+            Dictionary containing local database information merged with
+            Clash Royale API data.
+        """
+
+        member = self.db.query(Member).filter(Member.tag == member_tag).first()
+
+        if member is None:
+            return {}
+
+        member_data: dict[str, Any] = {
+            "tag": member.tag,
+            "name": member.name,
+            "role": member.role,
+            "trophies": member.trophies,
+            "donations": member.donations,
+            "last_seen": member.last_seen,
+            "promotion_score": member.promotion_score,
+            "promotion_score_updated_at": member.promotion_score_updated_at,
+        }
+
+        if not all_stats:
+            return member_data
+
+        cache_dir = Path("data/cache/players")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        cache_file = cache_dir / f"{member_tag.replace('#', '')}.json"
+
+        player_data: dict[str, Any]
+
+        if cache_file.exists() and not refresh:
+            with cache_file.open("r", encoding="utf-8") as file:
+                player_data = json.load(file)
+        else:
+            player_data = self.api_client.get_player(member_tag)
+
+            with cache_file.open("w", encoding="utf-8") as file:
+                json.dump(player_data, file, indent=4)
+
+        member_data["api"] = player_data
+
+        return member_data
