@@ -1,124 +1,176 @@
 """
 ================================================================================
-Filename: 04_promotions.py
-Description: Streamlit page for displaying promotion and kick candidates.
+Filename: _04_promotions.py
+Description: Streamlit page for displaying promotion rankings and inactivity analysis.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-03
+Last Modified: 2026-07-07
 Version: 0.5.0
-Python Version: 3.12
-Dependencies: streamlit, pandas, app.database.session, app.database.models
 ================================================================================
 """
 
 import streamlit as st
 import pandas as pd
-
 from app.database.session import get_session
-from app.database.models import Member, PromotionScore, Snapshot
-from app.core.utils import get_time
+from app.services.dashboard_service import DashboardService
 
-st.set_page_config(page_title="Promotions & Kick Candidates", layout="wide")
-st.title("📈 Promotions & Kick Candidates")
+st.set_page_config(page_title="Promotions", layout="wide")
+st.title("📈 Promotions & Clan Management")
 
 with get_session() as db:
-    members = db.query(Member).all()
-    promotion_scores = db.query(PromotionScore).all()
-    snapshots = db.query(Snapshot).all()
+    dashboard = DashboardService(db)
 
-    # --- Promotion Scores ---
-    st.header("🏆 Promotion Candidates")
-    if promotion_scores:
-        # Sort by score (descending)
-        sorted_scores = sorted(promotion_scores, key=lambda x: x.score, reverse=True)
+    overview = dashboard.get_clan_overview()
+    promotion = dashboard.get_promotion_dashboard()
 
-        # Display top candidates
-        st.subheader("Top 10 Promotion Candidates")
-        scores_data = [
-            {
-                "Member": s.member_tag,
-                "Score": f"{s.score:.2f}",
-                "War Activity": f"{s.war_activity:.2f}",
-                "War Win Rate": f"{s.war_win_rate:.2f}",
-                "Donations": f"{s.donations:.2f}",
-                "Trophy Level": f"{s.trophy_level:.2f}",
-                "Last Updated": s.calculated_at,
-            }
-            for s in sorted_scores[:10]
+    st.header("🏆 Promotion Overview")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("Members", overview["members"])
+    with c2:
+        st.metric("Promotion Scores", promotion["score_count"])
+    with c3:
+        st.metric("Average Score", f"{promotion['average_score']:.2f}")
+    with c4:
+        st.metric("Highest Score", f"{promotion['highest_score']:.2f}")
+
+    st.divider()
+
+    st.header("🥇 Promotion Ranking")
+
+    ranking = pd.DataFrame(promotion["ranking"])
+
+    if not ranking.empty:
+        st.dataframe(ranking, width="stretch")
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            st.subheader("Top Promotion Scores")
+            st.bar_chart(ranking.head(15), x="name", y="score")
+
+        with c2:
+            st.subheader("Promotion Score Distribution")
+            st.bar_chart(
+                ranking.sort_values("score"),
+                x="name",
+                y="score",
+            )
+    else:
+        st.info("No promotion scores available.")
+
+    st.divider()
+
+    st.header("🎖 Component Rankings")
+
+    metric = st.selectbox(
+        "Sort by",
+        [
+            "score",
+            "war_activity",
+            "war_win_rate",
+            "donations",
+            "trophy_level",
+        ],
+    )
+
+    if not ranking.empty:
+        st.dataframe(
+            ranking.sort_values(metric, ascending=False),
+            width="stretch",
+        )
+
+    st.divider()
+
+    st.header("🚨 Inactive Members")
+
+    threshold = st.slider(
+        "Inactive after (days)",
+        7,
+        60,
+        14,
+    )
+
+    inactive = pd.DataFrame(
+        dashboard.get_inactive_members(
+            threshold,
+        )
+    )
+
+    if not inactive.empty:
+        st.warning(f"{len(inactive)} inactive members found.")
+        st.dataframe(inactive, width="stretch")
+    else:
+        st.success("No inactive members.")
+
+    st.divider()
+
+    st.header("📉 Promotion Candidates")
+
+    if not ranking.empty:
+        promote = ranking[(ranking["score"] >= ranking["score"].quantile(0.90))]
+
+        st.success(f"{len(promote)} promotion candidates")
+
+        st.dataframe(
+            promote,
+            width="stretch",
+        )
+
+    st.divider()
+
+    st.header("❌ Kick Candidates")
+
+    kick = pd.DataFrame(
+        dashboard.get_kick_candidates(
+            threshold,
+        )
+    )
+
+    if not kick.empty:
+        st.error(f"{len(kick)} kick candidates")
+
+        st.dataframe(
+            kick,
+            width="stretch",
+        )
+    else:
+        st.success("No kick candidates.")
+
+    st.divider()
+
+    st.header("📊 Clan Distribution")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.subheader("Promotion Components")
+
+        component_df = ranking[
+            [
+                "name",
+                "war_activity",
+                "war_win_rate",
+                "donations",
+                "trophy_level",
+            ]
         ]
-        df = pd.DataFrame(scores_data)
-        st.dataframe(df, width="stretch")
 
-        # Score distribution
-        st.subheader("Score Distribution")
-        st.bar_chart(
-            pd.DataFrame(
-                [{"Member": s.member_tag, "Score": s.score} for s in sorted_scores]
-            ),
-            x="Member",
-            y="Score",
+        st.dataframe(component_df, width="stretch")
+
+    with c2:
+        st.subheader("Top 10 Overall")
+
+        st.dataframe(
+            ranking.head(10),
+            width="stretch",
         )
-    else:
-        st.warning("No promotion scores found in the database.")
 
-    # --- Inactivity Analysis ---
-    st.header("🚨 Kick Candidates")
-    inactive_threshold = st.slider("Inactive Days Threshold", 7, 30, 14)
-    inactive_members = []
-    for member in members:
-        latest_snapshot = (
-            db.query(Snapshot)
-            .filter_by(member_tag=member.tag)
-            .order_by(Snapshot.collected_at.desc())
-            .first()
-        )
-        if latest_snapshot:
-            days_inactive = (get_time() - latest_snapshot.collected_at).days
-            if days_inactive > inactive_threshold:
-                inactive_members.append(
-                    {
-                        "Tag": member.tag,
-                        "Name": member.name,
-                        "Days Inactive": days_inactive,
-                        "Last Seen": latest_snapshot.collected_at,
-                    }
-                )
+    st.divider()
 
-    if inactive_members:
-        st.warning(
-            f"⚠️ {len(inactive_members)} members inactive for more than {inactive_threshold} days."
-        )
-        inactive_df = pd.DataFrame(inactive_members)
-        st.dataframe(inactive_df, width="stretch")
-    else:
-        st.success("No inactive members found!")
-
-    # --- Activity Trends ---
-    st.header("📉 Activity Trends")
-    if snapshots:
-        # Group by member and calculate activity metrics
-        activity_data = []
-        for member in members:
-            member_snapshots = [s for s in snapshots if s.member_tag == member.tag]
-            if member_snapshots:
-                latest = max(member_snapshots, key=lambda x: x.collected_at)
-                days_since_last = (get_time() - latest.collected_at).days
-                avg_trophies = sum(s.trophies for s in member_snapshots) / len(
-                    member_snapshots
-                )
-                avg_donations = sum(s.donations for s in member_snapshots) / len(
-                    member_snapshots
-                )
-                activity_data.append(
-                    {
-                        "Member": member.tag,
-                        "Days Since Last Activity": days_since_last,
-                        "Avg Trophies": avg_trophies,
-                        "Avg Donations": avg_donations,
-                    }
-                )
-
-        activity_df = pd.DataFrame(activity_data)
-        st.dataframe(activity_df, width="stretch")
-    else:
-        st.warning("No snapshot data available for activity trends.")
+    st.download_button(
+        "📥 Download Promotion Ranking",
+        ranking.to_csv(index=False).encode(),
+        file_name="promotion_ranking.csv",
+        mime="text/csv",
+    )
