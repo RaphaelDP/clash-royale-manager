@@ -52,7 +52,6 @@ class WarService:
 
             for race_data in river_race_log:
                 try:
-                    # Create or update the war season
                     war_season: WarSeason = self._create_or_update_season(
                         season_id=str(race_data.get("seasonId", "")),
                         start_date=convert_timestamp_to_datetime(
@@ -66,9 +65,9 @@ class WarService:
                         race_data.get("sectionIndex"),
                         e,
                     )
-                try:
+                    continue  # can't proceed with this race without a season
 
-                    # Create or update the river race
+                try:
                     river_race: RiverRace = self._create_or_update_river_race(
                         season_id=war_season.season_id,
                         section_index=race_data.get("sectionIndex", 0),
@@ -83,6 +82,7 @@ class WarService:
                         race_data.get("sectionIndex"),
                         e,
                     )
+                    continue  # can't proceed with this race without a river race
 
                 # Find your clan's data in the standings
                 your_clan_data = self._find_clan_data(
@@ -90,12 +90,12 @@ class WarService:
                 )
                 if not your_clan_data:
                     logger.warning(
-                        "No data found for clan %s in race %s-%s. Please collect new data and retry.",
+                        "No data found for clan %s in race %s-%s. Skipping this race.",
                         clan_tag,
                         race_data.get("seasonId"),
                         race_data.get("sectionIndex"),
                     )
-                    return ()
+                    continue  # skip only this race, keep syncing the rest of the log
 
                 # Create or update participations for your clan's members
                 for participant in your_clan_data.get("participants", []):
@@ -321,22 +321,29 @@ class WarService:
         river_race: RiverRace = (
             self.db.query(RiverRace).filter_by(id=river_race_id).first()
         )
-        try:
-            member: Member = self.db.query(Member).filter_by(tag=member_tag).first()
-            if not member:
+
+        member: Member | None = self.db.query(Member).filter_by(tag=member_tag).first()
+        if not member:
+            try:
                 member = self.member_service.remove_member_from_clan(
                     member_tag, reason="left"
                 )
-                if not member:
-                    raise ValueError(
-                        f"Member with tag {member_tag} not found in the database."
-                    )
-        except Exception as e:
-            logger.error(
-                "Failed to find member with tag %s in the clan members history: %s",
+            except Exception as e:
+                logger.error(
+                    "Failed to find member with tag %s in the clan members history: %s",
+                    member_tag,
+                    e,
+                )
+                member = None
+
+        if not member:
+            logger.warning(
+                "Skipping participation for unresolved member %s in river_race_id=%s.",
                 member_tag,
-                e,
+                river_race_id,
             )
+            return None
+
         new_participation: WarParticipation = WarParticipation(
             river_race=river_race,
             member=member,
@@ -349,3 +356,4 @@ class WarService:
         self.db.add(new_participation)
         self.db.flush()
         return new_participation
+    
