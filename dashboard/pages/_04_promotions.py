@@ -4,8 +4,8 @@ Filename: _04_promotions.py
 Description: Streamlit page for displaying promotion rankings and inactivity analysis.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-07
-Version: 0.5.0
+Last Modified: 2026-07-08
+Version: 0.5.1
 ================================================================================
 """
 
@@ -20,13 +20,13 @@ st.title("📈 Promotions & Clan Management")
 with get_session() as db:
     dashboard = DashboardService(db)
 
-    overview = dashboard.get_clan_overview()
+    overview = dashboard.get_overview_stats()
     promotion = dashboard.get_promotion_dashboard()
 
     st.header("🏆 Promotion Overview")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.metric("Members", overview["members"])
+        st.metric("Members", overview["member_count"])
     with c2:
         st.metric("Promotion Scores", promotion["score_count"])
     with c3:
@@ -91,11 +91,7 @@ with get_session() as db:
         14,
     )
 
-    inactive = pd.DataFrame(
-        dashboard.get_inactive_members(
-            threshold,
-        )
-    )
+    inactive = pd.DataFrame(dashboard.get_inactive_members(threshold))
 
     if not inactive.empty:
         st.warning(f"{len(inactive)} inactive members found.")
@@ -121,21 +117,13 @@ with get_session() as db:
 
     st.header("❌ Kick Candidates")
 
-    kick = pd.DataFrame(
-        dashboard.get_kick_candidates(
-            threshold,
-        )
-    )
+    kick = pd.DataFrame(dashboard.get_kick_candidates(threshold))
 
     if not kick.empty:
         st.error(f"{len(kick)} kick candidates")
-
-        st.dataframe(
-            kick,
-            width="stretch",
-        )
+        st.dataframe(kick, width="stretch")
     else:
-        st.success("No kick candidates.")
+        st.info("Kick-candidate detection is planned for v0.8.0 (Decision Support Release).")
 
     st.divider()
 
@@ -146,31 +134,33 @@ with get_session() as db:
     with c1:
         st.subheader("Promotion Components")
 
-        component_df = ranking[
-            [
-                "name",
-                "war_activity",
-                "war_win_rate",
-                "donations",
-                "trophy_level",
+        if not ranking.empty:
+            component_df = ranking[
+                [
+                    "name",
+                    "war_activity",
+                    "war_win_rate",
+                    "donations",
+                    "trophy_level",
+                ]
             ]
-        ]
-
-        st.dataframe(component_df, width="stretch")
+            st.dataframe(component_df, width="stretch")
 
     with c2:
         st.subheader("Top 10 Overall")
 
-        st.dataframe(
-            ranking.head(10),
-            width="stretch",
-        )
+        if not ranking.empty:
+            st.dataframe(
+                ranking.head(10),
+                width="stretch",
+            )
 
     st.divider()
 
-    st.download_button(
-        "📥 Download Promotion Ranking",
-        ranking.to_csv(index=False).encode(),
-        file_name="promotion_ranking.csv",
-        mime="text/csv",
-    )
+    if not ranking.empty:
+        st.download_button(
+            "📥 Download Promotion Ranking",
+            ranking.to_csv(index=False).encode(),
+            file_name="promotion_ranking.csv",
+            mime="text/csv",
+        )
