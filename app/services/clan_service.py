@@ -36,7 +36,7 @@ class ClanService:
         """
         self.db: Session = db_session
         self.api_client: ClashAPIClient = api_client or ClashAPIClient()
-        self.member_service: MemberService = MemberService(db_session)
+        self.member_service: MemberService = MemberService(db_session, self.api_client)
 
     def sync_clan_members(self, clan_tag: str) -> List[Member]:
         """
