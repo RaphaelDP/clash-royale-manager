@@ -109,6 +109,7 @@ class MemberService:
             member.last_seen = get_time()  # Record when they left
             self.db.commit()
             logger.info("Member %s marked as %s.", tag, reason)
+            return member
         else:
             logger.warning("Member %s not found.", tag)
             exmember_data = self.api_client.get_player(tag)
