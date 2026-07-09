@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, select
 
 from app.database.models import (
     Member,
@@ -28,6 +28,7 @@ from app.database.models import (
 )
 
 from app.services.clash_api import ClashAPIClient
+from app.services.member_service import MemberService
 from app.core.utils import count
 
 
@@ -42,6 +43,7 @@ class DashboardService:
     def __init__(self, db_session: Session, api_clash: ClashAPIClient = None) -> None:
         self.db = db_session
         self.api_clash = api_clash or ClashAPIClient()
+        self.member_service = MemberService(db_session, self.api_clash)
 
     # ==========================================================================
     # Clan overview
@@ -52,10 +54,10 @@ class DashboardService:
         Global clan KPIs.
         """
 
-        member_count = self.db.query(count(Member.id)).scalar() or 0
+        member_count = self.member_service.get_active_members or 0
 
         avg_trophies = (
-            self.db.query(func.avg(Member.trophies)).scalar() if member_count else 0
+            self.db.query(func.avg(Member.trophies)).scalar() if member_count !=0  else 0
         )
 
         total_donations = self.db.query(
@@ -197,6 +199,209 @@ class DashboardService:
             ),
         }
 
+# ==========================================================================
+    # Promotion dashboard
+    # ==========================================================================
+
+    def get_promotion_dashboard(self) -> dict[str, Any]:
+        """
+        Aggregated promotion dashboard: counts, extremes, and a ranking built
+        from each member's most recent PromotionScore.
+        """
+        latest_scores = (
+            self.db.query(
+                PromotionScore.member_tag,
+                func.max(PromotionScore.calculated_at).label("latest_calculated_at"),
+            )
+            .group_by(PromotionScore.member_tag)
+            .subquery()
+        )
+
+        rows = (
+            self.db.query(
+                Member.name,
+                PromotionScore.score,
+                PromotionScore.war_activity,
+                PromotionScore.war_win_rate,
+                PromotionScore.donations,
+                PromotionScore.trophy_level,
+            )
+            .join(Member, Member.tag == PromotionScore.member_tag)
+            .join(
+                latest_scores,
+                (PromotionScore.member_tag == latest_scores.c.member_tag)
+                & (
+                    PromotionScore.calculated_at
+                    == latest_scores.c.latest_calculated_at
+                ),
+            )
+            .order_by(PromotionScore.score.desc())
+            .all()
+        )
+
+        ranking = [
+            {
+                "name": row.name,
+                "score": row.score,
+                "war_activity": row.war_activity,
+                "war_win_rate": row.war_win_rate,
+                "donations": row.donations,
+                "trophy_level": row.trophy_level,
+            }
+            for row in rows
+        ]
+
+        scores = [entry["score"] for entry in ranking]
+
+        return {
+            "score_count": len(ranking),
+            "average_score": (sum(scores) / len(scores)) if scores else 0,
+            "highest_score": max(scores) if scores else 0,
+            "ranking": ranking,
+        }
+
+    def get_inactive_members(self, days_threshold: int = 14) -> list[dict[str, Any]]:
+        """
+        Members inactive for more than `days_threshold` days, as dashboard-ready
+        dicts. Delegates the inactivity rule to MemberService (single source of
+        truth for that logic).
+        """
+        inactive_members = self.member_service.get_inactive_members(days_threshold)
+
+        return [
+            {
+                "tag": member.tag,
+                "name": member.name,
+                "role": member.role,
+                "last_seen": member.last_seen,
+                "trophies": member.trophies,
+                "donations": member.donations,
+            }
+            for member in inactive_members
+        ]
+
+    def get_kick_candidates(self, days_threshold: int = 14) -> list[dict[str, Any]]:
+        """
+        Placeholder for kick-candidate detection.
+
+        TODO (v0.8.0 - Decision Support Release): implement real kick-scoring
+        using the KICK_SCORE_INACTIVE / KICK_SCORE_MISSED_WARS /
+        KICK_SCORE_NO_DONATIONS constants (app.core.constants), once
+        ScoreService.calculate_promotion_score is implemented. Returns an
+        empty list for now so the dashboard renders without crashing.
+        """
+        return []
+
+    # ==========================================================================
+    # War dashboard
+    # ==========================================================================
+
+    def get_war_player_ranking(
+        self, season_id: str, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        """
+        Player performance ranking scoped to a single war season, by fame.
+        """
+        race_ids = (
+            select(RiverRace.id)
+            .where(RiverRace.season_id == season_id)
+        )
+
+        rows = (
+            self.db.query(
+                Member.tag,
+                Member.name,
+                func.sum(WarParticipation.fame).label("fame"),
+                func.sum(WarParticipation.repair_points).label("repair"),
+                func.sum(WarParticipation.boat_attacks).label("boats"),
+                func.sum(WarParticipation.decks_used).label("decks"),
+            )
+            .join(WarParticipation, WarParticipation.member_tag == Member.tag)
+            .filter(WarParticipation.river_race_id.in_(race_ids))
+            .group_by(Member.tag, Member.name)
+            .order_by(func.sum(WarParticipation.fame).desc())
+            .limit(limit)
+            .all()
+        )
+
+        return [
+            {
+                "member_tag": row.tag,
+                "name": row.name,
+                "fame": row.fame,
+                "repair": row.repair,
+                "boats": row.boats,
+                "decks": row.decks,
+            }
+            for row in rows
+        ]
+
+    def get_river_races(self, season_id: str) -> list[dict[str, Any]]:
+        """
+        River races for a season with participant counts, ordered by section.
+        """
+        rows = (
+            self.db.query(
+                RiverRace.section_index,
+                RiverRace.created_date,
+                count(func.distinct(WarParticipation.member_tag)).label(
+                    "participants"
+                ),
+            )
+            .outerjoin(
+                WarParticipation, WarParticipation.river_race_id == RiverRace.id
+            )
+            .filter(RiverRace.season_id == season_id)
+            .group_by(RiverRace.id, RiverRace.section_index, RiverRace.created_date)
+            .order_by(RiverRace.section_index)
+            .all()
+        )
+
+        return [
+            {
+                "section_index": row.section_index,
+                "created_date": row.created_date,
+                "participants": row.participants,
+            }
+            for row in rows
+        ]
+
+    def get_player_war_stats(
+        self, member_tag: str, season_id: str | None = None
+    ) -> dict[str, Any]:
+        """
+        Aggregated war stats for a single player.
+        If season_id is given, stats are scoped to that season; otherwise
+        stats are all-time across every season.
+        """
+        query = self.db.query(
+            func.coalesce(func.sum(WarParticipation.fame), 0).label("fame"),
+            func.coalesce(func.sum(WarParticipation.repair_points), 0).label(
+                "repair_points"
+            ),
+            func.coalesce(func.sum(WarParticipation.boat_attacks), 0).label(
+                "boat_attacks"
+            ),
+            func.coalesce(func.sum(WarParticipation.decks_used), 0).label(
+                "decks_used"
+            ),
+        ).filter(WarParticipation.member_tag == member_tag)
+
+        if season_id is not None:
+            query = query.join(
+                RiverRace, RiverRace.id == WarParticipation.river_race_id
+            ).filter(RiverRace.season_id == season_id)
+
+        row = query.one()
+
+        return {
+            "fame": row.fame,
+            "repair_points": row.repair_points,
+            "boat_attacks": row.boat_attacks,
+            "decks_used": row.decks_used,
+        }
+
+
     # ==========================================================================
     # Charts
     # ==========================================================================
@@ -322,9 +527,8 @@ class DashboardService:
         """
 
         race_ids = (
-            self.db.query(RiverRace.id)
-            .filter(RiverRace.season_id == season_id)
-            .subquery()
+            select(RiverRace.id)
+            .where(RiverRace.season_id == season_id)
         )
 
         return {
