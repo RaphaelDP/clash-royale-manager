@@ -114,6 +114,7 @@ clean:
 
 	@find . -type f \( -name "*.db" -o -name "*.sqlite" -o -name "*.sqlite3" \) -delete
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
+	@find . -type d -name "cache" -exec rm -rf {} +
 	@find . -type f -name "*.pyc" -delete
 
 	@echo "Clean complete."
