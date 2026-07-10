@@ -35,9 +35,10 @@ env/
 *.swp
 *.swo
 
-# Database
+# Data
 *.db
 *.sqlite
+data/
 
 # Logs
 logs/
