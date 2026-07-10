@@ -110,18 +110,18 @@ class MemberService:
             self.db.commit()
             logger.info("Member %s marked as %s.", tag, reason)
             return member
-        else:
-            logger.warning("Member %s not found.", tag)
-            exmember_data = self.api_client.get_player(tag)
-            self.create_or_update_member(
-                tag=exmember_data.get("tag", ""),
-                name=exmember_data.get("name", ""),
-                role=reason,
-                trophies=exmember_data.get("trophies", 0),
-                donations=exmember_data.get("donations", 0),
-                last_seen=exmember_data.get("lastSeen", ""),
-            )
-            return self.db.query(Member).filter_by(tag=tag).first()
+
+        logger.warning("Member %s not found.", tag)
+        exmember_data = self.api_client.get_player(tag)
+        self.create_or_update_member(
+            tag=exmember_data.get("tag", ""),
+            name=exmember_data.get("name", ""),
+            role=reason,
+            trophies=exmember_data.get("trophies", 0),
+            donations=exmember_data.get("donations", 0),
+            last_seen=exmember_data.get("lastSeen", ""),
+        )
+        return self.db.query(Member).filter_by(tag=tag).first()
 
     def promote_member(self, tag: str, new_role: str) -> bool:
         """

@@ -356,4 +356,3 @@ class WarService:
         self.db.add(new_participation)
         self.db.flush()
         return new_participation
-    
