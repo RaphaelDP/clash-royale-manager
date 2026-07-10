@@ -3,6 +3,8 @@
 # Purpose: Formatting & linting utilities
 # =========================================
 
+.PHONY: install format lint check format-check lint-ci ci run tree commit clean reset-db
+
 # Python executable (assumes venv is activated)
 PYTHON := python
 
@@ -71,17 +73,22 @@ ci: format-check lint-ci
 # -----------------------------------------
 # Run pipeline
 # -----------------------------------------
-launch:
-	@echo "Launching Streamlit GUI..."
-	python -m streamlit run dashboard/home.py
+run:
+	@echo "==> Checking database..."
+	python scripts/init_db.py
 
+	@echo "==> Synchronizing Clash Royale data..."
+	python scripts/collect_data.py
+
+	@echo "==> Launching dashboard..."
+	python -m streamlit run dashboard/home.py
 
 # Default directory is the current one
 DIR ?= .
 # make tree DIR="./models/" for exemple to change
 tree:
 	@echo "Displaying the project's tree in $(DIR):"
-	tree $(DIR) -I ".venv|__pycache__|.git"
+	tree $(DIR) -I ".venv|__pycache__|.git|clash_royale_manager.egg-info|migrations/|.vscode|data|logs|secrets|*.sqlite"
 
 # -----------------------------------------
 # Commit (only if checks )
@@ -92,7 +99,7 @@ commit:
 		echo "\033[1;31m❌ Checks failed — commit blocked!\033[0m"; \
 		exit 1; \
 	}
-	@echo "\033[1;32m✅ Checks ed — starting commit helper\033[0m"; 
+	@echo "\033[1;32m✅ Checks passed — starting commit helper\033[0m"; 
 	@while true; do \
 		~/bin/git-commit-helper; \
 		read -p "Do you want to commit more changes? (y/N) " continue_answer; \
