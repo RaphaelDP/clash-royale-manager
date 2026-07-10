@@ -20,15 +20,13 @@ from app.core.utils import convert_timestamp_to_datetime, get_time
 def test_create_or_update_member(db_session, member_service, mock_clan_data):
     """Test the create_or_update_member method of MemberService."""
 
-    member_data = mock_clan_data["memberList"][0]
-
     new_member = member_service.create_or_update_member(
-        tag=member_data.get("tag", ""),
-        name=member_data.get("name", ""),
-        role=member_data.get("role", ""),
-        trophies=member_data.get("trophies", 0),
-        donations=member_data.get("donations", 0),
-        last_seen=member_data.get("lastSeen", ""),
+        tag=mock_clan_data["memberList"][0].get("tag", ""),
+        name=mock_clan_data["memberList"][0].get("name", ""),
+        role=mock_clan_data["memberList"][0].get("role", ""),
+        trophies=mock_clan_data["memberList"][0].get("trophies", 0),
+        donations=mock_clan_data["memberList"][0].get("donations", 0),
+        last_seen=mock_clan_data["memberList"][0].get("lastSeen", ""),
     )
 
     db_session.flush()
@@ -40,16 +38,16 @@ def test_create_or_update_member(db_session, member_service, mock_clan_data):
     assert new_member.donations == 100
     assert new_member.last_seen is not None
 
-    updated_data = member_data.copy()
+    updated_data = mock_clan_data["memberList"][0].copy()
     updated_data["trophies"] = 6767
 
     updated_member = member_service.create_or_update_member(
-        tag=member_data.get("tag", ""),
-        name=member_data.get("name", ""),
-        role=member_data.get("role", ""),
+        tag=updated_data.get("tag", ""),
+        name=updated_data.get("name", ""),
+        role=updated_data.get("role", ""),
         trophies=updated_data.get("trophies", 0),
-        donations=member_data.get("donations", 0),
-        last_seen=member_data.get("lastSeen", ""),
+        donations=updated_data.get("donations", 0),
+        last_seen=updated_data.get("lastSeen", ""),
     )
 
     assert updated_member.trophies == 6767
@@ -68,24 +66,23 @@ def test_create_or_update_member_does_not_duplicate(
     db_session, member_service, mock_clan_data
 ):
     """Business rule: Synchronizing the same player twice must never create duplicates."""
-    member_data = mock_clan_data["memberList"][0]
 
     # Sync the same player twice
     member_service.create_or_update_member(
-        tag=member_data.get("tag", ""),
-        name=member_data.get("name", ""),
-        role=member_data.get("role", ""),
-        trophies=member_data.get("trophies", 0),
-        donations=member_data.get("donations", 0),
-        last_seen=member_data.get("lastSeen", ""),
+        tag=mock_clan_data["memberList"][0].get("tag", ""),
+        name=mock_clan_data["memberList"][0].get("name", ""),
+        role=mock_clan_data["memberList"][0].get("role", ""),
+        trophies=mock_clan_data["memberList"][0].get("trophies", 0),
+        donations=mock_clan_data["memberList"][0].get("donations", 0),
+        last_seen=mock_clan_data["memberList"][0].get("lastSeen", ""),
     )
     member_service.create_or_update_member(
-        tag=member_data.get("tag", ""),
-        name=member_data.get("name", ""),
-        role=member_data.get("role", ""),
+        tag=mock_clan_data["memberList"][0].get("tag", ""),
+        name=mock_clan_data["memberList"][0].get("name", ""),
+        role=mock_clan_data["memberList"][0].get("role", ""),
         trophies=6767,  # Updated value
-        donations=member_data.get("donations", 0),
-        last_seen=member_data.get("lastSeen", ""),
+        donations=mock_clan_data["memberList"][0].get("donations", 0),
+        last_seen=mock_clan_data["memberList"][0].get("lastSeen", ""),
     )
 
     members = db_session.query(Member).all()

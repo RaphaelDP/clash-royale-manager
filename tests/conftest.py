@@ -4,8 +4,8 @@ Filename: conftest.py
 Description: Pytest fixtures for testing the Clash Royale Manager application.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-18
-Version: 0.4.0
+Last Modified: 2026-07-10
+Version: 0.5.0
 Python Version: 3.12
 Dependencies: pytest, pytest-mock, sqlalchemy
 ================================================================================
@@ -29,6 +29,7 @@ from app.database.models import (
 )
 from app.services.war_service import WarService
 from app.services.member_service import MemberService
+from app.services.dashboard_service import DashboardService
 
 # =============================================================================
 # Database
@@ -366,6 +367,15 @@ def member_service(db_session, mocker):
     )
 
     return MemberService(db_session)
+
+
+@pytest.fixture
+def dashboard_service(db_session, mocker):
+    """
+    Create a DashboardService instance with a mocked API client, so no real
+    network/cache setup happens during dashboard-related tests.
+    """
+    return DashboardService(db_session, api_clash=mocker.MagicMock())
 
 
 # =============================================================================

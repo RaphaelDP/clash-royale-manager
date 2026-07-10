@@ -251,33 +251,15 @@ def test_sync_river_race_log_twice_no_duplicates(
 def test_sync_river_race_log_clan_not_found(
     db_session,
     war_service,
+    mock_river_race_log_with_standings,
     mocker,
 ):
     """Verify no data is stored if the clan is absent from standings."""
 
-    mock_data = {
-        "items": [
-            {
-                "seasonId": "132",
-                "sectionIndex": 0,
-                "createdDate": "20260608T093443.000Z",
-                "standings": [
-                    {
-                        "rank": 1,
-                        "clan": {
-                            "tag": "#OTHER_CLAN",
-                            "participants": [],
-                        },
-                    }
-                ],
-            }
-        ]
-    }
-
     mocker.patch.object(
         war_service.api_client,
         "get_river_race_log",
-        return_value=mock_data["items"],
+        return_value=mock_river_race_log_with_standings,
     )
 
     war_service.sync_river_race_log("#TEST123")
