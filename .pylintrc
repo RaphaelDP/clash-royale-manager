@@ -8,6 +8,7 @@ disable=
     protected-access,
     redefined-outer-name,
     broad-exception-caught,
+    fixme,
 ;     duplicate-code,
 ;     broad-except,
 

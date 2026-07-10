@@ -92,13 +92,13 @@ with get_session() as db:
     with col5:
         last_seen = profile["last_seen"]
 
+        display_value = "-"
+
         if last_seen:
             delta = get_time() - last_seen
-            value = f"{delta.days} day(s) ago"
-        else:
-            value = "-"
+            display_value = f"{delta.days} day(s) ago"
 
-        st.metric("⏱ Last seen", value)
+        st.metric("⏱ Last seen", display_value)
 
     st.divider()
 

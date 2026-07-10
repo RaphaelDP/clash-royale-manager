@@ -24,6 +24,15 @@ class Base(DeclarativeBase):
     """
 
     def to_dict(self, include_relationships: bool = False) -> dict:
+        """
+        Convert the ORM model to a dictionary.
+
+        Args:
+            include_relationships: If True, recursively serialize related objects.
+
+        Returns:
+            Dictionary representation of the model.
+        """
         data = {
             column.key: getattr(self, column.key)
             for column in inspect(self).mapper.column_attrs

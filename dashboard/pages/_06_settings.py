@@ -10,9 +10,10 @@ Version: 0.5.0
 """
 
 import streamlit as st
-from sqlalchemy import func
 
 from app.core.config import settings
+from app.core.utils import count
+
 from app.database.session import get_session
 from app.database.models import (
     Member,
@@ -39,19 +40,19 @@ with get_session() as db:
     with c1:
         st.metric(
             "Members",
-            db.query(func.count(Member.id)).scalar(),
+            db.query(count(Member.id)).scalar(),
         )
 
     with c2:
         st.metric(
             "Snapshots",
-            db.query(func.count(Snapshot.id)).scalar(),
+            db.query(count(Snapshot.id)).scalar(),
         )
 
     with c3:
         st.metric(
             "Promotion Scores",
-            db.query(func.count(PromotionScore.id)).scalar(),
+            db.query(count(PromotionScore.id)).scalar(),
         )
 
     c1, c2, c3 = st.columns(3)
@@ -59,19 +60,19 @@ with get_session() as db:
     with c1:
         st.metric(
             "War Seasons",
-            db.query(func.count(WarSeason.id)).scalar(),
+            db.query(count(WarSeason.id)).scalar(),
         )
 
     with c2:
         st.metric(
             "River Races",
-            db.query(func.count(RiverRace.id)).scalar(),
+            db.query(count(RiverRace.id)).scalar(),
         )
 
     with c3:
         st.metric(
             "Participations",
-            db.query(func.count(WarParticipation.id)).scalar(),
+            db.query(count(WarParticipation.id)).scalar(),
         )
 
 st.divider()
@@ -111,7 +112,7 @@ st.code(
 Python : 3.12
 Dashboard : Streamlit
 Database : SQLAlchemy
-Version : 0.5.0
+Version : {settings.VERSION}
 """,
     language="text",
 )

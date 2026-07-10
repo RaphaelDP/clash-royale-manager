@@ -39,6 +39,9 @@ class Settings:
         SCHEDULER_TIMEZONE: Timezone used by scheduled jobs.
     """
 
+    # Version
+    VERSION = "0.5.1"
+
     # Clash Royale API
     CR_API_TOKEN = os.getenv("CR_API_TOKEN")
     CLAN_TAG = os.getenv("CLAN_TAG")
