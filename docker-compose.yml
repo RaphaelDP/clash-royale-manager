@@ -12,6 +12,7 @@ version: "3.8"
 
 services:
   app: 
+    user: "${UID}:${GID}"  # Use host user and group IDs
     build:
       context: .
       dockerfile: Dockerfile
