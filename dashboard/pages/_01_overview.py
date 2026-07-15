@@ -4,8 +4,8 @@ Filename: _01_overview.py
 Description: Streamlit page for displaying clan overview and aggregated KPIs.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-07
-Version: 0.5.0
+Last Modified: 2026-07-10
+Version: 0.6.0
 Python Version: 3.12
 Dependencies: streamlit, pandas, app.services.dashboard_service
 ================================================================================
@@ -14,7 +14,7 @@ Dependencies: streamlit, pandas, app.services.dashboard_service
 import pandas as pd
 import streamlit as st
 
-from app.core.utils import get_time
+from app.core.utils import get_time, format_datetime
 from app.database.session import get_session
 from app.services.dashboard_service import DashboardService
 
@@ -43,34 +43,60 @@ with get_session() as db:
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
-        st.metric(
-            "Members",
-            overview["member_count"],
-        )
+        st.metric("Members", overview["member_count"])
 
     with col2:
-        st.metric(
-            "Active Members",
-            overview["active_members"],
-        )
+        st.metric("Active Members", overview["active_members"])
 
     with col3:
-        st.metric(
-            "Average Trophies",
-            overview["average_trophies"],
-        )
+        st.metric("Average Trophies", overview["average_trophies"])
 
     with col4:
-        st.metric(
-            "Total Donations",
-            overview["total_donations"],
-        )
+        st.metric("Total Donations", overview["total_donations"])
 
     with col5:
-        st.metric(
-            "Average Promotion Score",
-            overview["average_promotion_score"],
+        st.metric("Average Promotion Score", overview["average_promotion_score"])
+
+    # ==========================================================================
+    # Clan Health Score
+    # ==========================================================================
+
+    st.header("🩺 Clan Health Score")
+
+    health = dashboard_service.get_clan_health_score()
+
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        st.metric("Overall Health", f"{health['final_score']:.1f} / 100")
+
+    with col2:
+        components_df = pd.DataFrame(
+            [
+                {"Component": key.replace("_", " ").title(), "Score": value}
+                for key, value in health["components"].items()
+            ]
         )
+        st.bar_chart(components_df, x="Component", y="Score")
+
+    st.caption(
+        "Leadership Depth is a fixed placeholder (100) until scoring thresholds "
+        "are defined. Participation/Efficiency are scoped to the most recent race."
+    )
+
+    # ==========================================================================
+    # Activity Ranking
+    # ==========================================================================
+
+    st.header("🏃 Activity Ranking")
+
+    activity_ranking = dashboard_service.get_activity_ranking(limit=15)
+
+    if activity_ranking:
+        activity_df = pd.DataFrame(activity_ranking)
+        st.dataframe(activity_df, hide_index=True, width="stretch")
+    else:
+        st.info("No active members to rank.")
 
     # ==========================================================================
     # Database status
@@ -272,77 +298,13 @@ with get_session() as db:
     with col1:
         st.metric(
             "Latest Snapshot",
-            snapshots["latest_snapshot"] or "No data",
+            format_datetime(snapshots["latest_snapshot"]),
         )
 
     with col2:
         st.metric(
             "Oldest Snapshot",
-            snapshots["oldest_snapshot"] or "No data",
-        )
-
-    with col3:
-        if snapshots["latest_snapshot"]:
-            days_since_update = (get_time() - snapshots["latest_snapshot"]).days
-
-            st.metric(
-                "Days Since Update",
-                days_since_update,
-            )
-        else:
-            st.metric(
-                "Days Since Update",
-                "-",
-            )
-
-    # ==========================================================================
-    # Top War Performers
-    # ==========================================================================
-
-    st.header("⚔️ Top War Performers")
-
-    top_war_players = dashboard_service.get_top_war_players()
-
-    if top_war_players:
-        war_players_df = pd.DataFrame(
-            [
-                {
-                    "Player": player.name,
-                    "Tag": player.tag,
-                    "Fame": player.fame,
-                    "Repair Points": player.repair,
-                    "Boat Attacks": player.boats,
-                    "Decks Used": player.decks,
-                }
-                for player in top_war_players
-            ]
-        )
-
-        st.dataframe(
-            war_players_df,
-            width="stretch",
-        )
-    else:
-        st.warning("No war participation data available.")
-
-    # ==========================================================================
-    # Latest database activity
-    # ==========================================================================
-
-    st.header("🕒 Data Freshness")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric(
-            "Latest Snapshot",
-            snapshots["latest_snapshot"] or "No data",
-        )
-
-    with col2:
-        st.metric(
-            "Oldest Snapshot",
-            snapshots["oldest_snapshot"] or "No data",
+            format_datetime(snapshots["oldest_snapshot"]),
         )
 
     with col3:
