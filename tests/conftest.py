@@ -30,6 +30,7 @@ from app.database.models import (
 from app.services.war_service import WarService
 from app.services.member_service import MemberService
 from app.services.dashboard_service import DashboardService
+from app.services.score_service import ScoreService
 
 # =============================================================================
 # Database
@@ -130,6 +131,7 @@ def river_race_factory(war_season_factory):
             "war_season": war_season,
             "section_index": 0,
             "created_date": get_time(),
+            "is_completed": True,
         }
 
         defaults.update(kwargs)
@@ -376,6 +378,14 @@ def dashboard_service(db_session, mocker):
     network/cache setup happens during dashboard-related tests.
     """
     return DashboardService(db_session, api_clash=mocker.MagicMock())
+
+
+@pytest.fixture
+def score_service(db_session):
+    """
+    Create a ScoreService instance (no external API dependency).
+    """
+    return ScoreService(db_session)
 
 
 # =============================================================================

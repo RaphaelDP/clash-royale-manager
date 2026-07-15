@@ -376,3 +376,102 @@ def test_sync_current_river_race_no_season(
 
     assert db_session.query(RiverRace).count() == 0
     assert db_session.query(WarParticipation).count() == 0
+
+
+def test_create_or_update_river_race_defaults_incomplete(db_session, war_service):
+    """New races default to is_completed=False unless explicitly marked complete."""
+
+    season = war_service._create_or_update_season("200", datetime(2026, 7, 1))
+
+    race = war_service._create_or_update_river_race(
+        season_id=season.season_id,
+        section_index=0,
+        created_date=datetime(2026, 7, 1),
+    )
+
+    assert race.is_completed is False
+
+
+def test_create_or_update_river_race_flips_to_completed(db_session, war_service):
+    """A race first synced as live later flips to completed once the log confirms it."""
+
+    season = war_service._create_or_update_season("201", datetime(2026, 7, 1))
+
+    live_race = war_service._create_or_update_river_race(
+        season_id=season.season_id,
+        section_index=0,
+        created_date=datetime(2026, 7, 1),
+        is_completed=False,
+    )
+    assert live_race.is_completed is False
+
+    completed_race = war_service._create_or_update_river_race(
+        season_id=season.season_id,
+        section_index=0,
+        created_date=datetime(2026, 7, 1),
+        is_completed=True,
+    )
+
+    assert completed_race.id == live_race.id
+    assert completed_race.is_completed is True
+
+    db_session.refresh(live_race)
+    assert live_race.is_completed is True
+
+
+def test_create_or_update_river_race_never_flips_back(db_session, war_service):
+    """Once completed, a race is never reverted to incomplete."""
+
+    season = war_service._create_or_update_season("202", datetime(2026, 7, 1))
+
+    race = war_service._create_or_update_river_race(
+        season_id=season.season_id,
+        section_index=0,
+        created_date=datetime(2026, 7, 1),
+        is_completed=True,
+    )
+
+    same_race = war_service._create_or_update_river_race(
+        season_id=season.season_id,
+        section_index=0,
+        created_date=datetime(2026, 7, 1),
+        is_completed=False,
+    )
+
+    assert same_race.is_completed is True
+
+
+def test_sync_river_race_log_marks_races_completed(
+    db_session, war_service, mocker, mock_river_race_log_with_standings, test_members
+):
+    """Business rule: races synced from the log are always marked completed."""
+
+    mocker.patch.object(
+        war_service.api_client,
+        "get_river_race_log",
+        return_value=mock_river_race_log_with_standings,
+    )
+
+    war_service.sync_river_race_log("#TEST123")
+
+    race = db_session.query(RiverRace).one()
+    assert race.is_completed is True
+
+
+def test_sync_current_river_race_marks_race_incomplete(
+    db_session, war_service, mocker, mock_current_river_race, test_members
+):
+    """Business rule: the live-synced race is marked incomplete."""
+
+    war_service._create_or_update_season("132", datetime(2026, 6, 1))
+
+    mocker.patch.object(
+        war_service.api_client,
+        "get_current_river_race",
+        return_value=mock_current_river_race,
+    )
+
+    war_service.sync_current_river_race("#TEST123")
+
+    race = db_session.query(RiverRace).one()
+    assert race.is_completed is False
