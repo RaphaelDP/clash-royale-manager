@@ -39,6 +39,8 @@ RUN echo '#!/bin/bash' > start.sh && \
     echo "pytest" >> start.sh && \
     echo 'echo "Collecting data from Clash Royale API..."' >> start.sh && \
     echo 'python scripts/collect_data.py' >> start.sh && \
+    echo 'echo "Starting background scheduler..."' >> start.sh && \
+    echo 'python scripts/run_scheduler.py &' >> start.sh && \
     echo 'streamlit run dashboard/home.py --server.port=8501 --server.address=0.0.0.0' >> start.sh && \
     chmod +x start.sh
 

@@ -20,12 +20,13 @@ services:
       - "8501:8501"  # Streamlit
       - "8000:8000"  # FastAPI
     environment:
-      - PYTHONPATH=/app
-      - CR_API_TOKEN=${CR_API_TOKEN}
-      - CLAN_TAG=${CLAN_TAG}
-      - DATABASE_URL=${DATABASE_URL}
-      - LOG_LEVEL=${LOG_LEVEL}
-      - LOG_FILE=${LOG_FILE}
+          - PYTHONPATH=/app
+          - CR_API_TOKEN=${CR_API_TOKEN}
+          - CLAN_TAG=${CLAN_TAG}
+          - DATABASE_URL=${DATABASE_URL}
+          - LOG_LEVEL=${LOG_LEVEL}
+          - LOG_FILE=${LOG_FILE}
+          - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     volumes:
       - ./data:/app/data  # Persist database files
       - ./logs:/app/logs  # Persist logs
