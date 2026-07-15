@@ -123,7 +123,9 @@ with get_session() as db:
         st.error(f"{len(kick)} kick candidates")
         st.dataframe(kick, width="stretch")
     else:
-        st.info("Kick-candidate detection is planned for v0.8.0 (Decision Support Release).")
+        st.info(
+            "Kick-candidate detection is planned for v0.8.0 (Decision Support Release)."
+        )
 
     st.divider()
 
