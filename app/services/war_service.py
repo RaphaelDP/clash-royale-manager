@@ -72,8 +72,9 @@ class WarService:
                         season_id=war_season.season_id,
                         section_index=race_data.get("sectionIndex", 0),
                         created_date=convert_timestamp_to_datetime(
-                            race_data.get("createdDate", "")
+                            race_data.get("createdDate", ""),
                         ),
+                        is_completed=True,  # from sync_river_race_log, we know this race is complete
                     )
                 except Exception as e:
                     logger.error(
@@ -158,6 +159,7 @@ class WarService:
                 season_id=latest_season.season_id,
                 section_index=current_race_data.get("sectionIndex", 0),
                 created_date=get_time(),  # Use current time (API doesn't provide createdDate)
+                is_completed=False,  # from sync_current_river_race, we know it's not complete yet
             )
 
             # Create or update participations for your clan's members
@@ -240,6 +242,7 @@ class WarService:
         season_id: str,
         section_index: int,
         created_date: datetime,
+        is_completed: bool = False,
     ) -> RiverRace:
         """
         Create or update a river race.
@@ -248,6 +251,9 @@ class WarService:
             season_id: The associated war season ID.
             section_index: Index of the river race section.
             created_date: Creation date of the river race.
+            is_completed: Whether this race is confirmed complete (True from
+                sync_river_race_log, False from sync_current_river_race). An
+                existing race only ever flips False -> True, never back.
 
         Returns:
             RiverRace: The created or updated RiverRace object.
@@ -258,11 +264,15 @@ class WarService:
             .first()
         )
         if existing_race:
+            if is_completed and not existing_race.is_completed:
+                existing_race.is_completed = True
+                self.db.flush()
             return existing_race
         new_race: RiverRace = RiverRace(
             season_id=season_id,
             section_index=section_index,
             created_date=created_date,
+            is_completed=is_completed,
         )
         self.db.add(new_race)
         self.db.flush()
