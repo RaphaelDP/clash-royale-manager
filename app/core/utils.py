@@ -11,7 +11,7 @@ Dependencies: datetime
 ================================================================================
 """
 
-from datetime import datetime
+from datetime import datetime, date
 from zoneinfo import ZoneInfo
 from app.core.config import settings
 
@@ -37,6 +37,25 @@ def convert_timestamp_to_datetime(timestamp_str: str | None) -> datetime:
     local_dt = utc_dt.astimezone(target_tz)
 
     return local_dt.replace(tzinfo=None)  # Return naive datetime in local time
+
+
+def format_datetime(value: datetime | date | str | None) -> str:
+    """
+    Convert datetime/date values into a human-readable string for display.
+
+    Returns the original string if already formatted.
+    Returns "No data" for empty values.
+    """
+    if value is None:
+        return "No data"
+
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+
+    return str(value)
 
 
 def get_time() -> datetime:
