@@ -4,8 +4,8 @@ Filename: _05_wars.py
 Description: Streamlit page for displaying clan war performance.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-08
-Version: 0.5.1
+Last Modified: 2026-07-10
+Version: 0.6.0
 Python Version: 3.12
 Dependencies: streamlit, pandas, app.services.dashboard_service
 ================================================================================
@@ -29,6 +29,36 @@ st.title("⚔️ War Performance")
 with get_session() as db:
     dashboard_service = DashboardService(db)
     war_service = WarService(db)
+
+    st.header("🔴 Live Race")
+
+    live_status = dashboard_service.get_current_race_status()
+
+    if live_status:
+        st.info(
+            f"Season {live_status['season_id']}, race #{live_status['section_index']} "
+            "is currently in progress."
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.metric("Have attacked", live_status["participated_count"])
+
+        with col2:
+            st.metric("Haven't attacked yet", live_status["not_participated_count"])
+
+        if live_status["not_participated"]:
+            st.warning("Members who haven't attacked yet:")
+            st.dataframe(
+                pd.DataFrame(live_status["not_participated"]),
+                hide_index=True,
+                width="stretch",
+            )
+    else:
+        st.info("No river race currently in progress.")
+
+    st.divider()
 
     seasons = dashboard_service.get_available_seasons()
 
@@ -94,6 +124,26 @@ with get_session() as db:
 
     st.divider()
 
+    st.subheader("📈 Race Comparison")
+
+    comparison = dashboard_service.get_race_comparison(selected_season)
+
+    if comparison:
+        comparison_df = pd.DataFrame(comparison)
+
+        st.bar_chart(comparison_df, x="section_index", y="avg_fame")
+
+        st.dataframe(comparison_df, hide_index=True, width="stretch")
+
+        st.caption(
+            "Participation rate uses the CURRENT active member count as an "
+            "approximation — historical roster size at race time isn't tracked."
+        )
+    else:
+        st.info("No races to compare for this season.")
+
+    st.divider()
+
     st.subheader("📊 Player War Details")
 
     selected_player = st.selectbox(
@@ -140,6 +190,4 @@ with get_session() as db:
             st.success("War data synchronized.")
             st.rerun()
         except Exception as error:
-            st.error(
-                f"War sync failed: {error}"
-            )
+            st.error(f"War sync failed: {error}")
