@@ -24,7 +24,6 @@ def main():
     db = SessionLocal()
 
     try:
-        # Sync clan members
         clan_service = ClanService(db)
         clan_service.sync_clan_members(settings.CLAN_TAG)
         logger.info("Synced clan members.")

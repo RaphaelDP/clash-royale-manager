@@ -4,8 +4,8 @@ Filename: river_race.py
 Description: SQLAlchemy model for Clash Royale River Races.
 Author: Raphael Smilet
 Date Created: 2026-06-09
-Last Modified: 2026-06-18
-Version: 0.4.0
+Last Modified: 2026-07-11
+Version: 0.5.0
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.base
 ================================================================================
@@ -14,7 +14,7 @@ Dependencies: sqlalchemy, app.database.base
 from __future__ import annotations  # to avoid Pylance: reportUndefinedVariable
 from typing import List, TYPE_CHECKING
 from datetime import datetime
-from sqlalchemy import String, DateTime, Integer, ForeignKey, UniqueConstraint
+from sqlalchemy import String, DateTime, Integer, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
@@ -31,6 +31,9 @@ class RiverRace(Base):
         season_id: Foreign key to WarSeason.
         section_index: Index of the river race section.
         created_date: Creation date of the river race.
+        is_completed: Whether this race has been confirmed complete via the
+            river race log. False while only synced as the live/current
+            race; flips to True (and never back) once the log confirms it.
         war_season: Relationship to WarSeason.
         war_participations: One-to-many relationship with WarParticipation.
     """
@@ -46,6 +49,7 @@ class RiverRace(Base):
     )
     section_index: Mapped[int] = mapped_column(Integer, nullable=False)
     created_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    is_completed: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
     war_season: Mapped[WarSeason] = relationship(back_populates="river_races")
