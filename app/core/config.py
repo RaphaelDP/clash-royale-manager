@@ -56,5 +56,8 @@ class Settings:
     # Scheduler
     SCHEDULER_TIMEZONE = os.getenv("SCHEDULER_TIMEZONE", "Europe/Paris")
 
+    # Discord Webhook URL
+    DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
+
 
 settings = Settings()
