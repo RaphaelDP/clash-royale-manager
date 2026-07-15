@@ -249,8 +249,12 @@ with get_session() as db:
     if role_distribution:
         role_df = pd.DataFrame(role_distribution)
 
+        # Filter according to the selection
+        filtered_df = role_df[role_df["role"].isin(selected_roles)]
+
         st.bar_chart(
-            role_df,
+            filtered_df,
             x="role",
             y="count",
         )
+        
