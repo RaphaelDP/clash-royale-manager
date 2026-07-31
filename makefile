@@ -86,10 +86,26 @@ run:
 # Default directory is the current one
 DIR ?= .
 # make tree DIR="./models/" for exemple to change
+TREE_IGNORE := .venv|__pycache__|.git|clash_royale_manager.egg-info|migrations|.vscode|data|logs|secrets|*.sqlite
+
 tree:
 	@echo "Displaying the project's tree in $(DIR):"
-	tree $(DIR) -I ".venv|__pycache__|.git|clash_royale_manager.egg-info|migrations/|.vscode|data|logs|secrets|*.sqlite"
+	@tree $(DIR) -I "$(TREE_IGNORE)"
 
+zip:
+	@echo "Creating project archive..."
+	@zip -r clash_royale_manager.zip . \
+		-x ".git/*" \
+		-x ".venv/*" \
+		-x "*/__pycache__/*" \
+		-x "clash_royale_manager.egg-info/*" \
+		-x ".vscode/*" \
+		-x "data/*" \
+		-x "logs/*" \
+		-x "secrets/*" \
+		-x "*/migrations/*" \
+		-x "*.sqlite" \
+		-x "*.sqlite3"
 # -----------------------------------------
 # Commit (only if checks )
 # -----------------------------------------
