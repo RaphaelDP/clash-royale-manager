@@ -504,10 +504,13 @@ class DashboardService:
             "components": {key: round(value, 1) for key, value in components.items()},
         }
 
-    def get_activity_ranking(self, limit: int | None = None) -> list[dict[str, Any]]:
+    def get_inactivity_ranking(
+        self,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
-        Ranks active members by activity score (bucketed from days since
-        last seen), most active first.
+        Ranks active members by inactivity (days since last seen), most
+        inactive first.
         """
         members = (
             self.db.query(Member.tag, Member.name, Member.last_seen)
@@ -520,6 +523,7 @@ class DashboardService:
         ranking = []
         for tag, name, last_seen in members:
             days_since = (now - last_seen).days if last_seen else None
+
             ranking.append(
                 {
                     "tag": tag,
@@ -529,7 +533,12 @@ class DashboardService:
                 }
             )
 
-        ranking.sort(key=lambda entry: entry["activity_score"], reverse=True)
+        ranking.sort(
+            key=lambda entry: (
+                entry["days_since_last_seen"] is None,
+                -(entry["days_since_last_seen"] or 0),
+            )
+        )
 
         return ranking[:limit] if limit else ranking
 
