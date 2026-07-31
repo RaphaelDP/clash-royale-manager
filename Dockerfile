@@ -37,6 +37,8 @@ EXPOSE 8501
 RUN echo '#!/bin/bash' > start.sh && \
     echo 'echo "Starting tests..."' >> start.sh && \
     echo "pytest" >> start.sh && \
+    echo 'echo "Checking database..."' >> start.sh && \
+	echo 'python scripts/init_db.py' >> start.sh && \
     echo 'echo "Collecting data from Clash Royale API..."' >> start.sh && \
     echo 'python scripts/collect_data.py' >> start.sh && \
     echo 'echo "Starting background scheduler..."' >> start.sh && \

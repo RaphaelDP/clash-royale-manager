@@ -16,7 +16,7 @@ PYLINT := pylint
 SRC := dashboard app scripts tests
 
 # Files and directories to ignore
-IGNORE := venv,.venv,__pycache__,.git,logs,data,secrets
+IGNORE := venv,.venv,logs,data,secrets,app/database/migrations/
 
 # Convert ignore list to pylint format (comma separated)
 PYLINT_IGNORE := $(subst $(space),,$(IGNORE))
@@ -110,23 +110,34 @@ commit:
 	done
 
 clean:
-	@echo "Cleaning database and cache files..."
+	@echo "Cleaning cache files..."
 
-	@find . -type f \( -name "*.db" -o -name "*.sqlite" -o -name "*.sqlite3" \) -delete
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
 	@find . -type d -name "cache" -exec rm -rf {} +
 	@find . -type f -name "*.pyc" -delete
 
 	@echo "Clean complete."
 
+clean-db:
+	@read -p "Delete SQLite database? [y/N] " ans && \
+	([ "$$ans" = "y" ] || [ "$$ans" = "Y" ]) || exit 1
+
+	@echo "Removing database..."
+	@rm -f data/clan_manager.db
+
+	@echo "Database removed."
+
 reset-db:
-	@read -p "FULL RESET: DB + migrations + cache will be deleted. Continue? [y/N] " ans && \
-	[ "$$ans" = "y" ] || [ "$$ans" = "Y" ] || exit 1
+	@read -p "FULL RESET: database, migrations, and cache will be deleted. Continue? [y/N] " ans && \
+	([ "$$ans" = "y" ] || [ "$$ans" = "Y" ]) || exit 1
 
-	@echo "Step 1: cleaning files..."
-	@make clean
+	@echo "Step 1: cleaning cache..."
+	@$(MAKE) clean
 
-	@echo "Step 2: removing migration versions..."
+	@echo "Step 2: removing database..."
+	@rm -f data/clan_manager.db
+
+	@echo "Step 3: removing migration versions..."
 	@find app/database/migrations/versions \
 		-type f \
 		-name "*.py" \
@@ -134,10 +145,21 @@ reset-db:
 		-not -name ".gitkeep" \
 		-delete
 
-	@echo "Step 3: generating initial migration..."
+	@echo "Step 4: generating initial migration..."
 	@alembic revision --autogenerate -m "initial schema"
 
-	@echo "Step 4: applying migration..."
+	@echo "Step 5: applying migration..."
 	@alembic upgrade head
 
 	@echo "RESET COMPLETE."
+
+dev:
+	@echo "Building and starting application..."
+	@UID=$$(id -u) GID=$$(id -g) docker compose up --build
+
+start:
+	@echo "Building and starting application in background..."
+	@UID=$$(id -u) GID=$$(id -g) docker compose up --build -d
+
+stop:
+	@UID=$$(id -u) GID=$$(id -g) docker compose down
