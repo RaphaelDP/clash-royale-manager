@@ -318,7 +318,7 @@ class WarService:
             .first()
         )
 
-        logger.info("Member %s: %s", member_tag, existing_participation)
+        # logger.info("Member %s: %s", member_tag, existing_participation)
 
         if existing_participation:
             existing_participation.fame = fame

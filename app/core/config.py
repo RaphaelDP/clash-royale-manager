@@ -44,6 +44,7 @@ class Settings:
 
     # Clash Royale API
     CR_API_TOKEN = os.getenv("CR_API_TOKEN")
+
     CLAN_TAG = os.getenv("CLAN_TAG")
 
     # Database

@@ -1,6 +1,6 @@
 [MASTER]
 init-hook='import sys; sys.path.append(".")'
-ignore=venv,.venv,logs,data,secrets, app/database/migrations/
+ignore=venv,.venv,logs,data,secrets,app/database/migrations/
 
 [MESSAGES CONTROL]
 disable=

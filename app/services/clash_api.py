@@ -85,6 +85,18 @@ class ClashAPIClient:
             )
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 403:
+                logger.error(
+                    "API request forbidden (403) for %s. "
+                    "Check Clash Royale API token validity and authorized IP address whitelist.",
+                    url,
+                )
+            else:
+                logger.error("API request failed for %s: %s", url, e)
+
+            raise
+
         except requests.exceptions.RequestException as e:
             logger.error("API request failed for %s: %s", url, e)
             raise
