@@ -1,26 +1,37 @@
 """
 ================================================================================
 Filename: score_service.py
-Description: Service for calculating promotion and kick scores for members.
+Description: Service for calculating contribution scores and promotion/
+    demotion/kick recommendations for members.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-10
-Version: 0.2.0
+Last Modified: 2026-07-13
+Version: 0.3.0
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.constants
 ================================================================================
 
-NOTE: This is a minimal v0.7.0 implementation using the original 4-weight
-formula (war activity / war performance / donations / trophy level). It will
-be replaced by the full 7-component Contribution Score in v0.8.0.
+Contribution Score (v0.8.0):
+    - War Activity: 30%     (participated / all-time completed races)
+    - War Performance: 20%  (fame/decks/repairs/boats vs clan avg, last
+                              RECENT_RACES_WINDOW races, each sub-metric
+                              capped, weighted 40/30/20/10)
+    - Donations: 15%        (30-day snapshot average / DONATION_TARGET)
+    - Trophy Level: 10%     (trophies / clan 95th percentile trophies)
+    - Activity: 10%         (bucketed days-since-last-seen score)
+    - Consistency: 10%      (100 - coefficient of variation of fame over
+                              the last RECENT_RACES_WINDOW races)
+    - Seniority: 5%         (months in clan / SENIORITY_MONTHS_CAP)
 
-War Performance is a fame-efficiency proxy (there is no wins/losses concept
-in the current river race schema) rather than a literal win rate; the
-'war_win_rate' field name is kept as-is to match the existing PromotionScore
-schema, no migration needed for this minimal version.
+Promotion/demotion recommendations are rank-based on the last completed
+river race's fame, NOT the Contribution Score - the score is used to spot
+patterns, but rank position drives the recommendation. This is a
+READ-ONLY recommendation system: the public Clash Royale API can't write
+role changes or kick members, so nothing here mutates Member.role.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -28,39 +39,66 @@ from sqlalchemy.orm import Session
 from app.core.logger import logger
 from app.core.constants import (
     WAR_ACTIVITY_WEIGHT,
-    WAR_WIN_RATE_WEIGHT,
-    DONATIONS_WEIGHT,
-    TROPHY_LEVEL_WEIGHT,
+    WAR_PERFORMANCE_WEIGHT,
+    CONTRIBUTION_DONATIONS_WEIGHT,
+    CONTRIBUTION_TROPHY_WEIGHT,
+    CONTRIBUTION_ACTIVITY_WEIGHT,
+    CONSISTENCY_WEIGHT,
+    SENIORITY_WEIGHT,
+    WAR_PERFORMANCE_FAME_WEIGHT,
+    WAR_PERFORMANCE_DECKS_WEIGHT,
+    WAR_PERFORMANCE_REPAIRS_WEIGHT,
+    WAR_PERFORMANCE_BOATS_WEIGHT,
+    WAR_PERFORMANCE_SUBMETRIC_CAP,
+    RECENT_RACES_WINDOW,
+    DONATIONS_AVERAGE_WINDOW_DAYS,
     DONATION_TARGET,
-    MAX_FAME_PER_RACE,
+    MIN_RACES_FOR_CONSISTENCY,
+    SENIORITY_MONTHS_CAP,
+    TROPHY_PERCENTILE,
+    SANCTION_FAME_THRESHOLD,
+    PROMOTION_BAND_TOP,
+    PROMOTION_BAND_ELDER,
+    PROMOTION_BAND_DEMOTE_COLEADER,
 )
-from app.core.utils import get_time, count
-from app.database.models import Member, RiverRace, WarParticipation, PromotionScore
+from app.core.utils import get_time, count, activity_score_from_days
+from app.database.models import (
+    Member,
+    RiverRace,
+    WarParticipation,
+    ContributionScore,
+    Snapshot,
+)
+
+_ROLE_ORDER = ["member", "elder", "coLeader", "leader"]
 
 
 class ScoreService:
     """
-    Service for calculating promotion and kick scores for clan members.
-
-    Minimal v0.7.0 formula (replaced by the full Contribution Score in v0.8.0):
-        - War Activity: 40%    (participated races / all-time available races)
-        - War Performance: 30% (avg fame per participated race / MAX_FAME_PER_RACE)
-        - Donations: 20%       (current donations / DONATION_TARGET)
-        - Trophy Level: 10%    (trophies / clan max trophies)
+    Service for calculating contribution scores and generating rank-based
+    promotion/demotion/kick recommendations.
     """
 
     def __init__(self, db_session: Session):
         self.db = db_session
 
+    # ==========================================================================
+    # Contribution Score components
+    # ==========================================================================
+
+    def _get_recent_race_ids(self) -> list[int]:
+        """Last RECENT_RACES_WINDOW completed races, most recent first."""
+        races = (
+            self.db.query(RiverRace.id)
+            .filter(RiverRace.is_completed.is_(True))
+            .order_by(RiverRace.created_date.desc())
+            .limit(RECENT_RACES_WINDOW)
+            .all()
+        )
+        return [r.id for r in races]
+
     def _war_activity_score(self, member_tag: str) -> float:
-        """
-        Participated races / all COMPLETED races ever logged, all-time
-        across every season. Scoped to completed races only, so a
-        currently in-progress war doesn't distort the score before it's
-        over. NOTE: this penalizes members who joined after some races
-        already happened, since there's no join-date tracking yet (planned
-        as the Seniority component in v0.8.0).
-        """
+        """Participated / all-time completed races x 100."""
         available_races = (
             self.db.query(count(RiverRace.id))
             .filter(RiverRace.is_completed.is_(True))
@@ -83,126 +121,508 @@ class ScoreService:
 
         return min(100, (participated_races / available_races) * 100)
 
-    def _war_performance_score(self, member_tag: str) -> float:
-        """
-        Average fame per participated COMPLETED race, normalized against
-        the theoretical max fame achievable in a single river race.
-        """
-        avg_fame = (
-            self.db.query(func.avg(WarParticipation.fame))
-            .join(RiverRace, RiverRace.id == WarParticipation.river_race_id)
+    def _normalized_metric(
+        self, member_tag: str, recent_race_ids: list[int], column
+    ) -> float:
+        """Member's average of `column` vs clan average, over recent_race_ids, capped."""
+        member_avg = (
+            self.db.query(func.avg(column))
             .filter(
                 WarParticipation.member_tag == member_tag,
+                WarParticipation.river_race_id.in_(recent_race_ids),
+            )
+            .scalar()
+        )
+        if not member_avg:
+            return 0
+
+        clan_avg = (
+            self.db.query(func.avg(column))
+            .filter(WarParticipation.river_race_id.in_(recent_race_ids))
+            .scalar()
+            or 0
+        )
+        if not clan_avg:
+            return 0
+
+        return min(WAR_PERFORMANCE_SUBMETRIC_CAP, (member_avg / clan_avg) * 100)
+
+    def _war_performance_score(
+        self, member_tag: str, recent_race_ids: list[int]
+    ) -> float:
+        """40% fame + 30% decks + 20% repairs + 10% boats, each vs clan avg."""
+        if not recent_race_ids:
+            return 0
+
+        fame_score = self._normalized_metric(
+            member_tag, recent_race_ids, WarParticipation.fame
+        )
+        decks_score = self._normalized_metric(
+            member_tag, recent_race_ids, WarParticipation.decks_used
+        )
+        repairs_score = self._normalized_metric(
+            member_tag, recent_race_ids, WarParticipation.repair_points
+        )
+        boats_score = self._normalized_metric(
+            member_tag, recent_race_ids, WarParticipation.boat_attacks
+        )
+
+        composite = (
+            fame_score * WAR_PERFORMANCE_FAME_WEIGHT
+            + decks_score * WAR_PERFORMANCE_DECKS_WEIGHT
+            + repairs_score * WAR_PERFORMANCE_REPAIRS_WEIGHT
+            + boats_score * WAR_PERFORMANCE_BOATS_WEIGHT
+        )
+        return min(100, composite)
+
+    def _donations_score(self, member: Member) -> float:
+        """30-day snapshot average donations / DONATION_TARGET x 100."""
+        window_start = get_time() - timedelta(days=DONATIONS_AVERAGE_WINDOW_DAYS)
+
+        avg_donations = (
+            self.db.query(func.avg(Snapshot.donations))
+            .filter(
+                Snapshot.member_tag == member.tag,
+                Snapshot.collected_at >= window_start,
+            )
+            .scalar()
+        )
+
+        if avg_donations is None:
+            # No snapshot history in the window yet - fall back to current donations
+            avg_donations = member.donations
+
+        return min(100, (avg_donations / DONATION_TARGET) * 100)
+
+    def _trophy_level_score(self, member: Member) -> float:
+        """Trophies relative to the clan's TROPHY_PERCENTILE (computed in Python -
+        percentile_cont is Postgres-only, this works identically on SQLite too)."""
+        all_trophies = sorted(
+            t
+            for (t,) in self.db.query(Member.trophies)
+            .filter(Member.role.notin_(["left", "fired"]))
+            .all()
+        )
+
+        if not all_trophies:
+            return 0
+
+        percentile_index = min(
+            len(all_trophies) - 1,
+            int(len(all_trophies) * (TROPHY_PERCENTILE / 100)),
+        )
+        percentile_trophies = all_trophies[percentile_index]
+
+        if not percentile_trophies:
+            return 0
+
+        return min(100, (member.trophies / percentile_trophies) * 100)
+
+    def _activity_component_score(self, member: Member) -> float:
+        days_since = (get_time() - member.last_seen).days if member.last_seen else None
+        return activity_score_from_days(days_since)
+
+    def _effective_join_date(self, member: Member) -> datetime | None:
+        """
+        Best-known date this member has been around, correcting for
+        clan_joined_at potentially being stamped later than reality (e.g. a
+        historical war-log backfill can create a Member row - and stamp
+        clan_joined_at "now" - well after their actual first appearance).
+        Uses whichever is earlier: clan_joined_at, or their first known
+        completed-race participation.
+        """
+        earliest_participation_date = (
+            self.db.query(func.min(RiverRace.created_date))
+            .join(WarParticipation, WarParticipation.river_race_id == RiverRace.id)
+            .filter(
+                WarParticipation.member_tag == member.tag,
                 RiverRace.is_completed.is_(True),
             )
             .scalar()
-            or 0
         )
 
-        return min(100, (avg_fame / MAX_FAME_PER_RACE) * 100)
+        candidates = [
+            d
+            for d in (member.clan_joined_at, earliest_participation_date)
+            if d is not None
+        ]
+        return min(candidates) if candidates else None
 
-    def _donations_score(self, member: Member) -> float:
+    def _raw_consistency_score(
+        self, member: Member, recent_race_ids: list[int]
+    ) -> float | None:
         """
-        Current donations against the clan donation target.
+        100 - coefficient of variation of fame, scoped to races within
+        recent_race_ids on/after the member's effective join date. Returns
+        None if the member has fewer than MIN_RACES_FOR_CONSISTENCY
+        eligible races - not enough data to be meaningful (e.g. a single
+        race with 0 variance would trivially score 100, which isn't
+        earned).
         """
-        return min(100, (member.donations / DONATION_TARGET) * 100)
+        if not recent_race_ids:
+            return None
 
-    def _trophy_level_score(self, member: Member) -> float:
-        """
-        Trophies relative to the clan's current maximum (active members only).
-        """
-        clan_max_trophies = (
-            self.db.query(func.max(Member.trophies))
-            .filter(Member.role.notin_(["left", "fired"]))
-            .scalar()
-            or 0
-        )
+        effective_join_date = self._effective_join_date(member)
 
-        if not clan_max_trophies:
+        applicable_race_ids = recent_race_ids
+        if effective_join_date is not None:
+            applicable_race_ids = [
+                race_id
+                for race_id, created_date in (
+                    self.db.query(RiverRace.id, RiverRace.created_date)
+                    .filter(RiverRace.id.in_(recent_race_ids))
+                    .all()
+                )
+                if created_date >= effective_join_date
+            ]
+
+        if len(applicable_race_ids) < MIN_RACES_FOR_CONSISTENCY:
+            return None
+
+        fames = [
+            row.fame
+            for row in self.db.query(WarParticipation.fame)
+            .filter(
+                WarParticipation.member_tag == member.tag,
+                WarParticipation.river_race_id.in_(applicable_race_ids),
+            )
+            .all()
+        ]
+        fames += [0] * (len(applicable_race_ids) - len(fames))
+
+        mean_fame = sum(fames) / len(fames)
+        if mean_fame == 0:
             return 0
 
-        return min(100, (member.trophies / clan_max_trophies) * 100)
+        variance = sum((f - mean_fame) ** 2 for f in fames) / len(fames)
+        stddev = variance**0.5
 
-    def calculate_promotion_score(self, member_tag: str) -> PromotionScore | None:
+        consistency = 100 - (stddev / mean_fame * 100)
+        return min(100, max(0, consistency))
+
+    def _clan_average_consistency(self, recent_race_ids: list[int]) -> float:
         """
-        Calculate and persist a promotion score for one member.
+        Mean raw consistency across active members who qualify (>=
+        MIN_RACES_FOR_CONSISTENCY eligible races). Used as the fallback for
+        members who don't have enough history yet, instead of a fixed
+        number.
 
-        Creates a new PromotionScore row (preserving history) and updates
-        Member.promotion_score / promotion_score_updated_at with the latest
-        value.
+        NOTE: this recomputes every qualifying member's raw score on every
+        call, so calculate_all_scores() redoes this work once per
+        non-qualifying member. Fine at clan scale (<=50 members); not
+        worth caching given the deferred-performance-smells agreement.
+        """
+        active_members = (
+            self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
+        )
 
-        Args:
-            member_tag: The member's Clash Royale tag.
+        qualifying_scores: list[float] = []
+        for candidate in active_members:
+            raw_score = self._raw_consistency_score(candidate, recent_race_ids)
+            if raw_score is not None:
+                qualifying_scores.append(raw_score)
 
-        Returns:
-            PromotionScore: the newly created score row, or None if the
-            member doesn't exist.
+        if not qualifying_scores:
+            return 0  # nobody in the clan has enough war history yet
+
+        return sum(qualifying_scores) / len(qualifying_scores)
+
+    def _consistency_score(self, member: Member, recent_race_ids: list[int]) -> float:
+        """
+        Member's raw consistency score, or the clan average (among
+        qualifying members) if they don't have MIN_RACES_FOR_CONSISTENCY
+        eligible races themselves yet.
+        """
+        raw_score = self._raw_consistency_score(member, recent_race_ids)
+        if raw_score is not None:
+            return raw_score
+
+        return self._clan_average_consistency(recent_race_ids)
+
+    def _seniority_score(self, member: Member) -> float:
+        """ """
+        effective_join_date = self._effective_join_date(member)
+        if not effective_join_date:
+            return 0
+
+        months = (get_time() - effective_join_date).days / 30
+        return min(100, (months / SENIORITY_MONTHS_CAP) * 100)
+
+    # ==========================================================================
+    # Public: score calculation
+    # ==========================================================================
+
+    def calculate_contribution_score(self, member_tag: str) -> ContributionScore | None:
+        """
+        Calculate and persist a contribution score for one member.
+
+        Creates a new ContributionScore row (preserving history) and updates
+        Member.contribution_score / contribution_score_updated_at with the
+        latest value.
         """
         member: Member | None = self.db.query(Member).filter_by(tag=member_tag).first()
         if not member:
             logger.warning("Cannot calculate score: member %s not found.", member_tag)
             return None
 
+        recent_race_ids = self._get_recent_race_ids()
+
         war_activity = self._war_activity_score(member_tag)
-        war_performance = self._war_performance_score(member_tag)
+        war_performance = self._war_performance_score(member_tag, recent_race_ids)
         donations = self._donations_score(member)
         trophy_level = self._trophy_level_score(member)
+        activity = self._activity_component_score(member)
+        consistency = self._consistency_score(member, recent_race_ids)
+        seniority = self._seniority_score(member)
 
         final_score = (
             war_activity * WAR_ACTIVITY_WEIGHT
-            + war_performance * WAR_WIN_RATE_WEIGHT
-            + donations * DONATIONS_WEIGHT
-            + trophy_level * TROPHY_LEVEL_WEIGHT
+            + war_performance * WAR_PERFORMANCE_WEIGHT
+            + donations * CONTRIBUTION_DONATIONS_WEIGHT
+            + trophy_level * CONTRIBUTION_TROPHY_WEIGHT
+            + activity * CONTRIBUTION_ACTIVITY_WEIGHT
+            + consistency * CONSISTENCY_WEIGHT
+            + seniority * SENIORITY_WEIGHT
         )
 
         now: datetime = get_time()
 
-        promotion_score = PromotionScore(
+        score = ContributionScore(
             member=member,
             score=final_score,
             war_activity=war_activity,
-            war_win_rate=war_performance,
+            war_performance=war_performance,
             donations=donations,
             trophy_level=trophy_level,
+            activity=activity,
+            consistency=consistency,
+            seniority=seniority,
             calculated_at=now,
         )
-        self.db.add(promotion_score)
+        self.db.add(score)
 
-        member.promotion_score = final_score
-        member.promotion_score_updated_at = now
+        member.contribution_score = final_score
+        member.contribution_score_updated_at = now
 
         self.db.commit()
 
         logger.info(
-            "Calculated promotion score for %s: %.2f "
-            "(activity=%.1f, performance=%.1f, donations=%.1f, trophies=%.1f)",
-            member_tag,
-            final_score,
-            war_activity,
-            war_performance,
-            donations,
-            trophy_level,
+            "Calculated contribution score for %s: %.2f", member_tag, final_score
         )
 
-        return promotion_score
+        return score
 
-    def calculate_all_scores(self) -> list[PromotionScore]:
+    def calculate_all_scores(self) -> list[ContributionScore]:
         """
-        Calculate and persist scores for every active member. Intended to
-        be run as part of the automated data-collection pipeline.
-
-        Returns:
-            list[PromotionScore]: the newly created score rows.
+        Calculate and persist scores for every active member.
         """
         active_members = (
             self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
         )
 
-        scores: list[PromotionScore] = []
+        scores: list[ContributionScore] = []
         for member in active_members:
-            score = self.calculate_promotion_score(member.tag)
+            score = self.calculate_contribution_score(member.tag)
             if score:
                 scores.append(score)
 
-        logger.info("Calculated promotion scores for %d members.", len(scores))
+        logger.info("Calculated contribution scores for %d members.", len(scores))
         return scores
+
+    # ==========================================================================
+    # Promotion / demotion / kick recommendations
+    # ==========================================================================
+
+    def _role_rank(self, role: str) -> int:
+        return _ROLE_ORDER.index(role) if role in _ROLE_ORDER else -1
+
+    def _one_step_up(self, role: str) -> str:
+        if role == "member":
+            return "elder"
+        if role == "elder":
+            return "coLeader"
+        return role  # coLeader stays coLeader (can't reach leader this way)
+
+    def _one_step_down(self, role: str) -> str:
+        if role == "coLeader":
+            return "elder"
+        if role == "elder":
+            return "member"
+        return role  # member has no lower role
+
+    def _role_for_rank_band(self, current_role: str, rank: int) -> str:
+        if rank <= PROMOTION_BAND_TOP:
+            return self._one_step_up(current_role)
+
+        if rank <= PROMOTION_BAND_ELDER:
+            if current_role == "member":
+                return "elder"
+            return current_role  # elder/coLeader stay as-is
+
+        if rank <= PROMOTION_BAND_DEMOTE_COLEADER:
+            if current_role == "coLeader":
+                return "elder"
+            return current_role  # member/elder stay as-is
+
+        return "member"  # rank beyond PROMOTION_BAND_DEMOTE_COLEADER
+
+    def _fame_in_race(self, member_tag: str, race_id: int | None) -> int:
+        if race_id is None:
+            return 0
+        fame = (
+            self.db.query(func.sum(WarParticipation.fame))
+            .filter(
+                WarParticipation.member_tag == member_tag,
+                WarParticipation.river_race_id == race_id,
+            )
+            .scalar()
+        )
+        return fame or 0
+
+    def get_promotion_recommendations(self) -> list[dict[str, Any]]:
+        """
+        Rank-based promotion/demotion/kick recommendations from the last
+        completed river race, per the v0.8.0 rules:
+            - Rank 1-15: promoted one step (coLeader stays coLeader)
+            - Rank 16-25: promoted to elder if below (coLeader stays coLeader)
+            - Rank 26-35: demoted one step only if coLeader
+            - Rank 36-50+: demoted to member
+            - Fame < SANCTION_FAME_THRESHOLD this race: demoted one step,
+              overriding the band outcome
+            - Fame < SANCTION_FAME_THRESHOLD 2 consecutive races: flagged
+              for kick
+        Leader is exempt throughout. READ-ONLY - does not modify Member.role;
+        the public API can't write role changes, so this produces
+        recommendations for manual action in-game.
+
+        Returns:
+            list[dict]: one entry per active member:
+                {tag, name, current_role, rank, fame, recommended_role,
+                 action, reason}
+                action is one of: "promote", "demote", "kick", "no_change"
+        """
+        last_race = (
+            self.db.query(RiverRace)
+            .filter(RiverRace.is_completed.is_(True))
+            .order_by(RiverRace.created_date.desc())
+            .first()
+        )
+
+        if not last_race:
+            return []
+
+        second_last_race = (
+            self.db.query(RiverRace)
+            .filter(
+                RiverRace.is_completed.is_(True),
+                RiverRace.id != last_race.id,
+            )
+            .order_by(RiverRace.created_date.desc())
+            .first()
+        )
+
+        active_members = (
+            self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
+        )
+
+        entries = [
+            {
+                "member": member,
+                "fame": self._fame_in_race(member.tag, last_race.id),
+                "previous_fame": self._fame_in_race(
+                    member.tag, second_last_race.id if second_last_race else None
+                ),
+            }
+            for member in active_members
+        ]
+
+        ranked = sorted(
+            entries, key=lambda entry: (-entry["fame"], entry["member"].tag)
+        )
+
+        recommendations: list[dict[str, Any]] = []
+
+        for rank, entry in enumerate(ranked, start=1):
+            member = entry["member"]
+            fame = entry["fame"]
+            previous_fame = entry["previous_fame"]
+            current_role = member.role
+
+            if current_role == "leader":
+                recommendations.append(
+                    {
+                        "tag": member.tag,
+                        "name": member.name,
+                        "current_role": current_role,
+                        "rank": rank,
+                        "fame": fame,
+                        "recommended_role": current_role,
+                        "action": "no_change",
+                        "reason": "Leader is exempt from automated recommendations.",
+                    }
+                )
+                continue
+
+            sanctioned_this_race = fame < SANCTION_FAME_THRESHOLD
+            sanctioned_last_race = previous_fame < SANCTION_FAME_THRESHOLD
+
+            if sanctioned_this_race and sanctioned_last_race and second_last_race:
+                recommendations.append(
+                    {
+                        "tag": member.tag,
+                        "name": member.name,
+                        "current_role": current_role,
+                        "rank": rank,
+                        "fame": fame,
+                        "recommended_role": current_role,
+                        "action": "kick",
+                        "reason": (
+                            f"Scored under {SANCTION_FAME_THRESHOLD} fame in the last "
+                            "2 consecutive races."
+                        ),
+                    }
+                )
+                continue
+
+            if sanctioned_this_race:
+                recommended_role = self._one_step_down(current_role)
+                recommendations.append(
+                    {
+                        "tag": member.tag,
+                        "name": member.name,
+                        "current_role": current_role,
+                        "rank": rank,
+                        "fame": fame,
+                        "recommended_role": recommended_role,
+                        "action": (
+                            "demote"
+                            if recommended_role != current_role
+                            else "no_change"
+                        ),
+                        "reason": f"Scored under {SANCTION_FAME_THRESHOLD} fame in the last race.",
+                    }
+                )
+                continue
+
+            recommended_role = self._role_for_rank_band(current_role, rank)
+            if recommended_role == current_role:
+                action = "no_change"
+            elif self._role_rank(recommended_role) > self._role_rank(current_role):
+                action = "promote"
+            else:
+                action = "demote"
+
+            recommendations.append(
+                {
+                    "tag": member.tag,
+                    "name": member.name,
+                    "current_role": current_role,
+                    "rank": rank,
+                    "fame": fame,
+                    "recommended_role": recommended_role,
+                    "action": action,
+                    "reason": f"Ranked #{rank} in the last race.",
+                }
+            )
+
+        return recommendations

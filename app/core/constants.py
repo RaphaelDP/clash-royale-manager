@@ -27,12 +27,6 @@ INACTIVE_DAYS = 7
 VERY_INACTIVE_DAYS = 14
 KICK_CANDIDATE_DAYS = 21
 
-# Promotion score weights
-WAR_ACTIVITY_WEIGHT = 0.4
-WAR_WIN_RATE_WEIGHT = 0.3
-DONATIONS_WEIGHT = 0.2
-TROPHY_LEVEL_WEIGHT = 0.1
-
 # Kick score thresholds
 KICK_SCORE_INACTIVE = 50
 KICK_SCORE_MISSED_WARS = 30
@@ -63,21 +57,45 @@ RETENTION_WINDOW_DAYS = 30
 RETENTION_WINDOW_TOLERANCE_DAYS = 5
 GROWTH_WINDOW_DAYS = 30
 
-# Activity score buckets: (days_since_last_seen, score).
-# Values between day 30 and day 60 are linearly interpolated to avoid a
-# hard cliff; other gaps snap to the lower threshold's score (step function).
-ACTIVITY_SCORE_BUCKETS = [
-    (0, 100),
-    (1, 98),
-    (2, 96),
-    (3, 94),
-    (7, 80),
-    (14, 55),
-    (30, 20),
-    (60, 0),
-]
 
 ### Score Service Constants (v0.7.0 minimal) ###
 # Theoretical max fame achievable in a single river race:
 # 4 days x (2 duel wins x 250 + 2 combat wins x 200) = 4 x 900 = 3600
 MAX_FAME_PER_RACE = 3600
+
+
+### Contribution Score Constants (v0.8.0) ###
+# Component weights (sum to 1.0)
+WAR_ACTIVITY_WEIGHT = 0.30
+WAR_PERFORMANCE_WEIGHT = 0.20
+CONTRIBUTION_DONATIONS_WEIGHT = 0.15
+CONTRIBUTION_TROPHY_WEIGHT = 0.10
+CONTRIBUTION_ACTIVITY_WEIGHT = 0.10
+CONSISTENCY_WEIGHT = 0.10
+SENIORITY_WEIGHT = 0.05
+
+# Hill function parameters for activity calcul
+ACTIVITY_HALF_LIFE = 7.0  # half-life: the number of days at which the score reaches 50.
+ACTIVITY_STEEPNESS = 2.5  # steepness : controls how sharp the drop is.
+
+
+# War Performance sub-component weights (sum to 1.0)
+WAR_PERFORMANCE_FAME_WEIGHT = 0.40
+WAR_PERFORMANCE_DECKS_WEIGHT = 0.30
+WAR_PERFORMANCE_REPAIRS_WEIGHT = 0.20
+WAR_PERFORMANCE_BOATS_WEIGHT = 0.10
+WAR_PERFORMANCE_SUBMETRIC_CAP = (
+    120  # cap each sub-metric (vs clan avg) before weighting
+)
+
+RECENT_RACES_WINDOW = 8  # races used for War Performance & Consistency components
+DONATIONS_AVERAGE_WINDOW_DAYS = 30
+MIN_RACES_FOR_CONSISTENCY = 3  # # below this, Consistency uses the clan average (of qualifying members) instead of the member's own score
+SENIORITY_MONTHS_CAP = 12  # months after which Seniority maxes out at 100
+TROPHY_PERCENTILE = 95  # percentile used to normalize Trophy Level
+
+# Promotion / sanction rules
+SANCTION_FAME_THRESHOLD = 1600
+PROMOTION_BAND_TOP = 15
+PROMOTION_BAND_ELDER = 25
+PROMOTION_BAND_DEMOTE_COLEADER = 35

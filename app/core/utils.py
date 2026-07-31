@@ -14,6 +14,24 @@ Dependencies: datetime
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
 from app.core.config import settings
+from app.core.constants import ACTIVITY_HALF_LIFE, ACTIVITY_STEEPNESS
+
+
+def activity_score_from_days(days: float | None) -> int:
+    """
+    Maps 'days since last seen' to a 0-100 activity score using a smooth
+    logistic decay curve. HALF_LIFE is the day count where the score
+    crosses 50; STEEPNESS controls how sharply it falls off around that
+    point.
+
+    Shared by DashboardService.get_activity_ranking and ScoreService's
+    Activity component, so both use one implementation.
+    """
+    if days is None:
+        return 0
+
+    score = 100 / (1 + pow(days / ACTIVITY_HALF_LIFE, ACTIVITY_STEEPNESS))
+    return round(score)
 
 
 def convert_timestamp_to_datetime(timestamp_str: str | None) -> datetime:

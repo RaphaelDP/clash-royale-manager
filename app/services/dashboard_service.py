@@ -22,15 +22,15 @@ from sqlalchemy import func, select
 from app.database.models import (
     Member,
     Snapshot,
-    PromotionScore,
+    ContributionScore,
     WarSeason,
     RiverRace,
     WarParticipation,
 )
-
+from app.services.score_service import ScoreService
 from app.services.clash_api import ClashAPIClient
 from app.services.member_service import MemberService
-from app.core.utils import count, get_time
+from app.core.utils import count, get_time, activity_score_from_days
 from app.core.constants import (
     EXPECTED_FAME_PER_PLAYER,
     DONATION_TARGET,
@@ -40,7 +40,6 @@ from app.core.constants import (
     GROWTH_WINDOW_DAYS,
     INACTIVE_DAYS,
     VERY_INACTIVE_DAYS,
-    ACTIVITY_SCORE_BUCKETS,
     CLAN_HEALTH_WEIGHTS,
 )
 
@@ -79,9 +78,9 @@ class DashboardService:
             func.coalesce(func.sum(Member.donations), 0)
         ).scalar()
 
-        avg_promotion_score = (
-            self.db.query(func.avg(Member.promotion_score))
-            .filter(Member.promotion_score.isnot(None))
+        avg_contribution_score = (
+            self.db.query(func.avg(Member.contribution_score))
+            .filter(Member.contribution_score.isnot(None))
             .scalar()
             or 0
         )
@@ -98,7 +97,7 @@ class DashboardService:
             "active_members": active_members,
             "average_trophies": round(avg_trophies or 0),
             "total_donations": total_donations,
-            "average_promotion_score": round(avg_promotion_score, 2),
+            "average_promotion_score": round(avg_contribution_score, 2),
         }
 
     def get_members_filter_by_role(self, role: str | None = None) -> list[Member]:
@@ -123,7 +122,8 @@ class DashboardService:
         return {
             "members": self.db.query(count(Member.id)).scalar() or 0,
             "snapshots": self.db.query(count(Snapshot.id)).scalar() or 0,
-            "promotion_scores": self.db.query(count(PromotionScore.id)).scalar() or 0,
+            "promotion_scores": self.db.query(count(ContributionScore.id)).scalar()
+            or 0,
             "war_seasons": self.db.query(count(WarSeason.id)).scalar() or 0,
             "river_races": self.db.query(count(RiverRace.id)).scalar() or 0,
             "participations": self.db.query(count(WarParticipation.id)).scalar() or 0,
@@ -198,58 +198,62 @@ class DashboardService:
     # Promotion statistics
     # ==========================================================================
 
-    def get_promotion_stats(self) -> dict[str, Any]:
+    def get_contribution_stats(self) -> dict[str, Any]:
         """
         Promotion score statistics.
         """
 
         return {
             "average_score": (
-                self.db.query(func.avg(PromotionScore.score)).scalar() or 0
+                self.db.query(func.avg(ContributionScore.score)).scalar() or 0
             ),
-            "max_score": self.db.query(func.max(PromotionScore.score)).scalar(),
-            "min_score": self.db.query(func.min(PromotionScore.score)).scalar(),
+            "max_score": self.db.query(func.max(ContributionScore.score)).scalar(),
+            "min_score": self.db.query(func.min(ContributionScore.score)).scalar(),
             "latest_calculation": (
-                self.db.query(func.max(PromotionScore.calculated_at)).scalar()
+                self.db.query(func.max(ContributionScore.calculated_at)).scalar()
             ),
         }
 
     # ==========================================================================
-    # Promotion dashboard
+    # Contribution dashboard
     # ==========================================================================
 
-    def get_promotion_dashboard(self) -> dict[str, Any]:
+    def get_contribution_dashboard(self) -> dict[str, Any]:
         """
-        Aggregated promotion dashboard: counts, extremes, and a ranking built
-        from each member's most recent PromotionScore.
+        Aggregated contribution dashboard: counts, extremes, and a ranking
+        built from each member's most recent ContributionScore.
         """
         latest_scores = (
             select(
-                PromotionScore.member_tag,
-                func.max(PromotionScore.calculated_at).label("latest_calculated_at"),
+                ContributionScore.member_tag,
+                func.max(ContributionScore.calculated_at).label("latest_calculated_at"),
             )
-            .group_by(PromotionScore.member_tag)
+            .group_by(ContributionScore.member_tag)
             .subquery()
         )
 
         rows = (
             self.db.query(
                 Member.name,
-                PromotionScore.score,
-                PromotionScore.war_activity,
-                PromotionScore.war_win_rate,
-                PromotionScore.donations,
-                PromotionScore.trophy_level,
+                ContributionScore.score,
+                ContributionScore.war_activity,
+                ContributionScore.war_performance,
+                ContributionScore.donations,
+                ContributionScore.trophy_level,
+                ContributionScore.activity,
+                ContributionScore.consistency,
+                ContributionScore.seniority,
             )
-            .join(Member, Member.tag == PromotionScore.member_tag)
+            .join(Member, Member.tag == ContributionScore.member_tag)
             .join(
                 latest_scores,
-                (PromotionScore.member_tag == latest_scores.c.member_tag)
+                (ContributionScore.member_tag == latest_scores.c.member_tag)
                 & (
-                    PromotionScore.calculated_at == latest_scores.c.latest_calculated_at
+                    ContributionScore.calculated_at
+                    == latest_scores.c.latest_calculated_at
                 ),
             )
-            .order_by(PromotionScore.score.desc())
+            .order_by(ContributionScore.score.desc())
             .all()
         )
 
@@ -258,9 +262,12 @@ class DashboardService:
                 "name": row.name,
                 "score": row.score,
                 "war_activity": row.war_activity,
-                "war_win_rate": row.war_win_rate,
+                "war_performance": row.war_performance,
                 "donations": row.donations,
                 "trophy_level": row.trophy_level,
+                "activity": row.activity,
+                "consistency": row.consistency,
+                "seniority": row.seniority,
             }
             for row in rows
         ]
@@ -296,42 +303,26 @@ class DashboardService:
 
     def get_kick_candidates(self, _days_threshold: int = 14) -> list[dict[str, Any]]:
         """
-        Placeholder for kick-candidate detection.
-
-        TODO (v0.8.0 - Decision Support Release): implement real kick-scoring
-        using the KICK_SCORE_INACTIVE / KICK_SCORE_MISSED_WARS /
-        KICK_SCORE_NO_DONATIONS constants (app.core.constants), once
-        ScoreService.calculate_promotion_score is implemented. Returns an
-        empty list for now so the dashboard renders without crashing.
+        Kick candidates from the rank-based recommendation system: members
+        flagged with action == "kick" (2 consecutive races under the fame
+        sanction threshold). _days_threshold is unused - kept for backward
+        signature compatibility with callers passing an inactivity slider
+        value; kicking is now driven by fame, not raw inactivity.
         """
-        return []
+        recommendations = self.get_promotion_recommendations()
+        return [r for r in recommendations if r["action"] == "kick"]
+
+    def get_promotion_recommendations(self) -> list[dict[str, Any]]:
+        """
+        Rank-based promotion/demotion/kick recommendations (v0.8.0).
+        Delegates to ScoreService, which owns the decision logic.
+        """
+        score_service = ScoreService(self.db)
+        return score_service.get_promotion_recommendations()
 
     # ==========================================================================
     # Clan health & activity (v0.6.0)
     # ==========================================================================
-
-    def _activity_score_from_days(self, days_since_last_seen: int | None) -> float:
-        """
-        Maps 'days since last seen' to a 0-100 activity score using
-        ACTIVITY_SCORE_BUCKETS. Days between 30 and 60 interpolate linearly
-        toward 0; other gaps hold the lower threshold's score.
-        """
-        if days_since_last_seen is None:
-            return 0
-
-        buckets = ACTIVITY_SCORE_BUCKETS
-
-        if days_since_last_seen >= buckets[-1][0]:
-            return buckets[-1][1]
-
-        for (day, score), (next_day, next_score) in zip(buckets, buckets[1:]):
-            if day <= days_since_last_seen < next_day:
-                if day == 30 and next_day == 60:
-                    ratio = (days_since_last_seen - day) / (next_day - day)
-                    return score + (next_score - score) * ratio
-                return score
-
-        return buckets[0][1]
 
     def _get_average_trophy_gain(self, window_days: int) -> float:
         """
@@ -534,9 +525,7 @@ class DashboardService:
                     "tag": tag,
                     "name": name,
                     "days_since_last_seen": days_since,
-                    "activity_score": round(
-                        self._activity_score_from_days(days_since), 1
-                    ),
+                    "activity_score": activity_score_from_days(days_since),
                 }
             )
 
@@ -827,18 +816,14 @@ class DashboardService:
             self.db.query(Member).order_by(Member.donations.desc()).limit(limit).all()
         )
 
-    def get_top_members_by_promotion_score(
-        self,
-        limit: int = 10,
-    ) -> list[Member]:
+    def get_top_members_by_contribution_score(self, limit: int = 10) -> list[Member]:
         """
-        Top members ordered by promotion score.
+        Top members ordered by contribution score.
         """
-
         return (
             self.db.query(Member)
-            .filter(Member.promotion_score.isnot(None))
-            .order_by(Member.promotion_score.desc())
+            .filter(Member.contribution_score.isnot(None))
+            .order_by(Member.contribution_score.desc())
             .limit(limit)
             .all()
         )
