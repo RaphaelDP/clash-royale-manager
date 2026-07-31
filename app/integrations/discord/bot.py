@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.core.logger import logger
 
 DISCORD_MESSAGE_LIMIT = 2000
+_UNSET = object()
 
 
 class DiscordBot:
@@ -30,15 +31,19 @@ class DiscordBot:
     process that has to stay logged in.
     """
 
-    def __init__(self, webhook_url: str | None = None):
+    def __init__(self, webhook_url: str | None = _UNSET):
         """
         Initialize the DiscordBot with a webhook URL.
 
         Args:
             webhook_url: Discord incoming webhook URL. Defaults to
-                settings.DISCORD_WEBHOOK_URL if not provided.
+                settings.DISCORD_WEBHOOK_URL if not provided at all.
+                Pass None explicitly to force "no webhook configured"
+                regardless of settings (e.g. for tests).
         """
-        self.webhook_url = webhook_url or settings.DISCORD_WEBHOOK_URL
+        self.webhook_url = (
+            settings.DISCORD_WEBHOOK_URL if webhook_url is _UNSET else webhook_url
+        )
 
     def send_notification(self, message: str) -> bool:
         """
