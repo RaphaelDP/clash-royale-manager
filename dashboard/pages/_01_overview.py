@@ -88,9 +88,9 @@ with get_session() as db:
     # Activity Ranking
     # ==========================================================================
 
-    st.header("🏃 Activity Ranking")
+    st.header("😴 Inactivity Ranking")
 
-    activity_ranking = dashboard_service.get_activity_ranking(limit=15)
+    activity_ranking = dashboard_service.get_inactivity_ranking(limit=15)
 
     if activity_ranking:
         activity_df = pd.DataFrame(activity_ranking)
