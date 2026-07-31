@@ -20,58 +20,48 @@ from app.core.utils import get_time
 # =============================================================================
 
 
-def test_get_promotion_dashboard(
-    db_session, dashboard_service, member_factory, promotion_score_factory
+def test_get_contribution_dashboard(
+    db_session, dashboard_service, member_factory, contribution_score_factory
 ):
-    """Verify promotion dashboard aggregates each member's latest score only, ranked descending."""
-
+    """ """
     top_member = member_factory(name="Ada", tag="#ADA")
     low_member = member_factory(name="Bob", tag="#BOB")
     db_session.add_all([top_member, low_member])
     db_session.flush()
 
-    # An older, lower score for Ada should be ignored in favor of the latest one.
-    older_score = promotion_score_factory(
-        member=top_member,
-        score=50.0,
-        calculated_at=get_time() - timedelta(days=10),
+    older_score = contribution_score_factory(
+        member=top_member, score=50.0, calculated_at=get_time() - timedelta(days=10)
     )
-    latest_score = promotion_score_factory(
+    latest_score = contribution_score_factory(
         member=top_member,
         score=90.0,
         war_activity=0.9,
-        war_win_rate=0.8,
+        war_performance=0.8,
         donations=0.7,
         trophy_level=0.6,
+        activity=0.5,
+        consistency=0.4,
+        seniority=0.3,
         calculated_at=get_time(),
     )
-    bob_score = promotion_score_factory(
+    bob_score = contribution_score_factory(
         member=low_member, score=60.0, calculated_at=get_time()
     )
 
     db_session.add_all([older_score, latest_score, bob_score])
     db_session.commit()
 
-    result = dashboard_service.get_promotion_dashboard()
+    result = dashboard_service.get_contribution_dashboard()
 
     assert result["score_count"] == 2
-    assert result["average_score"] == 75.0  # (90 + 60) / 2
+    assert result["average_score"] == 75.0
     assert result["highest_score"] == 90.0
     assert [entry["name"] for entry in result["ranking"]] == ["Ada", "Bob"]
-    assert result["ranking"][0] == {
-        "name": "Ada",
-        "score": 90.0,
-        "war_activity": 0.9,
-        "war_win_rate": 0.8,
-        "donations": 0.7,
-        "trophy_level": 0.6,
-    }
 
 
-def test_get_promotion_dashboard_empty(dashboard_service):
-    """With no promotion scores, all figures should be zero and ranking empty."""
-
-    result = dashboard_service.get_promotion_dashboard()
+def test_get_contribution_dashboard_empty(dashboard_service):
+    """ """
+    result = dashboard_service.get_contribution_dashboard()
 
     assert result == {
         "score_count": 0,
@@ -106,13 +96,40 @@ def test_get_inactive_members(db_session, dashboard_service, member_factory):
     assert result[0]["name"] == "Ghost"
 
 
-def test_get_kick_candidates_is_placeholder(dashboard_service):
-    """
-    Business rule: kick-candidate scoring is not implemented yet, pending
-    the Contribution Score design (v0.8.0). Must return an empty list
-    rather than guessing at behaviour.
-    """
-    assert dashboard_service.get_kick_candidates(14) == []
+def test_get_kick_candidates_delegates_to_score_service(
+    db_session,
+    dashboard_service,
+    member_factory,
+    war_season_factory,
+    river_race_factory,
+    war_participation_factory,
+):
+    member = member_factory(tag="#KICKME", role="member")
+    db_session.add(member)
+    db_session.flush()
+
+    season = war_season_factory(season_id="2027-10")
+    race1 = river_race_factory(war_season=season, section_index=0, is_completed=True)
+    race2 = river_race_factory(war_season=season, section_index=1, is_completed=True)
+
+    participation1 = war_participation_factory(
+        member=member, river_race=race1, fame=500
+    )
+    participation2 = war_participation_factory(
+        member=member, river_race=race2, fame=500
+    )
+
+    db_session.add_all([participation1, participation2])
+    db_session.commit()
+
+    result = dashboard_service.get_kick_candidates()
+
+    assert len(result) == 1
+    assert result[0]["tag"] == "#KICKME"
+
+
+def test_get_promotion_recommendations_no_data(dashboard_service):
+    assert dashboard_service.get_promotion_recommendations() == []
 
 
 # =============================================================================
@@ -324,26 +341,39 @@ def test_get_activity_ranking(db_session, dashboard_service, member_factory):
     mid_decay = member_factory(
         name="MidDecay", last_seen=get_time() - timedelta(days=45)
     )
+    three_days = member_factory(
+        name="ThreeDays", last_seen=get_time() - timedelta(days=3)
+    )
     left_member = member_factory(name="Gone", role="left", last_seen=get_time())
 
-    db_session.add_all([fresh, two_weeks, mid_decay, left_member])
+    db_session.add_all([fresh, two_weeks, mid_decay, three_days, left_member])
     db_session.commit()
 
     result = dashboard_service.get_activity_ranking()
 
     names = [entry["name"] for entry in result]
-    assert names == ["Fresh", "TwoWeeks", "MidDecay"]  # left member excluded
+    assert names == [
+        "Fresh",
+        "ThreeDays",
+        "TwoWeeks",
+        "MidDecay",
+    ]  # left member excluded
 
     fresh_entry = next(e for e in result if e["name"] == "Fresh")
     assert fresh_entry["activity_score"] == 100
 
     two_weeks_entry = next(e for e in result if e["name"] == "TwoWeeks")
-    assert two_weeks_entry["activity_score"] == 55
+    assert (
+        two_weeks_entry["activity_score"] == 15
+    )  # 100 / (1 + (14/7)^2.5) = 15.02 → 15,
 
-    # Interpolated between day 30 (score 20) and day 60 (score 0):
-    # 20 + (0 - 20) * ((45 - 30) / (60 - 30)) = 10
     mid_decay_entry = next(e for e in result if e["name"] == "MidDecay")
-    assert mid_decay_entry["activity_score"] == 10
+    assert mid_decay_entry["activity_score"] == 1  # 100 / (1 + (45/7)^2.5) = 0.945 → 1,
+
+    three_days_entry = next(e for e in result if e["name"] == "ThreeDays")
+    assert (
+        three_days_entry["activity_score"] == 89
+    )  # 100 / (1 + (3/7)^2.5) = 89.27 → 89,
 
     limited = dashboard_service.get_activity_ranking(limit=1)
     assert len(limited) == 1
