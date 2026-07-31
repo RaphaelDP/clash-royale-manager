@@ -22,7 +22,7 @@ from app.database.base import Base
 from app.database.models import (
     Member,
     Snapshot,
-    PromotionScore,
+    ContributionScore,
     WarSeason,
     RiverRace,
     WarParticipation,
@@ -204,9 +204,9 @@ def snapshot_factory(member_factory):
 
 
 @pytest.fixture
-def promotion_score_factory(member_factory):
+def contribution_score_factory(member_factory):
     """
-    Factory creating Promotion Score instances.
+    Factory creating Contribution Score instances.
     """
 
     def _create(member=None, **kwargs):
@@ -218,15 +218,18 @@ def promotion_score_factory(member_factory):
             "member": member,
             "score": 95.5,
             "war_activity": 0.4,
-            "war_win_rate": 0.3,
+            "war_performance": 0.3,
             "donations": 0.2,
             "trophy_level": 0.1,
+            "activity": 0.0,
+            "consistency": 0.0,
+            "seniority": 0.0,
             "calculated_at": get_time(),
         }
 
         defaults.update(kwargs)
 
-        return PromotionScore(**defaults)
+        return ContributionScore(**defaults)
 
     return _create
 
@@ -274,10 +277,10 @@ def populated_member_graph(
     war_season_factory,
     river_race_factory,
     war_participation_factory,
-    promotion_score_factory,
+    contribution_score_factory,
 ):
     """
-    Create a member with related snapshots, war participations, and promotion scores.
+    Create a member with related snapshots, war participations, and contribution scores.
     """
 
     member = member_factory(
@@ -310,7 +313,7 @@ def populated_member_graph(
         boat_attacks=2,
     )
 
-    promotion_score = promotion_score_factory(
+    contribution_score = contribution_score_factory(
         member=member,
         score=95.5,
     )
@@ -322,7 +325,7 @@ def populated_member_graph(
             river_race,
             snapshot,
             war_participation,
-            promotion_score,
+            contribution_score,
         ]
     )
 
@@ -336,7 +339,7 @@ def populated_member_graph(
         "river_race": river_race,
         "snapshot": snapshot,
         "war_participation": war_participation,
-        "promotion_score": promotion_score,
+        "contribution_score": contribution_score,
     }
 
 

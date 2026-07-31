@@ -43,7 +43,7 @@ def test_member_relationships(populated_member_graph):
     Verify Member relationships:
     - snapshots
     - war participations
-    - promotion scores
+    - contribution scores
     """
 
     member = populated_member_graph["member"]
@@ -73,11 +73,11 @@ def test_member_relationships(populated_member_graph):
     assert participation.member is member
     assert participation.river_race is not None
 
-    # PromotionScore relationship
+    # ContributionScore relationship
 
-    assert len(member.promotion_scores) == 1
+    assert len(member.contribution_scores) == 1
 
-    score = member.promotion_scores[0]
+    score = member.contribution_scores[0]
 
     assert score.member_tag == member.tag
     assert score.score == 95.5

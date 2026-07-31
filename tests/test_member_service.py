@@ -186,7 +186,7 @@ def test_get_member_history(member_service, populated_member_graph):
     assert history["member"] == member
     assert len(history["snapshots"]) == 1
     assert len(history["war_participations"]) == 1
-    assert len(history["promotion_scores"]) == 1
+    assert len(history["contribution_scores"]) == 1
 
 
 def test_get_member_history_unknown(member_service):
@@ -276,7 +276,7 @@ def test_promote_member(db_session, member_service, member_factory):
     updated_member = db_session.query(Member).filter_by(tag=member.tag).first()
     assert updated_member.role == "elder"
 
-    # Invalid promotion (member → leader)
+    # Invalid contribution (member → leader)
     assert member_service.promote_member(member.tag, "leader") is False
 
     # Promote to coLeader

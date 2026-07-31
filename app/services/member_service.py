@@ -87,6 +87,7 @@ class MemberService:
                 last_seen=(
                     convert_timestamp_to_datetime(last_seen) if last_seen else None
                 ),
+                clan_joined_at=get_time(),
             )
             self.db.add(new_member)
             logger.info("Created new member %s with role %s.", tag, role)
@@ -220,7 +221,7 @@ class MemberService:
             "member": member,
             "snapshots": member.snapshots,
             "war_participations": member.war_participations,
-            "promotion_scores": member.promotion_scores,
+            "contribution_scores": member.contribution_scores,
         }
 
     def add_ex_member(self, tag: str) -> None:
@@ -265,8 +266,8 @@ class MemberService:
             "trophies": member.trophies,
             "donations": member.donations,
             "last_seen": member.last_seen,
-            "promotion_score": member.promotion_score,
-            "promotion_score_updated_at": member.promotion_score_updated_at,
+            "contribution_score": member.contribution_score,
+            "contribution_score_updated_at": member.contribution_score_updated_at,
         }
 
         if not all_stats:

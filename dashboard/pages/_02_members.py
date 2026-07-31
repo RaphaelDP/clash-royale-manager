@@ -63,8 +63,8 @@ with get_session() as db:
         value=0,
     )
 
-    has_promotion_score = st.sidebar.checkbox(
-        "Only members with promotion score",
+    has_contribution_score = st.sidebar.checkbox(
+        "Only members with contribution score",
         value=False,
     )
 
@@ -78,7 +78,7 @@ with get_session() as db:
         if member.role in selected_roles
         and member.trophies >= min_trophies
         and member.donations >= min_donations
-        and (not has_promotion_score or member.promotion_score is not None)
+        and (not has_contribution_score or member.contribution_score is not None)
     ]
 
     # ==========================================================================
@@ -116,9 +116,9 @@ with get_session() as db:
 
     with col4:
         scores = [
-            member.promotion_score
+            member.contribution_score
             for member in filtered_members
-            if member.promotion_score is not None
+            if member.contribution_score is not None
         ]
 
         st.metric(
@@ -148,8 +148,8 @@ with get_session() as db:
                 "Trophies": member.trophies,
                 "Donations": member.donations,
                 "Last Seen": member.last_seen,
-                "Promotion Score": member.promotion_score,
-                "Score Updated": member.promotion_score_updated_at,
+                "Contribution Score": member.contribution_score,
+                "Score Updated": member.contribution_score_updated_at,
             }
             for member in filtered_members
         ]
@@ -213,28 +213,28 @@ with get_session() as db:
         )
 
     with col3:
-        st.subheader("Promotion Score")
+        st.subheader("Contribution Score")
 
-        promotion_df = pd.DataFrame(
+        contribution_df = pd.DataFrame(
             [
                 {
                     "Player": member.name,
-                    "Score": member.promotion_score,
+                    "Score": member.contribution_score,
                 }
                 for member in sorted(
                     [
                         member
                         for member in filtered_members
-                        if member.promotion_score is not None
+                        if member.contribution_score is not None
                     ],
-                    key=lambda x: x.promotion_score,
+                    key=lambda x: x.contribution_score,
                     reverse=True,
                 )[:10]
             ]
         )
 
         st.dataframe(
-            promotion_df,
+            contribution_df,
             width="stretch",
         )
 
@@ -257,4 +257,3 @@ with get_session() as db:
             x="role",
             y="count",
         )
-        

@@ -1,11 +1,12 @@
 """
 ================================================================================
 Filename: _04_promotions.py
-Description: Streamlit page for displaying promotion rankings and inactivity analysis.
+Description: Streamlit page for displaying contribution rankings, promotion
+    recommendations, and inactivity analysis.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-08
-Version: 0.5.1
+Last Modified: 2026-07-13
+Version: 0.6.0
 ================================================================================
 """
 
@@ -21,43 +22,37 @@ with get_session() as db:
     dashboard = DashboardService(db)
 
     overview = dashboard.get_overview_stats()
-    promotion = dashboard.get_promotion_dashboard()
+    contribution = dashboard.get_contribution_dashboard()
 
-    st.header("🏆 Promotion Overview")
+    st.header("🏆 Contribution Overview")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.metric("Members", overview["member_count"])
     with c2:
-        st.metric("Promotion Scores", promotion["score_count"])
+        st.metric("Contribution Scores", contribution["score_count"])
     with c3:
-        st.metric("Average Score", f"{promotion['average_score']:.2f}")
+        st.metric("Average Score", f"{contribution['average_score']:.2f}")
     with c4:
-        st.metric("Highest Score", f"{promotion['highest_score']:.2f}")
+        st.metric("Highest Score", f"{contribution['highest_score']:.2f}")
 
     st.divider()
 
-    st.header("🥇 Promotion Ranking")
+    st.header("🥇 Contribution Ranking")
 
-    ranking = pd.DataFrame(promotion["ranking"])
+    ranking = pd.DataFrame(contribution["ranking"])
 
     if not ranking.empty:
         st.dataframe(ranking, width="stretch")
 
         c1, c2 = st.columns(2)
-
         with c1:
-            st.subheader("Top Promotion Scores")
+            st.subheader("Top Contribution Scores")
             st.bar_chart(ranking.head(15), x="name", y="score")
-
         with c2:
-            st.subheader("Promotion Score Distribution")
-            st.bar_chart(
-                ranking.sort_values("score"),
-                x="name",
-                y="score",
-            )
+            st.subheader("Contribution Score Distribution")
+            st.bar_chart(ranking.sort_values("score"), x="name", y="score")
     else:
-        st.info("No promotion scores available.")
+        st.info("No contribution scores available.")
 
     st.divider()
 
@@ -68,28 +63,57 @@ with get_session() as db:
         [
             "score",
             "war_activity",
-            "war_win_rate",
+            "war_performance",
             "donations",
             "trophy_level",
+            "activity",
+            "consistency",
+            "seniority",
         ],
     )
 
     if not ranking.empty:
-        st.dataframe(
-            ranking.sort_values(metric, ascending=False),
-            width="stretch",
-        )
+        st.dataframe(ranking.sort_values(metric, ascending=False), width="stretch")
+
+    st.divider()
+
+    st.header("🔀 Promotion Recommendations")
+
+    st.caption(
+        "Rank-based on the last completed river race's fame (not the "
+        "Contribution Score above). This is a read-only recommendation — "
+        "the Clash Royale API can't apply role changes automatically, so "
+        "these need to be actioned manually in-game."
+    )
+
+    recommendations = pd.DataFrame(dashboard.get_promotion_recommendations())
+
+    if not recommendations.empty:
+        actionable = recommendations[recommendations["action"] != "no_change"]
+
+        if not actionable.empty:
+            st.dataframe(
+                actionable.sort_values("rank"),
+                hide_index=True,
+                width="stretch",
+            )
+        else:
+            st.success("No promotion/demotion changes recommended right now.")
+
+        with st.expander("Show full ranking (including no-change members)"):
+            st.dataframe(
+                recommendations.sort_values("rank"),
+                hide_index=True,
+                width="stretch",
+            )
+    else:
+        st.info("No completed river race yet - recommendations need at least one.")
 
     st.divider()
 
     st.header("🚨 Inactive Members")
 
-    threshold = st.slider(
-        "Inactive after (days)",
-        7,
-        60,
-        14,
-    )
+    threshold = st.slider("Inactive after (days)", 7, 60, 14)
 
     inactive = pd.DataFrame(dashboard.get_inactive_members(threshold))
 
@@ -101,68 +125,54 @@ with get_session() as db:
 
     st.divider()
 
-    st.header("📉 Promotion Candidates")
-
-    if not ranking.empty:
-        promote = ranking[(ranking["score"] >= ranking["score"].quantile(0.90))]
-
-        st.success(f"{len(promote)} promotion candidates")
-
-        st.dataframe(
-            promote,
-            width="stretch",
-        )
-
-    st.divider()
-
     st.header("❌ Kick Candidates")
 
-    kick = pd.DataFrame(dashboard.get_kick_candidates(threshold))
+    st.caption(
+        "Members who scored under the fame sanction threshold in 2 "
+        "consecutive completed races."
+    )
+
+    kick = pd.DataFrame(dashboard.get_kick_candidates())
 
     if not kick.empty:
         st.error(f"{len(kick)} kick candidates")
-        st.dataframe(kick, width="stretch")
+        st.dataframe(kick, hide_index=True, width="stretch")
     else:
-        st.info(
-            "Kick-candidate detection is planned for v0.8.0 (Decision Support Release)."
-        )
+        st.success("No kick candidates.")
 
     st.divider()
 
     st.header("📊 Clan Distribution")
 
     c1, c2 = st.columns(2)
-
     with c1:
-        st.subheader("Promotion Components")
-
+        st.subheader("Contribution Components")
         if not ranking.empty:
             component_df = ranking[
                 [
                     "name",
                     "war_activity",
-                    "war_win_rate",
+                    "war_performance",
                     "donations",
                     "trophy_level",
+                    "activity",
+                    "consistency",
+                    "seniority",
                 ]
             ]
             st.dataframe(component_df, width="stretch")
 
     with c2:
         st.subheader("Top 10 Overall")
-
         if not ranking.empty:
-            st.dataframe(
-                ranking.head(10),
-                width="stretch",
-            )
+            st.dataframe(ranking.head(10), width="stretch")
 
     st.divider()
 
     if not ranking.empty:
         st.download_button(
-            "📥 Download Promotion Ranking",
+            "📥 Download Contribution Ranking",
             ranking.to_csv(index=False).encode(),
-            file_name="promotion_ranking.csv",
+            file_name="contribution_ranking.csv",
             mime="text/csv",
         )

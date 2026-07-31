@@ -75,10 +75,10 @@ with get_session() as db:
 
     with col3:
         st.metric(
-            "⭐ Promotion",
+            "⭐ Contribution",
             (
-                f"{profile['promotion_score']:.1f}"
-                if profile["promotion_score"] is not None
+                f"{profile['contribution_score']:.1f}"
+                if profile["contribution_score"] is not None
                 else "-"
             ),
         )
@@ -327,26 +327,25 @@ with get_session() as db:
 
     st.divider()
 
-    st.subheader("Promotion History")
+    st.subheader("Contribution History")
 
-    scores = history.get("promotion_scores", [])
+    scores = history.get("contribution_scores", [])
 
     if scores:
-
         score_df = pd.DataFrame(
             [
                 {
                     "Date": s.calculated_at,
                     "Score": s.score,
                     "War Activity": s.war_activity,
-                    "War Win Rate": s.war_win_rate,
+                    "War Performance": s.war_performance,
                     "Donations": s.donations,
                     "Trophies": s.trophy_level,
+                    "Activity": s.activity,
+                    "Consistency": s.consistency,
+                    "Seniority": s.seniority,
                 }
-                for s in sorted(
-                    scores,
-                    key=lambda x: x.calculated_at,
-                )
+                for s in sorted(scores, key=lambda x: x.calculated_at)
             ]
         )
 
@@ -358,7 +357,7 @@ with get_session() as db:
         st.dataframe(score_df, hide_index=True, width="stretch")
 
     else:
-        st.info("No promotion score history.")
+        st.info("No contribution score history.")
 
     st.divider()
 

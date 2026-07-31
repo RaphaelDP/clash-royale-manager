@@ -17,13 +17,13 @@ from .snapshot import Snapshot
 from .war_participation import WarParticipation
 from .war_season import WarSeason
 from .river_race import RiverRace
-from .promotion_score import PromotionScore
+from .contribution_score import ContributionScore
 
 __all__ = [
     "Member",
     "Snapshot",
     "WarParticipation",
     "WarSeason",
-    "PromotionScore",
+    "ContributionScore",
     "RiverRace",
 ]

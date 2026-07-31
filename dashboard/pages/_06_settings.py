@@ -21,7 +21,7 @@ from app.database.models import (
     WarSeason,
     RiverRace,
     WarParticipation,
-    PromotionScore,
+    ContributionScore,
 )
 
 st.set_page_config(
@@ -51,8 +51,8 @@ with get_session() as db:
 
     with c3:
         st.metric(
-            "Promotion Scores",
-            db.query(count(PromotionScore.id)).scalar(),
+            "Contribution Scores",
+            db.query(count(ContributionScore.id)).scalar(),
         )
 
     c1, c2, c3 = st.columns(3)
