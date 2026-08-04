@@ -298,3 +298,78 @@ def test_get_inactive_members(db_session, member_service, member_factory):
     inactive_members = member_service.get_inactive_members(days_threshold=7)
     assert len(inactive_members) == 1
     assert inactive_members[0].tag == inactive_member.tag
+
+
+def test_get_effective_join_date_uses_earliest_participation_when_earlier(
+    db_session,
+    member_service,
+    member_factory,
+    war_season_factory,
+    river_race_factory,
+    war_participation_factory,
+):
+    """
+    Business rule: clan_joined_at can be stamped later than reality (e.g.
+    a historical backfill created the Member row late) - the effective
+    join date falls back to the earliest known participation instead.
+    """
+    now = get_time()
+
+    member = member_factory(
+        tag="#BACKFILLED", role="member", clan_joined_at=now - timedelta(days=10)
+    )
+    db_session.add(member)
+    db_session.flush()
+
+    season = war_season_factory(season_id="2027-14")
+    old_race = river_race_factory(
+        war_season=season,
+        section_index=0,
+        is_completed=True,
+        created_date=now - timedelta(days=100),
+    )
+    participation = war_participation_factory(
+        member=member, river_race=old_race, fame=1000
+    )
+
+    db_session.add(participation)
+    db_session.commit()
+
+    effective_date = member_service.get_effective_join_date(member)
+
+    assert effective_date == old_race.created_date
+
+
+def test_increment_days_in_clan(db_session, member_service, member_factory):
+    """Active members get +1 day; left/fired members are skipped."""
+    active = member_factory(tag="#ACTIVE", role="member", days_in_clan=5)
+    left = member_factory(tag="#LEFT", role="left", days_in_clan=10)
+    db_session.add_all([active, left])
+    db_session.commit()
+
+    incremented = member_service.increment_days_in_clan()
+
+    db_session.refresh(active)
+    db_session.refresh(left)
+
+    assert incremented == 1
+    assert active.days_in_clan == 6
+    assert left.days_in_clan == 10  # unchanged - not active
+
+
+def test_increment_days_in_clan_guards_against_same_day_double_call(
+    db_session, member_service, member_factory
+):
+    """Business rule: calling twice on the same day only increments once."""
+    member = member_factory(tag="#GUARDED", role="member", days_in_clan=0)
+    db_session.add(member)
+    db_session.commit()
+
+    first_call = member_service.increment_days_in_clan()
+    second_call = member_service.increment_days_in_clan()
+
+    db_session.refresh(member)
+
+    assert first_call == 1
+    assert second_call == 0
+    assert member.days_in_clan == 1

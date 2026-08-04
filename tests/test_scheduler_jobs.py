@@ -15,7 +15,7 @@ from app.scheduler import jobs
 
 
 def test_update_clan_members_calls_clan_service(db_session, mocker):
-    """ """
+    """Test that update_clan_members calls the ClanService to sync clan members."""
     mocker.patch("app.scheduler.jobs.SessionLocal", return_value=db_session)
     mock_clan_service = mocker.patch("app.scheduler.jobs.ClanService")
 
@@ -26,6 +26,7 @@ def test_update_clan_members_calls_clan_service(db_session, mocker):
 
 
 def test_update_clan_members_handles_failure(db_session, mocker):
+    """Test that update_clan_members does not raise an exception even if syncing fails."""
     mocker.patch("app.scheduler.jobs.SessionLocal", return_value=db_session)
     mock_clan_service = mocker.patch("app.scheduler.jobs.ClanService")
     mock_clan_service.return_value.sync_clan_members.side_effect = Exception("API down")
@@ -34,6 +35,8 @@ def test_update_clan_members_handles_failure(db_session, mocker):
 
 
 def test_update_war_data_calls_war_service(db_session, mocker):
+    """Test that update_war_data calls the WarService to sync war data."""
+
     mocker.patch("app.scheduler.jobs.SessionLocal", return_value=db_session)
     mock_war_service = mocker.patch("app.scheduler.jobs.WarService")
 
@@ -45,6 +48,7 @@ def test_update_war_data_calls_war_service(db_session, mocker):
 
 
 def test_create_daily_snapshots_calls_snapshot_service(db_session, mocker):
+    """Test that create_daily_snapshots calls the SnapshotService to create snapshots."""
     mocker.patch("app.scheduler.jobs.SessionLocal", return_value=db_session)
     mock_snapshot_service = mocker.patch("app.scheduler.jobs.SnapshotService")
 
@@ -57,6 +61,7 @@ def test_create_daily_snapshots_calls_snapshot_service(db_session, mocker):
 
 
 def test_calculate_scores_calls_score_service(db_session, mocker):
+    """Test that calculate_scores calls the ScoreService to calculate scores."""
     mocker.patch("app.scheduler.jobs.SessionLocal", return_value=db_session)
     mock_score_service = mocker.patch("app.scheduler.jobs.ScoreService")
 
@@ -67,6 +72,7 @@ def test_calculate_scores_calls_score_service(db_session, mocker):
 
 
 def test_send_daily_report_sends_when_generated(db_session, mocker):
+    """Test that send_daily_report generates a report and sends it via DiscordBot."""
     mocker.patch("app.scheduler.jobs.SessionLocal", return_value=db_session)
     mock_reporter_cls = mocker.patch("app.scheduler.jobs.DiscordReporter")
     mock_reporter_cls.return_value.generate_activity_report.return_value = "report text"
@@ -81,6 +87,9 @@ def test_send_daily_report_sends_when_generated(db_session, mocker):
 
 
 def test_send_daily_report_handles_send_failure(db_session, mocker):
+    """
+    Test that send_daily_report does not raise an exception even if sending the report fails.
+    """
     mocker.patch("app.scheduler.jobs.SessionLocal", return_value=db_session)
     mock_reporter_cls = mocker.patch("app.scheduler.jobs.DiscordReporter")
     mock_reporter_cls.return_value.generate_activity_report.return_value = "report text"
@@ -89,3 +98,14 @@ def test_send_daily_report_handles_send_failure(db_session, mocker):
     mock_bot_cls.return_value.send_notification.return_value = False
 
     jobs.send_daily_report()  # must not raise even when the send fails
+
+
+def test_increment_membership_days_calls_member_service(db_session, mocker):
+    """Test that increment_membership_days calls the MemberService to increment days in clan."""
+    mocker.patch("app.scheduler.jobs.SessionLocal", return_value=db_session)
+    mock_member_service = mocker.patch("app.scheduler.jobs.MemberService")
+
+    jobs.increment_membership_days()
+
+    mock_member_service.assert_called_once_with(db_session)
+    mock_member_service.return_value.increment_days_in_clan.assert_called_once()

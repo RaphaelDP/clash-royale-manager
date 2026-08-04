@@ -31,7 +31,7 @@ def test_calculate_contribution_score_no_data(
 ):
     """A brand new member with no war/donation/snapshot history scores 0 on
     every component except whatever floor values apply."""
-    member = member_factory(tag="#NEW", trophies=1000, donations=0)
+    member = member_factory(tag="#NEW", trophies=1000, donations=0, days_in_clan=0)
     db_session.add(member)
     db_session.commit()
 
@@ -39,7 +39,7 @@ def test_calculate_contribution_score_no_data(
 
     assert score.war_activity == 0
     assert score.war_performance == 0
-    assert score.seniority == 0  # no clan_joined_at set on this fixture member
+    assert score.seniority == 0
     assert score.consistency == 0
 
 
@@ -51,26 +51,65 @@ def test_calculate_contribution_score_war_activity(
     river_race_factory,
     war_participation_factory,
 ):
-    """War Activity = participated / all-time completed races x 100."""
+    """War Activity = attacked races / races with a participation record
+    at all (row presence signals clan membership for that race)."""
     member = member_factory(tag="#ACTIVE")
-    other = member_factory(tag="#OTHER")
-    db_session.add_all([member, other])
+    db_session.add(member)
     db_session.flush()
 
     season = war_season_factory(season_id="2027-03")
     race1 = river_race_factory(war_season=season, section_index=0, is_completed=True)
     race2 = river_race_factory(war_season=season, section_index=1, is_completed=True)
 
-    participation1 = war_participation_factory(member=member, river_race=race1)
-    # race2 only has the other member - "member" didn't participate
-    participation2 = war_participation_factory(member=other, river_race=race2)
+    attacked = war_participation_factory(
+        member=member, river_race=race1, fame=1000, decks_used=4
+    )
+    present_but_skipped = war_participation_factory(
+        member=member, river_race=race2, fame=0, decks_used=0
+    )
 
-    db_session.add_all([participation1, participation2])
+    db_session.add_all([attacked, present_but_skipped])
     db_session.commit()
 
     score = score_service.calculate_contribution_score("#ACTIVE")
 
-    assert score.war_activity == 50.0  # 1 participated / 2 available
+    assert score.war_activity == 50.0  # 1 attacked / 2 races present for
+
+
+def test_calculate_contribution_score_war_activity_excludes_races_not_present_for(
+    db_session,
+    score_service,
+    member_factory,
+    war_season_factory,
+    river_race_factory,
+    war_participation_factory,
+):
+    """A race with no participation record at all doesn't count against
+    War Activity - only races where the member has a record (even 0-fame)
+    do, since that's what distinguishes 'skipped' from 'wasn't here yet'."""
+    member = member_factory(tag="#LATECOMER")
+    other = member_factory(tag="#OTHER")
+    db_session.add_all([member, other])
+    db_session.flush()
+
+    season = war_season_factory(season_id="2027-18")
+    race1 = river_race_factory(war_season=season, section_index=0, is_completed=True)
+    race2 = river_race_factory(war_season=season, section_index=1, is_completed=True)
+
+    # Only "other" was around for race1
+    other_participation = war_participation_factory(
+        member=other, river_race=race1, fame=1000
+    )
+    member_participation = war_participation_factory(
+        member=member, river_race=race2, fame=1000, decks_used=4
+    )
+
+    db_session.add_all([other_participation, member_participation])
+    db_session.commit()
+
+    score = score_service.calculate_contribution_score("#LATECOMER")
+
+    assert score.war_activity == 100.0  # 1 attacked / 1 race present for
 
 
 def test_calculate_contribution_score_excludes_incomplete_races(
@@ -174,23 +213,17 @@ def test_calculate_contribution_score_trophy_percentile(
 def test_calculate_contribution_score_seniority(
     db_session, score_service, member_factory
 ):
-    """Seniority = months in clan / SENIORITY_MONTHS_CAP x 100, 0 if clan_joined_at unset."""
-    now = get_time()
+    """Seniority = days_in_clan / SENIORITY_DAYS_CAP x 100."""
+    no_days = member_factory(tag="#NODAYS", days_in_clan=0)
+    half_cap = member_factory(tag="#HALFCAP", days_in_clan=182)
+    over_cap = member_factory(tag="#OVERCAP", days_in_clan=400)
 
-    no_join_date = member_factory(tag="#NODATE")
-    six_months = member_factory(tag="#SIXMO", clan_joined_at=now - timedelta(days=182))
-    over_a_year = member_factory(
-        tag="#OLDTIMER", clan_joined_at=now - timedelta(days=400)
-    )
-
-    db_session.add_all([no_join_date, six_months, over_a_year])
+    db_session.add_all([no_days, half_cap, over_cap])
     db_session.commit()
 
-    assert score_service.calculate_contribution_score("#NODATE").seniority == 0
-    assert 45 < score_service.calculate_contribution_score("#SIXMO").seniority < 55
-    assert (
-        score_service.calculate_contribution_score("#OLDTIMER").seniority == 100.0
-    )  # capped
+    assert score_service.calculate_contribution_score("#NODAYS").seniority == 0
+    assert 45 < score_service.calculate_contribution_score("#HALFCAP").seniority < 55
+    assert score_service.calculate_contribution_score("#OVERCAP").seniority == 100.0
 
 
 def test_calculate_contribution_score_preserves_history(
@@ -446,11 +479,11 @@ def test_consistency_below_threshold_uses_clan_average(
 
     recent_race_ids = score_service._get_recent_race_ids()
 
-    raw_a = score_service._raw_consistency_score(qualifying_a, recent_race_ids)
-    raw_b = score_service._raw_consistency_score(qualifying_b, recent_race_ids)
+    raw_a = score_service._raw_consistency_score(qualifying_a.tag, recent_race_ids)
+    raw_b = score_service._raw_consistency_score(qualifying_b.tag, recent_race_ids)
     expected_average = (raw_a + raw_b) / 2
 
-    result = score_service._consistency_score(new_member, recent_race_ids)
+    result = score_service._consistency_score(new_member.tag, recent_race_ids)
 
     assert raw_a is not None
     assert raw_b is not None
@@ -458,7 +491,7 @@ def test_consistency_below_threshold_uses_clan_average(
     assert result != 100  # not the new member's own trivial (single-datapoint) score
 
 
-def test_effective_join_date_uses_earliest_participation_when_earlier(
+def test_promotion_recommendations_excludes_members_who_joined_after_last_race(
     db_session,
     score_service,
     member_factory,
@@ -466,33 +499,68 @@ def test_effective_join_date_uses_earliest_participation_when_earlier(
     river_race_factory,
     war_participation_factory,
 ):
-    """
-    Business rule: clan_joined_at can be stamped later than reality (e.g.
-    a historical backfill created the Member row late) - the effective
-    join date falls back to the earliest known participation instead.
-    """
-    now = get_time()
+    """A member who joined after the last completed race isn't ranked or
+    sanctioned - 0 fame isn't a real signal for someone who wasn't there."""
 
-    member = member_factory(
-        tag="#BACKFILLED", role="member", clan_joined_at=now - timedelta(days=10)
-    )
-    db_session.add(member)
+    veteran = member_factory(tag="#VETERAN", role="member")
+    db_session.add(veteran)
     db_session.flush()
 
-    season = war_season_factory(season_id="2027-13")
-    old_race = river_race_factory(
-        war_season=season,
-        section_index=0,
-        is_completed=True,
-        created_date=now - timedelta(days=100),
-    )
+    season = war_season_factory(season_id="2027-15")
+    race = river_race_factory(war_season=season, section_index=0, is_completed=True)
     participation = war_participation_factory(
-        member=member, river_race=old_race, fame=1000
+        member=veteran, river_race=race, fame=1000
     )
-
     db_session.add(participation)
     db_session.commit()
 
-    effective_date = score_service._effective_join_date(member)
+    newcomer = member_factory(
+        tag="#NEWCOMER",
+        role="member",
+        clan_joined_at=race.created_date + timedelta(days=1),
+    )
+    db_session.add(newcomer)
+    db_session.commit()
 
-    assert effective_date == old_race.created_date
+    recs = score_service.get_promotion_recommendations()
+    newcomer_rec = next(r for r in recs if r["tag"] == "#NEWCOMER")
+
+    assert newcomer_rec["action"] == "no_change"
+    assert newcomer_rec["rank"] is None
+    assert "not yet eligible" in newcomer_rec["reason"].lower()
+
+
+def test_promotion_recommendations_previous_race_sanction_respects_join_date(
+    db_session,
+    score_service,
+    member_factory,
+    war_season_factory,
+    river_race_factory,
+    war_participation_factory,
+):
+    """A member who joined between the two most recent races can't be
+    flagged for a 2-consecutive-race kick using a race they missed."""
+
+    member = member_factory(tag="#MIDJOIN", role="elder")
+    db_session.add(member)
+    db_session.flush()
+
+    season = war_season_factory(season_id="2027-16")
+    race1 = river_race_factory(war_season=season, section_index=0, is_completed=True)
+    race2 = river_race_factory(war_season=season, section_index=1, is_completed=True)
+
+    member.clan_joined_at = race2.created_date  # joined for race2, missed race1
+    db_session.add(member)
+
+    participation = war_participation_factory(
+        member=member, river_race=race2, fame=1000
+    )  # under threshold
+    db_session.add(participation)
+    db_session.commit()
+
+    recs = score_service.get_promotion_recommendations()
+    rec = next(r for r in recs if r["tag"] == "#MIDJOIN")
+
+    # Should be a single-race demote, not a kick - they weren't around for race1
+    assert race1.created_date < race2.created_date
+    assert rec["action"] == "demote"

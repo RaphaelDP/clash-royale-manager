@@ -12,6 +12,7 @@ Dependencies: pytest, pytest-mock, sqlalchemy
 """
 
 from datetime import datetime
+from random import randint
 
 import pytest
 from sqlalchemy import create_engine
@@ -83,6 +84,7 @@ def member_factory():
             "trophies": 5000,
             "donations": 100,
             "last_seen": get_time(),
+            "days_in_clan": randint(1, 365),
         }
 
         defaults.update(kwargs)
