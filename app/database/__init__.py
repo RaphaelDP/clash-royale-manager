@@ -17,6 +17,7 @@ from app.database.models.war_season import WarSeason
 from app.database.models.war_participation import WarParticipation
 from app.database.models.contribution_score import ContributionScore
 from app.database.models.river_race import RiverRace
+from app.database.models.job_run_state import JobRunState
 
 __all__ = [
     "Member",
@@ -25,4 +26,5 @@ __all__ = [
     "WarParticipation",
     "RiverRace",
     "ContributionScore",
+    "JobRunState",
 ]

@@ -18,6 +18,7 @@ from .war_participation import WarParticipation
 from .war_season import WarSeason
 from .river_race import RiverRace
 from .contribution_score import ContributionScore
+from .job_run_state import JobRunState
 
 __all__ = [
     "Member",
@@ -26,4 +27,5 @@ __all__ = [
     "WarSeason",
     "ContributionScore",
     "RiverRace",
+    "JobRunState",
 ]

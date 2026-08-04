@@ -59,6 +59,7 @@ class Member(Base):
     contribution_score_updated_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )
+    days_in_clan: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
     snapshots: Mapped[List["Snapshot"]] = relationship(
@@ -79,6 +80,7 @@ class Member(Base):
             f"trophies={self.trophies} "
             f"donations={self.donations} "
             f"last_seen={self.last_seen} "
+            f"clan_joined_at={self.clan_joined_at} "
             f"contribution_score={self.contribution_score} "
             f"at {self.contribution_score_updated_at} )>"
         )
