@@ -378,7 +378,7 @@ def test_sync_current_river_race_no_season(
     assert db_session.query(WarParticipation).count() == 0
 
 
-def test_create_or_update_river_race_defaults_incomplete(db_session, war_service):
+def test_create_or_update_river_race_defaults_incomplete(war_service):
     """New races default to is_completed=False unless explicitly marked complete."""
 
     season = war_service._create_or_update_season("200", datetime(2026, 7, 1))
@@ -419,12 +419,12 @@ def test_create_or_update_river_race_flips_to_completed(db_session, war_service)
     assert live_race.is_completed is True
 
 
-def test_create_or_update_river_race_never_flips_back(db_session, war_service):
+def test_create_or_update_river_race_never_flips_back(war_service):
     """Once completed, a race is never reverted to incomplete."""
 
     season = war_service._create_or_update_season("202", datetime(2026, 7, 1))
 
-    race = war_service._create_or_update_river_race(
+    war_service._create_or_update_river_race(
         season_id=season.season_id,
         section_index=0,
         created_date=datetime(2026, 7, 1),

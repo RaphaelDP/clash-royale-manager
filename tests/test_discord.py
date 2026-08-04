@@ -25,6 +25,7 @@ from app.integrations.discord.reports import DiscordReporter
 
 
 def test_send_notification_success(mocker):
+    """Test that send_notification returns True on successful post."""
     mock_response = mocker.MagicMock()
     mock_response.raise_for_status.return_value = None
     mock_post = mocker.patch("requests.post", return_value=mock_response)
@@ -38,12 +39,14 @@ def test_send_notification_success(mocker):
 
 
 def test_send_notification_no_webhook_configured():
+    """Test that send_notification returns False if no webhook URL is configured."""
     bot = DiscordBot(webhook_url=None)
 
     assert bot.send_notification("hello") is False
 
 
 def test_send_notification_network_failure(mocker):
+    """Test that send_notification returns False on network failure."""
     mocker.patch(
         "requests.post", side_effect=requests.exceptions.ConnectionError("down")
     )
@@ -54,6 +57,7 @@ def test_send_notification_network_failure(mocker):
 
 
 def test_send_notification_truncates_long_messages(mocker):
+    """Test that send_notification truncates messages longer than 2000 characters."""
     mock_response = mocker.MagicMock()
     mock_response.raise_for_status.return_value = None
     mock_post = mocker.patch("requests.post", return_value=mock_response)
@@ -72,6 +76,7 @@ def test_send_notification_truncates_long_messages(mocker):
 
 
 def test_generate_activity_report_includes_counts(db_session, member_factory):
+    """Test that generate_activity_report includes counts of active and inactive members."""
     active = member_factory(name="Active", last_seen=get_time())
     inactive = member_factory(name="Ghost", last_seen=get_time() - timedelta(days=10))
     long_inactive = member_factory(

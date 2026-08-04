@@ -23,6 +23,7 @@ from app.database.models import ContributionScore
 
 
 def test_calculate_contribution_score_unknown_member(score_service):
+    """If the member tag doesn't exist, return None."""
     assert score_service.calculate_contribution_score("#UNKNOWN") is None
 
 
@@ -229,6 +230,8 @@ def test_calculate_contribution_score_seniority(
 def test_calculate_contribution_score_preserves_history(
     db_session, score_service, member_factory
 ):
+    """Each call to calculate_contribution_score creates
+    a new row in the contribution_scores table, preserving history."""
     member = member_factory(tag="#HIST")
     db_session.add(member)
     db_session.commit()
@@ -243,6 +246,7 @@ def test_calculate_contribution_score_preserves_history(
 def test_calculate_all_scores_skips_left_members(
     db_session, score_service, member_factory
 ):
+    """Members with role 'left' are skipped when calculating all scores."""
     active = member_factory(tag="#ACTIVE2", role="member")
     left = member_factory(tag="#LEFT2", role="left")
     db_session.add_all([active, left])
@@ -259,12 +263,14 @@ def test_calculate_all_scores_skips_left_members(
 
 
 def test_role_for_rank_band_top(score_service):
+    """Top 1-15 ranks are promoted to coLeader, regardless of current role."""
     assert score_service._role_for_rank_band("member", 1) == "elder"
     assert score_service._role_for_rank_band("elder", 15) == "coLeader"
     assert score_service._role_for_rank_band("coLeader", 10) == "coLeader"
 
 
 def test_role_for_rank_band_elder_range(score_service):
+    """Ranks 16-25 are promoted to elder, unless already coLeader."""
     assert score_service._role_for_rank_band("member", 16) == "elder"
     assert score_service._role_for_rank_band("member", 25) == "elder"
     assert score_service._role_for_rank_band("elder", 20) == "elder"
@@ -272,6 +278,7 @@ def test_role_for_rank_band_elder_range(score_service):
 
 
 def test_role_for_rank_band_demote_coleader(score_service):
+    """Ranks 26-35 demote coLeaders to elder, but don't affect elders or members."""
     assert score_service._role_for_rank_band("coLeader", 26) == "elder"
     assert score_service._role_for_rank_band("coLeader", 35) == "elder"
     assert score_service._role_for_rank_band("elder", 30) == "elder"
@@ -279,6 +286,7 @@ def test_role_for_rank_band_demote_coleader(score_service):
 
 
 def test_role_for_rank_band_demote_to_member(score_service):
+    """Ranks 36-50 demote coLeaders and elders to member, but don't affect members."""
     assert score_service._role_for_rank_band("coLeader", 36) == "member"
     assert score_service._role_for_rank_band("elder", 50) == "member"
     assert score_service._role_for_rank_band("member", 40) == "member"
@@ -290,6 +298,7 @@ def test_role_for_rank_band_demote_to_member(score_service):
 
 
 def test_promotion_recommendations_no_completed_race(score_service):
+    """If there are no completed races, the promotion recommendations list is empty (no data to rank)."""
     assert score_service.get_promotion_recommendations() == []
 
 
@@ -301,6 +310,7 @@ def test_promotion_recommendations_ranks_by_fame(
     river_race_factory,
     war_participation_factory,
 ):
+    """Members are ranked by their fame in the last completed race, and the rank determines the recommended role."""
     top = member_factory(tag="#TOP", role="member")
     bottom = member_factory(tag="#BOTTOM", role="member")
     db_session.add_all([top, bottom])
@@ -334,6 +344,7 @@ def test_promotion_recommendations_leader_exempt(
     river_race_factory,
     war_participation_factory,
 ):
+    """Leaders are exempt from promotion/demotion recommendations."""
     leader = member_factory(tag="#LEADER", role="leader")
     db_session.add(leader)
     db_session.flush()

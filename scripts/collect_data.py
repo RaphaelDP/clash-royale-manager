@@ -7,7 +7,7 @@ Date Created: 2026-07-03
 Last Modified: 2026-07-11
 Version: 0.6.0
 Python Version: 3.12
-Dependencies: app.services.clan_service, app.services.war_service, app.services.snapshot_service, app.services.score_service, app.database.session
+Dependencies: Services: ClanService, WarService, SnapshotService, MemberService, ScoreService
 ================================================================================
 """
 
