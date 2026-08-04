@@ -20,6 +20,7 @@ from app.scheduler.jobs import (
     create_daily_snapshots,
     calculate_scores,
     send_daily_report,
+    increment_membership_days,
 )
 
 
@@ -39,6 +40,7 @@ def start_scheduler() -> BackgroundScheduler:
 
     # Daily: snapshots -> scores -> report, in that order
     scheduler.add_job(create_daily_snapshots, "cron", hour=0, minute=0)
+    scheduler.add_job(increment_membership_days, "cron", hour=0, minute=0)
     scheduler.add_job(calculate_scores, "cron", hour=0, minute=30)
     scheduler.add_job(send_daily_report, "cron", hour=1, minute=0)
 

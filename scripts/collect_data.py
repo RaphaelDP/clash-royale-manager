@@ -12,6 +12,7 @@ Dependencies: app.services.clan_service, app.services.war_service, app.services.
 """
 
 from app.database.session import SessionLocal
+from app.services.member_service import MemberService
 from app.services.clan_service import ClanService
 from app.services.war_service import WarService
 from app.services.snapshot_service import SnapshotService
@@ -39,6 +40,10 @@ def main():
         snapshot_service = SnapshotService(db)
         snapshot_service.create_daily_snapshots(None)
         logger.info("Created daily snapshots.")
+
+        member_service = MemberService(db)
+        member_service.increment_days_in_clan()
+        logger.info("Incremented membership days.")
 
         score_service = ScoreService(db)
         score_service.calculate_all_scores()

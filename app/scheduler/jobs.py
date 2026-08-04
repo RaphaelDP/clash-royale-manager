@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.logger import logger
 from app.database.session import SessionLocal
 from app.services.clan_service import ClanService
+from app.services.member_service import MemberService
 from app.services.war_service import WarService
 from app.services.snapshot_service import SnapshotService
 from app.services.score_service import ScoreService
@@ -109,5 +110,22 @@ def send_daily_report() -> None:
             logger.warning("[scheduler] Daily Discord report was not sent.")
     except Exception as e:
         logger.error("[scheduler] Failed to send daily report: %s", e)
+    finally:
+        db.close()
+
+
+def increment_membership_days() -> None:
+    """
+    Scheduled job to increment days_in_clan for every active member.
+    Safe to call more than once per day (or from collect_data.py too) -
+    MemberService.increment_days_in_clan guards against double-counting.
+    """
+    db = SessionLocal()
+    try:
+        member_service = MemberService(db)
+        member_service.increment_days_in_clan()
+        logger.info("[scheduler] Incremented membership days.")
+    except Exception as e:
+        logger.error("[scheduler] Failed to increment membership days: %s", e)
     finally:
         db.close()
