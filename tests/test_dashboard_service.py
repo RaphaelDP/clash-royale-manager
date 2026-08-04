@@ -23,7 +23,8 @@ from app.core.utils import get_time
 def test_get_contribution_dashboard(
     db_session, dashboard_service, member_factory, contribution_score_factory
 ):
-    """ """
+    """Verify contribution scores are aggregated and ranked correctly,
+    and that only the latest score per member is used."""
     top_member = member_factory(name="Ada", tag="#ADA")
     low_member = member_factory(name="Bob", tag="#BOB")
     db_session.add_all([top_member, low_member])
@@ -60,7 +61,7 @@ def test_get_contribution_dashboard(
 
 
 def test_get_contribution_dashboard_empty(dashboard_service):
-    """ """
+    """Verify the dashboard returns correct values when no contribution scores are available."""
     result = dashboard_service.get_contribution_dashboard()
 
     assert result == {
@@ -104,6 +105,9 @@ def test_get_kick_candidates_delegates_to_score_service(
     river_race_factory,
     war_participation_factory,
 ):
+    """Verify that get_kick_candidates returns members
+    who scored under the fame sanction threshold in 2 consecutive completed races,
+    and that left/fired members are excluded."""
     member = member_factory(tag="#KICKME", role="member")
     db_session.add(member)
     db_session.flush()
@@ -129,6 +133,7 @@ def test_get_kick_candidates_delegates_to_score_service(
 
 
 def test_get_promotion_recommendations_no_data(dashboard_service):
+    """Business rule: returns an empty list when no members have contribution scores."""
     assert dashboard_service.get_promotion_recommendations() == []
 
 
@@ -331,7 +336,7 @@ def test_get_race_comparison(
 # =============================================================================
 
 
-def test_get_activity_ranking(db_session, dashboard_service, member_factory):
+def test_get_inactivity_ranking(db_session, dashboard_service, member_factory):
     """Verify ranking order, bucketed scores, interpolation, and left-member exclusion."""
 
     fresh = member_factory(name="Fresh", last_seen=get_time())
@@ -349,18 +354,14 @@ def test_get_activity_ranking(db_session, dashboard_service, member_factory):
     db_session.add_all([fresh, two_weeks, mid_decay, three_days, left_member])
     db_session.commit()
 
-    result = dashboard_service.get_activity_ranking()
+    result = dashboard_service.get_inactivity_ranking()
 
     names = [entry["name"] for entry in result]
     assert names == [
-        "Fresh",
-        "ThreeDays",
-        "TwoWeeks",
         "MidDecay",
+        "TwoWeeks",
+        "ThreeDays",
     ]  # left member excluded
-
-    fresh_entry = next(e for e in result if e["name"] == "Fresh")
-    assert fresh_entry["activity_score"] == 100
 
     two_weeks_entry = next(e for e in result if e["name"] == "TwoWeeks")
     assert (
@@ -375,9 +376,9 @@ def test_get_activity_ranking(db_session, dashboard_service, member_factory):
         three_days_entry["activity_score"] == 89
     )  # 100 / (1 + (3/7)^2.5) = 89.27 → 89,
 
-    limited = dashboard_service.get_activity_ranking(limit=1)
+    limited = dashboard_service.get_inactivity_ranking(limit=1)
     assert len(limited) == 1
-    assert limited[0]["name"] == "Fresh"
+    assert limited[0]["name"] == "MidDecay"
 
 
 # =============================================================================

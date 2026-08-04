@@ -523,8 +523,8 @@ class DashboardService:
         ranking = []
         for tag, name, last_seen in members:
             days_since = (now - last_seen).days if last_seen else None
-            
-            if days_since > 0 :
+
+            if days_since > 0:
                 ranking.append(
                     {
                         "tag": tag,
@@ -532,7 +532,7 @@ class DashboardService:
                         "days_since_last_seen": days_since,
                         "activity_score": activity_score_from_days(days_since),
                     }
-                ) 
+                )
 
         ranking.sort(
             key=lambda entry: (
