@@ -91,7 +91,7 @@ WAR_PERFORMANCE_SUBMETRIC_CAP = (
 RECENT_RACES_WINDOW = 8  # races used for War Performance & Consistency components
 DONATIONS_AVERAGE_WINDOW_DAYS = 30
 MIN_RACES_FOR_CONSISTENCY = 3  # # below this, Consistency uses the clan average (of qualifying members) instead of the member's own score
-SENIORITY_MONTHS_CAP = 12  # months after which Seniority maxes out at 100
+SENIORITY_DAYS_CAP = 365  # days after which Seniority maxes out at 100
 TROPHY_PERCENTILE = 95  # percentile used to normalize Trophy Level
 
 # Promotion / sanction rules

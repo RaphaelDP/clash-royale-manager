@@ -15,12 +15,13 @@ from pathlib import Path
 import json
 from typing import Any, List
 from datetime import timedelta
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from app.core.logger import logger
 from app.core.utils import convert_timestamp_to_datetime, get_time
-from app.database.models import Member
+from app.database.models import Member, RiverRace, WarParticipation, JobRunState
 from app.services.clash_api import ClashAPIClient
 
 
@@ -74,6 +75,9 @@ class MemberService:
             existing_member.donations = donations
             existing_member.last_seen = (
                 convert_timestamp_to_datetime(last_seen) if last_seen else None
+            )
+            existing_member.clan_joined_at = self.get_effective_join_date(
+                existing_member
             )
             logger.info("Updated member %s with role %s.", tag, role)
         else:
@@ -202,6 +206,74 @@ class MemberService:
             )
             .all()
         )
+
+    def increment_days_in_clan(self) -> int:
+        """
+        Increment days_in_clan by 1 for every currently-active member
+        (role not in left/fired). Guarded by JobRunState so calling this
+        more than once on the same calendar day is a safe no-op -
+        intended to run once daily via the scheduler, but also safe to
+        call from collect_data.py for manual/on-demand runs.
+
+        Returns:
+            int: number of members incremented (0 if already run today).
+        """
+        today = get_time().date()
+
+        state = (
+            self.db.query(JobRunState)
+            .filter_by(job_name="increment_days_in_clan")
+            .first()
+        )
+        if state and state.last_run_date == today:
+            logger.info(
+                "increment_days_in_clan already ran today (%s); skipping.", today
+            )
+            return 0
+
+        active_members = (
+            self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
+        )
+        for member in active_members:
+            member.days_in_clan = (member.days_in_clan or 0) + 1
+
+        if state:
+            state.last_run_date = today
+        else:
+            state = JobRunState(job_name="increment_days_in_clan", last_run_date=today)
+            self.db.add(state)
+
+        self.db.commit()
+        logger.info(
+            "Incremented days_in_clan for %d active members.", len(active_members)
+        )
+        return len(active_members)
+
+    def get_effective_join_date(self, member: Member) -> datetime | None:
+        """
+        Best-known date this member has been in the clan, correcting for
+        clan_joined_at potentially being stamped later than reality (e.g. a
+        historical war-log backfill can create a Member row - and stamp
+        clan_joined_at "now" - well after their actual first appearance).
+        Uses whichever is earlier: clan_joined_at, or their first known
+        completed-race participation.
+        """
+        earliest_participation_date = (
+            self.db.query(func.min(RiverRace.created_date))
+            .join(WarParticipation, WarParticipation.river_race_id == RiverRace.id)
+            .filter(
+                WarParticipation.member_tag == member.tag,
+                RiverRace.is_completed.is_(True),
+            )
+            .scalar()
+        )
+
+        candidates = [
+            d
+            for d in (member.clan_joined_at, earliest_participation_date)
+            if d is not None
+        ]
+        return min(candidates) if candidates else None
 
     def get_member_history(self, tag: str) -> dict:
         """

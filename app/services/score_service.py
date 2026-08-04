@@ -54,7 +54,7 @@ from app.core.constants import (
     DONATIONS_AVERAGE_WINDOW_DAYS,
     DONATION_TARGET,
     MIN_RACES_FOR_CONSISTENCY,
-    SENIORITY_MONTHS_CAP,
+    SENIORITY_DAYS_CAP,
     TROPHY_PERCENTILE,
     SANCTION_FAME_THRESHOLD,
     PROMOTION_BAND_TOP,
@@ -98,10 +98,21 @@ class ScoreService:
         return [r.id for r in races]
 
     def _war_activity_score(self, member_tag: str) -> float:
-        """Participated / all-time completed races x 100."""
+        """
+        Attacked races / races the member has a participation record for
+        at all. A WarParticipation row's existence signals they were a
+        clan member for that race (the Clash Royale API includes 0-fame
+        entries for members who didn't attack) - its absence means they
+        weren't in the clan for that race, so it's excluded rather than
+        penalized.
+        """
         available_races = (
-            self.db.query(count(RiverRace.id))
-            .filter(RiverRace.is_completed.is_(True))
+            self.db.query(count(func.distinct(WarParticipation.river_race_id)))
+            .join(RiverRace, RiverRace.id == WarParticipation.river_race_id)
+            .filter(
+                WarParticipation.member_tag == member_tag,
+                RiverRace.is_completed.is_(True),
+            )
             .scalar()
             or 0
         )
@@ -114,6 +125,7 @@ class ScoreService:
             .filter(
                 WarParticipation.member_tag == member_tag,
                 RiverRace.is_completed.is_(True),
+                WarParticipation.decks_used > 0,
             )
             .scalar()
             or 0
@@ -124,12 +136,16 @@ class ScoreService:
     def _normalized_metric(
         self, member_tag: str, recent_race_ids: list[int], column
     ) -> float:
-        """Member's average of `column` vs clan average, over recent_race_ids, capped."""
+        """Member's average of `column` vs clan average, over recent_race_ids,
+        capped. Excludes races where decks_used == 0 - a member present but
+        not attacking has no performance to measure, so it shouldn't drag
+        down (or inflate) either average."""
         member_avg = (
             self.db.query(func.avg(column))
             .filter(
                 WarParticipation.member_tag == member_tag,
                 WarParticipation.river_race_id.in_(recent_race_ids),
+                WarParticipation.decks_used > 0,
             )
             .scalar()
         )
@@ -138,7 +154,10 @@ class ScoreService:
 
         clan_avg = (
             self.db.query(func.avg(column))
-            .filter(WarParticipation.river_race_id.in_(recent_race_ids))
+            .filter(
+                WarParticipation.river_race_id.in_(recent_race_ids),
+                WarParticipation.decks_used > 0,
+            )
             .scalar()
             or 0
         )
@@ -249,46 +268,32 @@ class ScoreService:
         return min(candidates) if candidates else None
 
     def _raw_consistency_score(
-        self, member: Member, recent_race_ids: list[int]
+        self, member_tag: str, recent_race_ids: list[int]
     ) -> float | None:
         """
-        100 - coefficient of variation of fame, scoped to races within
-        recent_race_ids on/after the member's effective join date. Returns
-        None if the member has fewer than MIN_RACES_FOR_CONSISTENCY
-        eligible races - not enough data to be meaningful (e.g. a single
-        race with 0 variance would trivially score 100, which isn't
-        earned).
+        100 - coefficient of variation of fame, over the member's actual
+        participation records within recent_race_ids. No padding: a race
+        with no row means they weren't a clan member for it (excluded); a
+        race with a 0-fame row means they were present but skipped
+        (counted - that's exactly the sporadic behavior this component
+        should catch). Returns None if fewer than MIN_RACES_FOR_CONSISTENCY
+        eligible races exist.
         """
         if not recent_race_ids:
-            return None
-
-        effective_join_date = self._effective_join_date(member)
-
-        applicable_race_ids = recent_race_ids
-        if effective_join_date is not None:
-            applicable_race_ids = [
-                race_id
-                for race_id, created_date in (
-                    self.db.query(RiverRace.id, RiverRace.created_date)
-                    .filter(RiverRace.id.in_(recent_race_ids))
-                    .all()
-                )
-                if created_date >= effective_join_date
-            ]
-
-        if len(applicable_race_ids) < MIN_RACES_FOR_CONSISTENCY:
             return None
 
         fames = [
             row.fame
             for row in self.db.query(WarParticipation.fame)
             .filter(
-                WarParticipation.member_tag == member.tag,
-                WarParticipation.river_race_id.in_(applicable_race_ids),
+                WarParticipation.member_tag == member_tag,
+                WarParticipation.river_race_id.in_(recent_race_ids),
             )
             .all()
         ]
-        fames += [0] * (len(applicable_race_ids) - len(fames))
+
+        if len(fames) < MIN_RACES_FOR_CONSISTENCY:
+            return None
 
         mean_fame = sum(fames) / len(fames)
         if mean_fame == 0:
@@ -304,13 +309,7 @@ class ScoreService:
         """
         Mean raw consistency across active members who qualify (>=
         MIN_RACES_FOR_CONSISTENCY eligible races). Used as the fallback for
-        members who don't have enough history yet, instead of a fixed
-        number.
-
-        NOTE: this recomputes every qualifying member's raw score on every
-        call, so calculate_all_scores() redoes this work once per
-        non-qualifying member. Fine at clan scale (<=50 members); not
-        worth caching given the deferred-performance-smells agreement.
+        members who don't have enough history yet.
         """
         active_members = (
             self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
@@ -318,35 +317,29 @@ class ScoreService:
 
         qualifying_scores: list[float] = []
         for candidate in active_members:
-            raw_score = self._raw_consistency_score(candidate, recent_race_ids)
+            raw_score = self._raw_consistency_score(candidate.tag, recent_race_ids)
             if raw_score is not None:
                 qualifying_scores.append(raw_score)
 
         if not qualifying_scores:
-            return 0  # nobody in the clan has enough war history yet
+            return 0
 
         return sum(qualifying_scores) / len(qualifying_scores)
 
-    def _consistency_score(self, member: Member, recent_race_ids: list[int]) -> float:
+    def _consistency_score(self, member_tag: str, recent_race_ids: list[int]) -> float:
         """
         Member's raw consistency score, or the clan average (among
         qualifying members) if they don't have MIN_RACES_FOR_CONSISTENCY
         eligible races themselves yet.
         """
-        raw_score = self._raw_consistency_score(member, recent_race_ids)
+        raw_score = self._raw_consistency_score(member_tag, recent_race_ids)
         if raw_score is not None:
             return raw_score
 
         return self._clan_average_consistency(recent_race_ids)
 
     def _seniority_score(self, member: Member) -> float:
-        """ """
-        effective_join_date = self._effective_join_date(member)
-        if not effective_join_date:
-            return 0
-
-        months = (get_time() - effective_join_date).days / 30
-        return min(100, (months / SENIORITY_MONTHS_CAP) * 100)
+        return min(100, (member.days_in_clan / SENIORITY_DAYS_CAP) * 100)
 
     # ==========================================================================
     # Public: score calculation
@@ -372,7 +365,7 @@ class ScoreService:
         donations = self._donations_score(member)
         trophy_level = self._trophy_level_score(member)
         activity = self._activity_component_score(member)
-        consistency = self._consistency_score(member, recent_race_ids)
+        consistency = self._consistency_score(member.tag, recent_race_ids)
         seniority = self._seniority_score(member)
 
         final_score = (
@@ -491,15 +484,24 @@ class ScoreService:
               overriding the band outcome
             - Fame < SANCTION_FAME_THRESHOLD 2 consecutive races: flagged
               for kick
-        Leader is exempt throughout. READ-ONLY - does not modify Member.role;
-        the public API can't write role changes, so this produces
-        recommendations for manual action in-game.
+        Leader is exempt throughout. Members who joined after the last
+        completed race are excluded from ranking/sanctions entirely (not
+        just penalized) - they weren't in the clan to participate, so 0
+        fame isn't a real signal about them. Same logic applies to the
+        previous race when checking for a 2-consecutive-race sanction: a
+        member who joined between the two races can't be penalized for a
+        race they weren't present for.
+
+        READ-ONLY - does not modify Member.role; the public API can't
+        write role changes, so this produces recommendations for manual
+        action in-game.
 
         Returns:
             list[dict]: one entry per active member:
                 {tag, name, current_role, rank, fame, recommended_role,
                  action, reason}
                 action is one of: "promote", "demote", "kick", "no_change"
+                rank is None for members excluded as not-yet-eligible.
         """
         last_race = (
             self.db.query(RiverRace)
@@ -525,22 +527,60 @@ class ScoreService:
             self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
         )
 
-        entries = [
-            {
-                "member": member,
-                "fame": self._fame_in_race(member.tag, last_race.id),
-                "previous_fame": self._fame_in_race(
-                    member.tag, second_last_race.id if second_last_race else None
-                ),
-            }
-            for member in active_members
-        ]
+        eligible_entries = []
+        recommendations: list[dict[str, Any]] = []
+
+        for member in active_members:
+            was_present_in_last_race = (
+                self.db.query(WarParticipation.id)
+                .filter(
+                    WarParticipation.member_tag == member.tag,
+                    WarParticipation.river_race_id == last_race.id,
+                )
+                .first()
+                is not None
+            )
+
+            if not was_present_in_last_race:
+                recommendations.append(
+                    {
+                        "tag": member.tag,
+                        "name": member.name,
+                        "current_role": member.role,
+                        "rank": None,
+                        "fame": 0,
+                        "recommended_role": member.role,
+                        "action": "no_change",
+                        "reason": "Not in the clan for the last completed race - not yet eligible.",
+                    }
+                )
+                continue
+
+            was_present_for_previous_race = second_last_race is not None and (
+                self.db.query(WarParticipation.id)
+                .filter(
+                    WarParticipation.member_tag == member.tag,
+                    WarParticipation.river_race_id == second_last_race.id,
+                )
+                .first()
+                is not None
+            )
+
+            eligible_entries.append(
+                {
+                    "member": member,
+                    "fame": self._fame_in_race(member.tag, last_race.id),
+                    "previous_fame": self._fame_in_race(
+                        member.tag,
+                        second_last_race.id if was_present_for_previous_race else None,
+                    ),
+                    "was_present_for_previous_race": was_present_for_previous_race,
+                }
+            )
 
         ranked = sorted(
-            entries, key=lambda entry: (-entry["fame"], entry["member"].tag)
+            eligible_entries, key=lambda entry: (-entry["fame"], entry["member"].tag)
         )
-
-        recommendations: list[dict[str, Any]] = []
 
         for rank, entry in enumerate(ranked, start=1):
             member = entry["member"]
@@ -552,6 +592,7 @@ class ScoreService:
                 recommendations.append(
                     {
                         "tag": member.tag,
+                        "join_date": member.clan_joined_at,
                         "name": member.name,
                         "current_role": current_role,
                         "rank": rank,
@@ -564,12 +605,16 @@ class ScoreService:
                 continue
 
             sanctioned_this_race = fame < SANCTION_FAME_THRESHOLD
-            sanctioned_last_race = previous_fame < SANCTION_FAME_THRESHOLD
+            sanctioned_last_race = (
+                entry["was_present_for_previous_race"]
+                and previous_fame < SANCTION_FAME_THRESHOLD
+            )
 
-            if sanctioned_this_race and sanctioned_last_race and second_last_race:
+            if sanctioned_this_race and sanctioned_last_race:
                 recommendations.append(
                     {
                         "tag": member.tag,
+                        "join_date": member.clan_joined_at,
                         "name": member.name,
                         "current_role": current_role,
                         "rank": rank,
@@ -589,6 +634,7 @@ class ScoreService:
                 recommendations.append(
                     {
                         "tag": member.tag,
+                        "join_date": member.clan_joined_at,
                         "name": member.name,
                         "current_role": current_role,
                         "rank": rank,
@@ -615,6 +661,7 @@ class ScoreService:
             recommendations.append(
                 {
                     "tag": member.tag,
+                    "join_date": member.clan_joined_at,
                     "name": member.name,
                     "current_role": current_role,
                     "rank": rank,
