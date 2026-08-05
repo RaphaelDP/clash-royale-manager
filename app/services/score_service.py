@@ -96,6 +96,20 @@ class ScoreService:
             .all()
         )
         return [r.id for r in races]
+    
+    def get_last_completed_race(self) -> RiverRace | None:
+        """
+        The most recently completed river race, or None if none exist yet.
+        Shared by get_promotion_recommendations and DashboardService's Clan
+        Health Score (War Participation/Efficiency components), so both use
+        one query instead of two copies.
+        """
+        return (
+            self.db.query(RiverRace)
+            .filter(RiverRace.is_completed.is_(True))
+            .order_by(RiverRace.created_date.desc())
+            .first()
+        )
 
     def _war_activity_score(self, member_tag: str) -> float:
         """
@@ -240,32 +254,6 @@ class ScoreService:
     def _activity_component_score(self, member: Member) -> float:
         days_since = (get_time() - member.last_seen).days if member.last_seen else None
         return activity_score_from_days(days_since)
-
-    def _effective_join_date(self, member: Member) -> datetime | None:
-        """
-        Best-known date this member has been around, correcting for
-        clan_joined_at potentially being stamped later than reality (e.g. a
-        historical war-log backfill can create a Member row - and stamp
-        clan_joined_at "now" - well after their actual first appearance).
-        Uses whichever is earlier: clan_joined_at, or their first known
-        completed-race participation.
-        """
-        earliest_participation_date = (
-            self.db.query(func.min(RiverRace.created_date))
-            .join(WarParticipation, WarParticipation.river_race_id == RiverRace.id)
-            .filter(
-                WarParticipation.member_tag == member.tag,
-                RiverRace.is_completed.is_(True),
-            )
-            .scalar()
-        )
-
-        candidates = [
-            d
-            for d in (member.clan_joined_at, earliest_participation_date)
-            if d is not None
-        ]
-        return min(candidates) if candidates else None
 
     def _raw_consistency_score(
         self, member_tag: str, recent_race_ids: list[int]
@@ -503,13 +491,7 @@ class ScoreService:
                 action is one of: "promote", "demote", "kick", "no_change"
                 rank is None for members excluded as not-yet-eligible.
         """
-        last_race = (
-            self.db.query(RiverRace)
-            .filter(RiverRace.is_completed.is_(True))
-            .order_by(RiverRace.created_date.desc())
-            .first()
-        )
-
+        last_race = self.get_last_completed_race()
         if not last_race:
             return []
 

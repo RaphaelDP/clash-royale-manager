@@ -319,6 +319,12 @@ class DashboardService:
         """
         score_service = ScoreService(self.db)
         return score_service.get_promotion_recommendations()
+    
+    def get_last_completed_race(self) -> RiverRace | None:
+        """
+        Returns the most recent completed RiverRace, or None if none exist."""
+        score_service = ScoreService(self.db)
+        return score_service.get_last_completed_race()
 
     # ==========================================================================
     # Clan health & activity (v0.6.0)
@@ -399,12 +405,7 @@ class DashboardService:
         )
 
         # --- 2 & 3. War Participation (20%) & War Efficiency (15%) ---
-        last_race = (
-            self.db.query(RiverRace)
-            .filter(RiverRace.is_completed.is_(True))
-            .order_by(RiverRace.created_date.desc())
-            .first()
-        )
+        last_race = self.get_last_completed_race()
 
         if last_race:
             participants_count = (
