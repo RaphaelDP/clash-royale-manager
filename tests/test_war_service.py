@@ -455,6 +455,8 @@ def test_sync_river_race_log_marks_races_completed(
     war_service.sync_river_race_log("#TEST123")
 
     race = db_session.query(RiverRace).one()
+    assert test_members[0].tag in {p.member_tag for p in race.war_participations}
+    assert test_members[1].tag in {p.member_tag for p in race.war_participations}
     assert race.is_completed is True
 
 
@@ -474,4 +476,7 @@ def test_sync_current_river_race_marks_race_incomplete(
     war_service.sync_current_river_race("#TEST123")
 
     race = db_session.query(RiverRace).one()
+    assert test_members[0].tag in {p.member_tag for p in race.war_participations}
+    assert test_members[1].tag in {p.member_tag for p in race.war_participations}
+    assert race.section_index == 2
     assert race.is_completed is False
