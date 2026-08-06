@@ -3,14 +3,14 @@
 # Description: Docker Compose configuration for the Clan Manager Dashboard.
 # Author: Raphael Smilet
 # Date Created: 2026-06-06
-# Last Modified: 2026-07-03
+# Last Modified: 2026-08-06
 # Version: 0.5.0
 # Dependencies: Docker
 # ================================================================================
 
 services:
   app: 
-    user: "${UID}:${GID}"  # Use host user and group IDs
+    user: "${UID:-1000}:${GID:-1000}"  # Use host user and group IDs
     build:
       context: .
       dockerfile: Dockerfile
