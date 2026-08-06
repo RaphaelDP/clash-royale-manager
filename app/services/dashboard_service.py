@@ -319,7 +319,7 @@ class DashboardService:
         """
         score_service = ScoreService(self.db)
         return score_service.get_promotion_recommendations()
-    
+
     def get_last_completed_race(self) -> RiverRace | None:
         """
         Returns the most recent completed RiverRace, or None if none exist."""

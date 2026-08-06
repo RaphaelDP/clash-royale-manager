@@ -96,7 +96,7 @@ class ScoreService:
             .all()
         )
         return [r.id for r in races]
-    
+
     def get_last_completed_race(self) -> RiverRace | None:
         """
         The most recently completed river race, or None if none exist yet.
