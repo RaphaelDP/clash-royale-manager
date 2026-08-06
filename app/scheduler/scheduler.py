@@ -4,7 +4,7 @@ Filename: scheduler.py
 Description: Scheduler configuration for running jobs at specified intervals.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-12
+Last Modified: 2026-08-06
 Version: 0.2.0
 Python Version: 3.12
 Dependencies: apscheduler, app.scheduler.jobs
@@ -21,6 +21,7 @@ from app.scheduler.jobs import (
     calculate_scores,
     send_daily_report,
     increment_membership_days,
+    backup_database,
 )
 
 
@@ -44,6 +45,10 @@ def start_scheduler() -> BackgroundScheduler:
     scheduler.add_job(calculate_scores, "cron", hour=0, minute=30)
     scheduler.add_job(send_daily_report, "cron", hour=1, minute=0)
 
+    # Daily: backup database
+    scheduler.add_job(backup_database, "cron", hour=2, minute=0)
+
+    # Start the scheduler
     scheduler.start()
     logger.info("Scheduler started.")
 

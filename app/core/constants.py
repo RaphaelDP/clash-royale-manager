@@ -4,7 +4,7 @@ Filename: constants.py
 Description: Global constants for the application, including API endpoints, thresholds, and weights.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-10
+Last Modified: 2026-06-08
 Version: 0.2.3
 Python Version: 3.11
 Dependencies: None
@@ -20,6 +20,8 @@ MAX_RETRIES = 3
 
 CACHE_NAME = "cr_cache"
 
+# Backup Constants (v0.9.0)
+BACKUP_RETENTION_COUNT = 14  # number of daily backups to keep
 
 ### Clash Royale Constants ###
 # Inactivity thresholds (in days)

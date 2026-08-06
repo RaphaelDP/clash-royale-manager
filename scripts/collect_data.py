@@ -4,7 +4,7 @@ Filename: collect_data.py
 Description: Script to collect and sync data from the Clash Royale API.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-11
+Last Modified: 2026-08-06
 Version: 0.6.0
 Python Version: 3.12
 Dependencies: Services: ClanService, WarService, SnapshotService, MemberService, ScoreService
@@ -19,6 +19,7 @@ from app.services.snapshot_service import SnapshotService
 from app.services.score_service import ScoreService
 from app.core.config import settings
 from app.core.logger import logger
+from scripts.backup_db import backup_database
 
 
 def main():
@@ -48,6 +49,10 @@ def main():
         score_service = ScoreService(db)
         score_service.calculate_all_scores()
         logger.info("Calculated promotion scores.")
+
+        backup_database()
+        logger.info("Database backup completed.")
+
     except Exception as e:
         logger.error("Failed to sync data: %s", e)
     finally:

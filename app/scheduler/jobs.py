@@ -4,7 +4,7 @@ Filename: jobs.py
 Description: Scheduled jobs for data collection, updates, and analytics.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-12
+Last Modified: 2026-08-06
 Version: 0.2.0
 Python Version: 3.12
 Dependencies: app.services, app.integrations.discord, app.database.session
@@ -21,6 +21,7 @@ from app.services.snapshot_service import SnapshotService
 from app.services.score_service import ScoreService
 from app.integrations.discord.bot import DiscordBot
 from app.integrations.discord.reports import DiscordReporter
+from scripts.backup_db import backup_database as run_database_backup
 
 
 def update_clan_members() -> None:
@@ -129,3 +130,16 @@ def increment_membership_days() -> None:
         logger.error("[scheduler] Failed to increment membership days: %s", e)
     finally:
         db.close()
+
+
+def backup_database() -> None:
+    """
+    Scheduled job to create a timestamped SQLite backup and prune old
+    ones. Runs once per day, after every other daily job, to capture a
+    clean end-of-day state.
+    """
+    try:
+        run_database_backup()
+        logger.info("[scheduler] Database backup completed.")
+    except Exception as e:
+        logger.error("[scheduler] Failed to back up database: %s", e)
