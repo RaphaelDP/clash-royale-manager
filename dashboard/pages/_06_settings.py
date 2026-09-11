@@ -9,6 +9,7 @@ Version: 0.5.0
 ================================================================================
 """
 
+from pathlib import Path
 import streamlit as st
 
 from app.core.config import settings
@@ -137,3 +138,40 @@ LOG_LEVEL={settings.LOG_LEVEL}
 """,
         file_name="settings.txt",
     )
+
+st.divider()
+
+st.header("📋 Recent Logs")
+
+st.caption(
+    "Scroll within the box below to see more. Useful for troubleshooting, "
+    "or to copy/share if something isn't working."
+)
+
+log_path = Path(settings.LOG_FILE)
+
+if log_path.exists():
+    with log_path.open("r", encoding="utf-8", errors="replace") as f:
+        lines = f.readlines()
+
+    line_count = st.selectbox(
+        "Lines to show",
+        [50, 200, 500, 1000],
+        index=1,
+    )
+
+    recent_lines = lines[-line_count:]
+    st.code(
+        "".join(recent_lines) or "Log file is empty.",
+        language="log",
+        height=400,
+    )
+
+    st.download_button(
+        "📥 Download full log",
+        data=log_path.read_text(encoding="utf-8", errors="replace"),
+        file_name="clan_manager.log",
+        mime="text/plain",
+    )
+else:
+    st.info("No log file found yet.")
