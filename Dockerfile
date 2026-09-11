@@ -35,8 +35,6 @@ EXPOSE 8501
 
 # Create a script to sync data and start Streamlit
 RUN echo '#!/bin/bash' > start.sh && \
-    echo 'echo "Starting tests..."' >> start.sh && \
-    echo "pytest" >> start.sh && \
     echo 'echo "Checking database..."' >> start.sh && \
 	echo 'python scripts/init_db.py' >> start.sh && \
     echo 'echo "Collecting data from Clash Royale API..."' >> start.sh && \
