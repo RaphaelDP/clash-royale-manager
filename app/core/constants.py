@@ -61,10 +61,11 @@ GROWTH_WINDOW_DAYS = 30
 
 
 ### Score Service Constants (v0.7.0 minimal) ###
-# Theoretical max fame achievable in a single river race:
-# 4 days x (2 duel wins x 250 + 2 combat wins x 200) = 4 x 900 = 3600
-MAX_FAME_PER_RACE = 3600
-
+DAYS_PER_RACE = 4
+MAX_FAME_PER_DAY = 900  # 2 duel wins x 250 + 2 combat wins x 200
+MAX_DECKS_PER_DAY = 4
+MAX_FAME_PER_RACE = MAX_FAME_PER_DAY * DAYS_PER_RACE  # 3600
+MAX_DECKS_PER_RACE = MAX_DECKS_PER_DAY * DAYS_PER_RACE  # 16
 
 ### Contribution Score Constants (v0.8.0) ###
 # Component weights (sum to 1.0)

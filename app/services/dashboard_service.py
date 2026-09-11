@@ -41,6 +41,8 @@ from app.core.constants import (
     INACTIVE_DAYS,
     VERY_INACTIVE_DAYS,
     CLAN_HEALTH_WEIGHTS,
+    MAX_DECKS_PER_RACE,
+    MAX_FAME_PER_RACE,
 )
 
 
@@ -655,6 +657,37 @@ class DashboardService:
     # War dashboard
     # ==========================================================================
 
+    def _get_efficiency(
+        self,
+        fame: int | float,
+        decks_used: int,
+        number_of_races: int,
+    ) -> float:
+        """
+        Calculates war efficiency: fame performance relative to deck
+        attendance, independent of total volume. Capped at 100% to handle
+        small-sample anomalies (e.g. a single lucky duel win from very few
+        decks used) - same principle as WAR_PERFORMANCE_SUBMETRIC_CAP and
+        MIN_RACES_FOR_CONSISTENCY elsewhere in the scoring system.
+
+        Formula:
+            Fame Efficiency = fame / max possible fame
+            Attendance = decks_used / max available decks
+            Efficiency = min(100, (Fame Efficiency / Attendance) * 100)
+        """
+        max_fame = number_of_races * MAX_FAME_PER_RACE
+        max_decks = number_of_races * MAX_DECKS_PER_RACE
+
+        if not decks_used or not max_fame or not max_decks:
+            return 0.0
+
+        fame_efficiency = fame / max_fame
+        attendance = decks_used / max_decks
+
+        raw_efficiency = (fame_efficiency / attendance) * 100
+
+        return min(round(raw_efficiency, 1), 100.0)
+
     def get_war_player_ranking(
         self, season_id: str, limit: int = 10
     ) -> list[dict[str, Any]]:
@@ -664,6 +697,12 @@ class DashboardService:
         of play independent of total participation volume.
         """
         race_ids = select(RiverRace.id).where(RiverRace.season_id == season_id)
+        number_of_races = (
+            self.db.query(count(RiverRace.id))
+            .filter(RiverRace.season_id == season_id)
+            .scalar()
+        )
+
         rows = (
             self.db.query(
                 Member.tag,
@@ -672,10 +711,6 @@ class DashboardService:
                 func.sum(WarParticipation.repair_points).label("repair"),
                 func.sum(WarParticipation.boat_attacks).label("boats"),
                 func.sum(WarParticipation.decks_used).label("decks"),
-                (
-                    func.sum(WarParticipation.fame)
-                    / func.nullif(func.sum(WarParticipation.decks_used), 0)
-                ).label("efficiency"),
             )
             .join(WarParticipation, WarParticipation.member_tag == Member.tag)
             .filter(WarParticipation.river_race_id.in_(race_ids))
@@ -693,8 +728,8 @@ class DashboardService:
                 "repair": row.repair,
                 "boats": row.boats,
                 "decks": row.decks,
-                "efficiency": (
-                    round(row.efficiency, 1) if row.efficiency is not None else 0
+                "efficiency": self._get_efficiency(
+                    row.fame, row.decks, number_of_races
                 ),
             }
             for row in rows
@@ -734,6 +769,14 @@ class DashboardService:
         If season_id is given, stats are scoped to that season; otherwise
         stats are all-time across every season.
         """
+
+        number_of_races_query = self.db.query(count(RiverRace.id))
+        if season_id is not None:
+            number_of_races_query = number_of_races_query.filter(
+                RiverRace.season_id == season_id
+            )
+        number_of_races = number_of_races_query.scalar()
+
         query = self.db.query(
             func.coalesce(func.sum(WarParticipation.fame), 0).label("fame"),
             func.coalesce(func.sum(WarParticipation.repair_points), 0).label(
@@ -757,6 +800,9 @@ class DashboardService:
             "repair_points": row.repair_points,
             "boat_attacks": row.boat_attacks,
             "decks_used": row.decks_used,
+            "efficiency": self._get_efficiency(
+                row.fame, row.decks_used, number_of_races
+            ),
         }
 
     # ==========================================================================
