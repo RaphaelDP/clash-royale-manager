@@ -62,3 +62,20 @@ class Settings:
 
 
 settings = Settings()
+
+
+def validate_required_config() -> list[str]:
+    """
+    Returns the names of required settings that are missing or blank.
+    Used by the dashboard to show a clear error message instead of a
+    confusing downstream failure (e.g. a 403 from the Clash Royale API)
+    when someone hasn't filled in their .env yet.
+
+    DISCORD_WEBHOOK_URL is deliberately excluded - it's optional by
+    design (Discord notifications are disabled when blank, not an error).
+    """
+    required = {
+        "CR_API_TOKEN": settings.CR_API_TOKEN,
+        "CLAN_TAG": settings.CLAN_TAG,
+    }
+    return [name for name, value in required.items() if not value]

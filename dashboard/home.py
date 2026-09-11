@@ -13,6 +13,8 @@ Dependencies: streamlit
 
 import streamlit as st
 
+from app.core.config import validate_required_config
+
 st.set_page_config(
     page_title="Clash Royale Manager",
     page_icon="🏆",
@@ -20,6 +22,20 @@ st.set_page_config(
 )
 
 st.title("🏆 Clash Royale Clan Manager")
+
+missing_config = validate_required_config()
+if missing_config:
+    st.error("⚠️ Missing configuration")
+
+    st.write("The following values are missing from your .env file:")
+
+    for item in missing_config:
+        st.write(f"- `{item}`")
+
+    st.info("Fill these values in .env, then restart the application.")
+
+    st.stop()
+
 st.markdown("""
     Welcome to the **Clan Manager Dashboard**!
     Use the sidebar to navigate to different sections.
