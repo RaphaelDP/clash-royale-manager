@@ -16,6 +16,75 @@ from datetime import timedelta
 from app.core.utils import get_time
 
 # =============================================================================
+# Overview stats
+# =============================================================================
+
+
+def test_get_overview_stats_with_no_members(dashboard_service):
+    """Regression test: previously crashed with TypeError on an empty DB."""
+    result = dashboard_service.get_overview_stats()
+
+    assert result["overall_members"] == 0
+    assert result["actual_members"] == 0
+    assert result["active_members"] == 0
+
+
+# """
+#         return {
+#             "overall_members": overall_members_count,
+#             "actual_members": actual_members_count,
+#             "active_members": active_members_count,
+#             "average_trophies": round(avg_trophies or 0),
+#             "total_donations": total_donations,
+#             "average_promotion_score": round(avg_contribution_score, 2),
+#         }"""
+def test_get_overview_stats_member_count_includes_left_members(
+    db_session, dashboard_service, member_factory
+):
+    """member_count is the total roster (including left/fired), distinct
+    from active_members."""
+    active = member_factory(tag="#ACTIVE3", role="member")
+    inactive = member_factory(
+        tag="#INACTIVE3", role="member", last_seen=get_time() - timedelta(days=30)
+    )
+    left = member_factory(tag="#LEFT3", role="left")
+    db_session.add_all([active, inactive, left])
+    db_session.commit()
+
+    result = dashboard_service.get_overview_stats()
+
+    assert result["overall_members"] == 3
+    assert result["actual_members"] == 2
+    assert result["active_members"] == 1
+
+
+def test_get_member_filter_options_empty_db(dashboard_service):
+    """Business rule: returns has_members=False and empty roles list when no members exist."""
+    result = dashboard_service.get_member_filter_options()
+
+    assert result["has_members"] is False
+    assert result["roles"] == []
+
+
+def test_get_filtered_members(db_session, dashboard_service, member_factory):
+    """Verify filtering by role and trophies works, and that left/fired members are excluded."""
+    member_factory(tag="#F1", role="elder", trophies=5000, donations=100)
+    member_factory(tag="#F2", role="member", trophies=1000, donations=10)
+    db_session.add_all(
+        [
+            member_factory(tag="#F1", role="elder", trophies=5000, donations=100),
+            member_factory(tag="#F2", role="member", trophies=1000, donations=10),
+        ]
+    )
+    db_session.commit()
+
+    result = dashboard_service.get_filtered_members(roles=["elder"], min_trophies=2000)
+
+    assert len(result) == 1
+    assert result[0].tag == "#F1"
+
+
+# =============================================================================
 # Promotion dashboard
 # =============================================================================
 

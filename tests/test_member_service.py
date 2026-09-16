@@ -222,6 +222,18 @@ def test_get_active_members(member_service, test_members):
     assert active_members[0].tag == test_members[1].tag
 
 
+def test_count_inactive_members(db_session, member_service, member_factory):
+    """Business rule: count_inactive_members counts members inactive for more than the threshold."""
+    active = member_factory(tag="#ACTIVE4", last_seen=get_time())
+    inactive = member_factory(
+        tag="#INACTIVE4", last_seen=get_time() - timedelta(days=20)
+    )
+    db_session.add_all([active, inactive])
+    db_session.commit()
+
+    assert member_service.count_inactive_members(days_threshold=7) == 1
+
+
 def test_get_inactive_members_ignores_left_members(
     db_session, member_service, member_factory
 ):

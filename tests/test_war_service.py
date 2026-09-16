@@ -480,3 +480,70 @@ def test_sync_current_river_race_marks_race_incomplete(
     assert test_members[1].tag in {p.member_tag for p in race.war_participations}
     assert race.section_index == 2
     assert race.is_completed is False
+
+
+def test_sync_river_race_log_mixed_new_and_existing_participations(
+    db_session, war_service, mocker, test_members
+):
+    """
+    Correctness check for the batched lookup path: a race with one
+    participant that already has a WarParticipation (should update) and
+    one brand-new participant (should create) - verifies the pre-fetched
+    dicts are keyed and consumed correctly.
+    """
+    log_data = [
+        {
+            "seasonId": "150",
+            "sectionIndex": 0,
+            "createdDate": "20260901T090000.000Z",
+            "standings": [
+                {
+                    "clan": {
+                        "tag": "#TEST123",
+                        "participants": [
+                            {
+                                "tag": test_members[0].tag,
+                                "fame": 500,
+                                "repairPoints": 5,
+                                "boatAttacks": 1,
+                                "decksUsed": 2,
+                                "decksUsedToday": 2,
+                            },
+                            {
+                                "tag": test_members[1].tag,
+                                "fame": 700,
+                                "repairPoints": 7,
+                                "boatAttacks": 2,
+                                "decksUsed": 3,
+                                "decksUsedToday": 3,
+                            },
+                        ],
+                    }
+                }
+            ],
+        }
+    ]
+
+    mocker.patch.object(
+        war_service.api_client, "get_river_race_log", return_value=log_data
+    )
+
+    # First sync creates both participations
+    war_service.sync_river_race_log("#TEST123")
+
+    # Second sync with updated fame for one, unchanged for the other -
+    # exercises the "existing" branch of the batched lookup
+    log_data[0]["standings"][0]["clan"]["participants"][0]["fame"] = 999
+    mocker.patch.object(
+        war_service.api_client, "get_river_race_log", return_value=log_data
+    )
+    war_service.sync_river_race_log("#TEST123")
+
+    participations = db_session.query(WarParticipation).all()
+    assert len(participations) == 2
+
+    updated = next(p for p in participations if p.member_tag == test_members[0].tag)
+    unchanged = next(p for p in participations if p.member_tag == test_members[1].tag)
+
+    assert updated.fame == 999
+    assert unchanged.fame == 700
