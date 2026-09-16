@@ -387,7 +387,7 @@ class ScoreService:
 
         self.db.commit()
 
-        logger.info(
+        logger.debug(
             "Calculated contribution score for %s: %.2f", member_tag, final_score
         )
 
