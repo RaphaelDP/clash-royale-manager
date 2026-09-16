@@ -268,7 +268,13 @@ def test_get_player_war_stats_season_scoped_and_all_time(
         "repair_points": 10,
         "boat_attacks": 1,
         "decks_used": 2,
+        "efficiency": 22.2,
     }
+    # Fame efficiency = 100 / 3600 (MAX_FAME_PER_RACE)= 2.78%
+    # Attendance      = 2 / 16 (MAX_DECKS_PER_RACE) = 12.5%
+
+    # Efficiency = (2.78% / 12.5%) × 100
+    #         = 22.22% , rounded to 22.2
 
     all_time_stats = dashboard_service.get_player_war_stats(member.tag, season_id=None)
     assert all_time_stats == {
@@ -276,7 +282,16 @@ def test_get_player_war_stats_season_scoped_and_all_time(
         "repair_points": 30,
         "boat_attacks": 3,
         "decks_used": 5,
+        "efficiency": 26.7,
     }
+
+    # Calculation:
+
+    # Max fame: 2 races × 3600 = 7200
+    # Max decks: 2 races × 16 = 32
+    # Fame efficiency: 300 / 7200 = 4.17%
+    # Attendance: 5 / 32 = 15.625%
+    # Efficiency: (4.17 / 15.625) × 100 = 26.67%
 
 
 def test_get_race_comparison(
