@@ -4,57 +4,49 @@ Filename: collect_data.py
 Description: Script to collect and sync data from the Clash Royale API.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-08-06
-Version: 0.6.0
+Last Modified: 2026-09-11
+Version: 0.9.1
 Python Version: 3.12
-Dependencies: Services: ClanService, WarService, SnapshotService, MemberService, ScoreService
+Dependencies: app.scheduler.jobs
 ================================================================================
 """
 
-from app.database.session import SessionLocal
-from app.services.member_service import MemberService
-from app.services.clan_service import ClanService
-from app.services.war_service import WarService
-from app.services.snapshot_service import SnapshotService
-from app.services.score_service import ScoreService
-from app.core.config import settings
 from app.core.logger import logger
-from scripts.backup_db import backup_database
+from app.database.session import SessionLocal
+from app.scheduler.jobs import (
+    backup_database,
+    calculate_scores,
+    create_daily_snapshots,
+    increment_membership_days,
+    update_clan_members,
+    update_war_data,
+)
 
 
-def main():
-    """Sync clan members, war data, snapshots, and promotion scores."""
+def main() -> None:
+    """Run the complete data collection pipeline."""
     db = SessionLocal()
 
     try:
-        clan_service = ClanService(db)
-        clan_service.sync_clan_members(settings.CLAN_TAG)
-        logger.info("Synced clan members.")
+        jobs = [
+            update_clan_members,
+            update_war_data,
+            create_daily_snapshots,
+            increment_membership_days,
+            calculate_scores,
+            backup_database,
+        ]
 
-        war_service = WarService(db)
-        war_service.sync_river_race_log(settings.CLAN_TAG)
-        logger.info("Synced river race log.")
+        for job in jobs:
+            if not job(db):
+                logger.warning(
+                    "Data collection stopped because '%s' failed.", job.__name__
+                )
+                break
 
-        war_service.sync_current_river_race(settings.CLAN_TAG)
-        logger.info("Synced current river race.")
+        else:
+            logger.info("Data collection completed successfully.")
 
-        snapshot_service = SnapshotService(db)
-        snapshot_service.create_daily_snapshots(None)
-        logger.info("Created daily snapshots.")
-
-        member_service = MemberService(db)
-        member_service.increment_days_in_clan()
-        logger.info("Incremented membership days.")
-
-        score_service = ScoreService(db)
-        score_service.calculate_all_scores()
-        logger.info("Calculated promotion scores.")
-
-        backup_database()
-        logger.info("Database backup completed.")
-
-    except Exception as e:
-        logger.error("Failed to sync data: %s", e)
     finally:
         db.close()
 
