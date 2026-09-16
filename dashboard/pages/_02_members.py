@@ -15,8 +15,8 @@ import pandas as pd
 import streamlit as st
 
 from app.database.session import get_session
-from app.database.models import Member
 from app.services.dashboard_service import DashboardService
+from app.scheduler.jobs import update_clan_members
 
 st.set_page_config(
     page_title="Clan Members",
@@ -29,9 +29,9 @@ st.title("👥 Clan Members")
 with get_session() as db:
     dashboard_service = DashboardService(db)
 
-    members = db.query(Member).all()
+    filter_options = dashboard_service.get_member_filter_options()
 
-    if not members:
+    if not filter_options["has_members"]:
         st.warning("No members found in database.")
         st.stop()
 
@@ -41,25 +41,23 @@ with get_session() as db:
 
     st.sidebar.header("🔎 Filters")
 
-    roles = sorted(list({member.role for member in members if member.role}))
-
     selected_roles = st.sidebar.multiselect(
         "Role",
-        options=roles,
-        default=roles,
+        options=filter_options["roles"],
+        default=filter_options["roles"],
     )
 
     min_trophies = st.sidebar.slider(
         "Minimum Trophies",
         min_value=0,
-        max_value=max(member.trophies for member in members),
+        max_value=filter_options["max_trophies"],
         value=0,
     )
 
     min_donations = st.sidebar.slider(
         "Minimum Donations",
         min_value=0,
-        max_value=max(member.donations for member in members),
+        max_value=filter_options["max_donations"],
         value=0,
     )
 
@@ -72,20 +70,20 @@ with get_session() as db:
     # Filtering
     # ==========================================================================
 
-    filtered_members = [
-        member
-        for member in members
-        if member.role in selected_roles
-        and member.trophies >= min_trophies
-        and member.donations >= min_donations
-        and (not has_contribution_score or member.contribution_score is not None)
-    ]
+    filtered_members = dashboard_service.get_filtered_members(
+        roles=selected_roles,
+        min_trophies=min_trophies,
+        min_donations=min_donations,
+        has_contribution_score=has_contribution_score,
+    )
 
     # ==========================================================================
     # Summary
     # ==========================================================================
 
     st.header("📊 Member Summary")
+
+    refresh = st.button("🔄 Refresh Clash Royale profile", on_click=lambda: update_clan_members(db_session=db))
 
     col1, col2, col3, col4 = st.columns(4)
 

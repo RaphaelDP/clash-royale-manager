@@ -32,8 +32,8 @@ with get_session() as db:
         ["leader", "coLeader", "elder", "member"],
     )
 
-    members = dashboard.get_members_filter_by_role(
-        role=selected_roles,
+    members = dashboard.get_filtered_members(
+        roles=[selected_roles] if selected_roles else None
     )
 
     if not members:

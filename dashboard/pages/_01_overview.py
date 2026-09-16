@@ -63,21 +63,24 @@ with get_session() as db:
 
     st.header("📈 Clan Statistics")
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
 
     with col1:
-        st.metric("Members", overview["member_count"])
+        st.metric("Overall Members", overview["overall_members"])
 
     with col2:
         st.metric("Active Members", overview["active_members"])
 
     with col3:
-        st.metric("Average Trophies", overview["average_trophies"])
+        st.metric("Actual Members", overview["actual_members"])
 
     with col4:
-        st.metric("Total Donations", overview["total_donations"])
+        st.metric("Average Trophies", overview["average_trophies"])
 
     with col5:
+        st.metric("Total Donations", overview["total_donations"])
+
+    with col6:
         st.metric("Average Promotion Score", overview["average_promotion_score"])
 
     # ==========================================================================

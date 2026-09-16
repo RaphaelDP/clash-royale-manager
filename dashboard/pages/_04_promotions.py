@@ -27,7 +27,7 @@ with get_session() as db:
     st.header("🏆 Contribution Overview")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.metric("Members", overview["member_count"])
+        st.metric("Actual members", overview["actual_members"])
     with c2:
         st.metric("Contribution Scores", contribution["score_count"])
     with c3:
