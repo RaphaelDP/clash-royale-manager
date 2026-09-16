@@ -28,7 +28,30 @@ st.title("📊 Clan Overview")
 
 with get_session() as db:
     dashboard_service = DashboardService(db, api_clash=None)
+    sync_job_names = {"update_clan_members", "update_war_data"}
+    failed_jobs = [
+        j for j in dashboard_service.get_failed_jobs() if j.job_name in sync_job_names
+    ]
 
+    if failed_jobs:
+        known_success_dates = [
+            job.last_success_at
+            for job in failed_jobs
+            if job.last_success_at is not None
+        ]
+        stale_since = min(known_success_dates) if known_success_dates else None
+
+        if stale_since:
+            st.warning(
+                "Some Clash Royale data could not be synchronized. "
+                f"Showing the latest available data from "
+                f"{format_datetime(stale_since)}."
+            )
+        else:
+            st.warning(
+                "Some Clash Royale data could not be synchronized. "
+                "No successful synchronization is available yet."
+            )
     overview = dashboard_service.get_overview_stats()
     database = dashboard_service.get_database_stats()
     war = dashboard_service.get_war_stats()

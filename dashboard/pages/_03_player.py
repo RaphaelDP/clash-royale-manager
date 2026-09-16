@@ -17,7 +17,7 @@ import streamlit as st
 from app.database.session import get_session
 from app.services.dashboard_service import DashboardService
 from app.services.member_service import MemberService
-from app.core.utils import get_time
+from app.core.utils import format_datetime, get_time
 
 st.set_page_config(page_title="Player Profile", page_icon="👤", layout="wide")
 st.title("👤 Player Profile")
@@ -57,6 +57,21 @@ with get_session() as db:
     if not profile:
         st.error("Unable to load player.")
         st.stop()
+
+    if profile.get("api_refresh_failed"):
+        updated_at = profile.get("api_data_updated_at")
+
+        if updated_at:
+            st.warning(
+                "Clash Royale profile refresh failed. "
+                f"Showing the latest available data from "
+                f"{format_datetime(updated_at)}."
+            )
+        else:
+            st.warning(
+                "Clash Royale profile could not be refreshed and "
+                "no cached profile data is available."
+            )
 
     api = profile.get("api", {})
 
