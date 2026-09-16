@@ -26,6 +26,7 @@ from app.database.models import (
     WarSeason,
     RiverRace,
     WarParticipation,
+    JobRunState,
 )
 from app.services.score_service import ScoreService
 from app.services.clash_api import ClashAPIClient
@@ -958,3 +959,22 @@ class DashboardService:
                 .scalar()
             ),
         }
+
+    # ==========================================================================
+    #  Job state helpers
+    # ==========================================================================
+
+    def get_job_state(self, job_name: str) -> JobRunState | None:
+        """Return the execution state of a job."""
+        return (
+            self.db.query(JobRunState).filter(JobRunState.job_name == job_name).first()
+        )
+
+    def get_failed_jobs(self) -> list[JobRunState]:
+        """Return jobs whose latest attempt failed."""
+        return (
+            self.db.query(JobRunState)
+            .filter(JobRunState.last_error.isnot(None))
+            .order_by(JobRunState.last_attempt_at.desc())
+            .all()
+        )
