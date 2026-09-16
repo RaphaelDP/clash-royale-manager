@@ -36,7 +36,8 @@ with get_session() as db:
 
     if live_status:
         st.info(
-            f"Season {live_status['season_id']}, race #{live_status['section_index']} "
+            f"Season {live_status['season_id']}, race #{live_status['section_index']+1}\
+             (index :{live_status['season_id']}-{live_status['section_index']}) "
             "is currently in progress."
         )
 
@@ -99,9 +100,16 @@ with get_session() as db:
 
     st.subheader("🏆 Top War Players")
 
+    limit = st.slider(
+        "Number of top players to display",
+        min_value=1,
+        max_value=50,
+        value=10,
+    )
+
     top_players = dashboard_service.get_war_player_ranking(
         season_id=selected_season,
-        limit=10,
+        limit=limit,
     )
 
     if top_players:
@@ -146,11 +154,16 @@ with get_session() as db:
 
     st.subheader("📊 Player War Details")
 
+    all_players = dashboard_service.get_war_player_ranking(
+        season_id=selected_season,
+        limit=50,
+    )
+
     selected_player = st.selectbox(
         "Select Player",
-        [player["member_tag"] for player in top_players] if top_players else [],
+        [player["member_tag"] for player in all_players] if all_players else [],
         format_func=lambda tag: next(
-            (p["name"] for p in top_players if p["member_tag"] == tag), tag
+            (p["name"] for p in all_players if p["member_tag"] == tag), tag
         ),
     )
 
