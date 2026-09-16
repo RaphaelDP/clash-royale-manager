@@ -65,7 +65,7 @@ class DiscordReporter:
         lines = [
             f"**📊 Daily Clan Report — {datetime.now().strftime('%Y-%m-%d')}**",
             "",
-            f"👥 Members: {overview['member_count']} ({overview['active_members']} active)",
+            f"👥 Members: {overview['actual_members']} ({overview['active_members']} active)",
             f"🩺 Clan Health: {health['final_score']:.1f} / 100",
             "",
             f"🚨 Inactive {INACTIVE_DAYS}+ days: {len(inactive_members)}",
