@@ -69,48 +69,97 @@ class DashboardService:
         Global clan KPIs.
         """
 
-        member_count = len(self.member_service.get_active_members() or 0)
+        overall_members_count = self.db.query(count(Member.id)).scalar() or 0
 
-        avg_trophies = (
-            self.db.query(func.avg(Member.trophies)).scalar()
-            if member_count != 0
-            else 0
-        )
-
-        total_donations = self.db.query(
-            func.coalesce(func.sum(Member.donations), 0)
-        ).scalar()
-
-        avg_contribution_score = (
-            self.db.query(func.avg(Member.contribution_score))
-            .filter(Member.contribution_score.isnot(None))
-            .scalar()
-            or 0
-        )
-
-        active_members = (
+        actual_members_count = (
             self.db.query(count(Member.id))
             .filter(Member.role.notin_(["left", "fired"]))
             .scalar()
             or 0
         )
 
+        active_members_count = (
+            self.db.query(count(Member.id))
+            .filter(
+                Member.role.notin_(["left", "fired"]),
+                Member.last_seen.isnot(None),
+                Member.last_seen >= get_time() - timedelta(days=INACTIVE_DAYS),
+            )
+            .scalar()
+            or 0
+        )
+
+        avg_trophies = (
+            self.db.query(func.avg(Member.trophies))
+            .filter(Member.role.notin_(["left", "fired"]))
+            .scalar()
+            or 0
+        )
+
+        total_donations = (
+            self.db.query(func.coalesce(func.sum(Member.donations), 0))
+            .filter(Member.role.notin_(["left", "fired"]))
+            .scalar()
+        )
+
+        avg_contribution_score = (
+            self.db.query(func.avg(Member.contribution_score))
+            .filter(
+                Member.contribution_score.isnot(None),
+                Member.role.notin_(["left", "fired"]),
+            )
+            .scalar()
+            or 0
+        )
+
         return {
-            "member_count": member_count,
-            "active_members": active_members,
+            "overall_members": overall_members_count,
+            "actual_members": actual_members_count,
+            "active_members": active_members_count,
             "average_trophies": round(avg_trophies or 0),
             "total_donations": total_donations,
             "average_promotion_score": round(avg_contribution_score, 2),
         }
 
-    def get_members_filter_by_role(self, role: str | None = None) -> list[Member]:
+    def get_member_filter_options(self) -> dict[str, Any]:
         """
-        Returns all members in the database.
+        Filter bounds for the Members page sidebar: whether any members
+        exist, distinct roles, and max trophies/donations across all
+        members. Computed via SQL aggregates instead of loading every
+        member just to inspect these bounds.
         """
+        has_members = self.db.query(count(Member.id)).scalar() > 0
+        roles = [r for (r,) in self.db.query(Member.role).distinct().all() if r]
+        max_trophies = self.db.query(func.max(Member.trophies)).scalar() or 0
+        max_donations = self.db.query(func.max(Member.donations)).scalar() or 0
 
-        query = self.db.query(Member)
-        if role:
-            query = query.filter(Member.role == role)
+        return {
+            "has_members": has_members,
+            "roles": sorted(roles),
+            "max_trophies": max_trophies,
+            "max_donations": max_donations,
+        }
+
+    def get_filtered_members(
+        self,
+        roles: list[str] | None = None,
+        min_trophies: int = 0,
+        min_donations: int = 0,
+        has_contribution_score: bool = False,
+    ) -> list[Member]:
+        """
+        Members matching the given filters, applied in SQL rather than
+        loading every member and filtering in Python.
+        """
+        query = self.db.query(Member).filter(
+            Member.trophies >= min_trophies,
+            Member.donations >= min_donations,
+        )
+        if roles is not None:
+            query = query.filter(Member.role.in_(roles))
+        if has_contribution_score:
+            query = query.filter(Member.contribution_score.isnot(None))
+
         return query.all()
 
     # ==========================================================================
@@ -482,8 +531,7 @@ class DashboardService:
         leadership_score = 100
 
         # --- 8. Inactivity Penalty (5%) ---
-        member_service = MemberService(self.db, self.api_clash)
-        inactive_count = len(member_service.get_inactive_members(VERY_INACTIVE_DAYS))
+        inactive_count = self.member_service.count_inactive_members(VERY_INACTIVE_DAYS)
         inactivity_score = self._inactivity_penalty_score(inactive_count)
 
         components = {

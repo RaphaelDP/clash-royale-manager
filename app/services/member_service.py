@@ -173,6 +173,50 @@ class MemberService:
         )
         return True
 
+    def _inactive_members_query(self, days_threshold: int = 7):
+        """
+        Get a query for members who have been inactive for more than the specified number of days.
+
+        Args:
+            days_threshold (int, optional): Number of days of inactivity to consider a member inactive. Defaults to 7.
+
+        Returns:
+            Query: SQLAlchemy query for inactive members.
+        """
+        cutoff_date = get_time() - timedelta(days=days_threshold)
+
+        return self.db.query(Member).filter(
+            and_(
+                Member.last_seen.isnot(None),
+                Member.last_seen < cutoff_date,
+                Member.role.notin_(["left", "fired"]),
+            )
+        )
+
+    def get_inactive_members(self, days_threshold: int = 7):
+        """
+        Get a list of members who have been inactive for more than the specified number of days.
+
+        Args:
+            days_threshold (int, optional): Number of days of inactivity to consider a member inactive. Defaults to 7.
+
+        Returns:
+            List[Member]: List of inactive members.
+        """
+        return self._inactive_members_query(days_threshold).all()
+
+    def count_inactive_members(self, days_threshold: int = 7):
+        """
+        Count the number of members who have been inactive for more than the specified number of days.
+
+        Args:
+            days_threshold (int, optional): Number of days of inactivity to consider a member inactive. Defaults to 7.
+
+        Returns:
+            int: Count of inactive members.
+        """
+        return self._inactive_members_query(days_threshold).count()
+
     def get_active_members(self) -> List[Member]:
         """
         Get all active members (role != 'left' or 'fired').
@@ -181,30 +225,6 @@ class MemberService:
             List[Member]: List of active members.
         """
         return self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
-
-    def get_inactive_members(self, days_threshold: int = 7) -> List[Member]:
-        """
-        Get members inactive for more than `days_threshold` days.
-
-        Args:
-            days_threshold: Days since last activity to consider inactive.
-
-        Returns:
-            List[Member]: List of inactive members.
-        """
-
-        cutoff_date = get_time() - timedelta(days=days_threshold)
-        return (
-            self.db.query(Member)
-            .filter(
-                and_(
-                    Member.last_seen.isnot(None),
-                    Member.last_seen < cutoff_date,
-                    Member.role.notin_(["left", "fired"]),
-                )
-            )
-            .all()
-        )
 
     def increment_days_in_clan(self) -> int:
         """
@@ -324,6 +344,7 @@ class MemberService:
         Args:
             member_tag: Clash Royale player tag.
             all_stats: If True, also returns cached/live Clash Royale API data.
+            refresh: If True, forces a refresh of the Clash Royale API data, even if cached data exists.
 
         Returns:
             Dictionary containing local database information merged with

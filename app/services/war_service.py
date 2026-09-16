@@ -98,8 +98,26 @@ class WarService:
                     )
                     continue  # skip only this race, keep syncing the rest of the log
 
+                participants = your_clan_data.get("participants", [])
+                participant_tags = [
+                    p.get("tag", "") for p in participants if p.get("tag")
+                ]
+
+                existing_participations = {
+                    p.member_tag: p
+                    for p in self.db.query(WarParticipation)
+                    .filter_by(river_race_id=river_race.id)
+                    .all()
+                }
+                member_lookup = {
+                    m.tag: m
+                    for m in self.db.query(Member)
+                    .filter(Member.tag.in_(participant_tags))
+                    .all()
+                }
+
                 # Create or update participations for your clan's members
-                for participant in your_clan_data.get("participants", []):
+                for participant in participants:
                     try:
                         self._create_or_update_participation(
                             river_race_id=river_race.id,
@@ -109,6 +127,9 @@ class WarService:
                             boat_attacks=participant.get("boatAttacks", 0),
                             decks_used=participant.get("decksUsed", 0),
                             decks_used_today=participant.get("decksUsedToday", 0),
+                            river_race=river_race,
+                            existing_participations=existing_participations,
+                            member_lookup=member_lookup,
                         )
                     except Exception as e:
                         logger.error(
@@ -287,6 +308,9 @@ class WarService:
         boat_attacks: int,
         decks_used: int,
         decks_used_today: int,
+        river_race: RiverRace | None = None,
+        existing_participations: dict[str, WarParticipation] | None = None,
+        member_lookup: dict[str, Member] | None = None,
     ) -> WarParticipation | None:
         """
         Create or update a war participation record.
@@ -299,6 +323,17 @@ class WarService:
             boat_attacks: Number of boat attacks.
             decks_used: Number of decks used.
             decks_used_today: Number of decks used today.
+            river_race: Optional pre-fetched RiverRace, avoiding a
+                redundant query when the caller already has it (both
+                sync loops do).
+            existing_participations: Optional {member_tag: WarParticipation}
+                map for this river_race, pre-fetched once per race sync
+                instead of querying per participant. Falls back to a
+                per-call query when not provided (e.g. direct calls,
+                including tests).
+            member_lookup: Optional {tag: Member} map of already-known
+                members, pre-fetched once per sync batch instead of
+                querying per participant. Same fallback behavior.
 
         Returns:
             WarParticipation: The created or updated WarParticipation object.
@@ -312,13 +347,13 @@ class WarService:
             )
             return None
 
-        existing_participation: WarParticipation | None = (
-            self.db.query(WarParticipation)
+        existing_participation = (
+            existing_participations.get(member_tag)
+            if existing_participations is not None
+            else self.db.query(WarParticipation)
             .filter_by(river_race_id=river_race_id, member_tag=member_tag)
             .first()
         )
-
-        # logger.info("Member %s: %s", member_tag, existing_participation)
 
         if existing_participation:
             existing_participation.fame = fame
@@ -328,11 +363,14 @@ class WarService:
             existing_participation.decks_used_today = decks_used_today
             return existing_participation
 
-        river_race: RiverRace = (
-            self.db.query(RiverRace).filter_by(id=river_race_id).first()
-        )
+        if river_race is None:
+            river_race = self.db.query(RiverRace).filter_by(id=river_race_id).first()
 
-        member: Member | None = self.db.query(Member).filter_by(tag=member_tag).first()
+        member: Member | None = (
+            member_lookup.get(member_tag)
+            if member_lookup is not None
+            else self.db.query(Member).filter_by(tag=member_tag).first()
+        )
         if not member:
             try:
                 member = self.member_service.remove_member_from_clan(
