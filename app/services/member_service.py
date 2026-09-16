@@ -78,7 +78,7 @@ class MemberService:
             existing_member.clan_joined_at = self.get_effective_join_date(
                 existing_member
             )
-            logger.info("Updated member %s with role %s.", tag, role)
+            logger.debug("Updated member %s with role %s.", tag, role)
         else:
             # Create new member
             new_member = Member(
@@ -239,7 +239,12 @@ class MemberService:
         if state:
             state.last_run_date = today
         else:
-            state = JobRunState(job_name="increment_days_in_clan", last_run_date=today)
+            state = JobRunState(
+                job_name="increment_days_in_clan",
+                last_run_date=today,
+                last_attempt_at=get_time(),
+                last_success_at=get_time(),
+            )
             self.db.add(state)
 
         self.db.commit()
@@ -351,15 +356,46 @@ class MemberService:
 
         player_data: dict[str, Any]
 
-        if cache_file.exists() and not refresh:
-            with cache_file.open("r", encoding="utf-8") as file:
-                player_data = json.load(file)
-        else:
-            player_data = self.api_client.get_player(member_tag)
+        cache_exists = cache_file.exists()
+        cache_updated_at = (
+            datetime.fromtimestamp(cache_file.stat().st_mtime) if cache_exists else None
+        )
 
-            with cache_file.open("w", encoding="utf-8") as file:
-                json.dump(player_data, file, indent=4)
+        try:
+            if cache_exists and not refresh:
+                with cache_file.open("r", encoding="utf-8") as file:
+                    player_data = json.load(file)
+            else:
+                player_data = self.api_client.get_player(member_tag)
 
-        member_data["api"] = player_data
+                with cache_file.open("w", encoding="utf-8") as file:
+                    json.dump(player_data, file, indent=4)
+
+                cache_updated_at = datetime.fromtimestamp(cache_file.stat().st_mtime)
+
+            member_data["api"] = player_data
+            member_data["api_data_updated_at"] = cache_updated_at
+            member_data["api_refresh_failed"] = False
+
+        except Exception as e:
+            logger.warning(
+                "Unable to refresh Clash Royale profile for %s: %s",
+                member_tag,
+                e,
+            )
+
+            if cache_exists:
+                with cache_file.open("r", encoding="utf-8") as file:
+                    player_data = json.load(file)
+
+                member_data["api"] = player_data
+                member_data["api_data_updated_at"] = cache_updated_at
+                member_data["api_refresh_failed"] = True
+                member_data["api_refresh_error"] = str(e)
+            else:
+                member_data["api"] = {}
+                member_data["api_data_updated_at"] = None
+                member_data["api_refresh_failed"] = True
+                member_data["api_refresh_error"] = str(e)
 
         return member_data
