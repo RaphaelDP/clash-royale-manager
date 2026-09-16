@@ -49,7 +49,7 @@ class SnapshotService:
             collected_at=get_time(),
         )
         self.db.add(snapshot)
-        logger.info(
+        logger.debug(
             "Created snapshot for member %s at %s", member.tag, snapshot.collected_at
         )
         return snapshot
