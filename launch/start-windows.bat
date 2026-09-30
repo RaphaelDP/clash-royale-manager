@@ -1,3 +1,9 @@
+REM Filename: start-windows.bat
+REM Description: Launch the Docker dashboard with persistent runtime directories.
+REM Author: Raphael Smilet
+REM Date Created: 2026-08-06
+REM Last Modified: 2026-09-30
+REM Version: 0.1.1
 @echo off
 setlocal
 
@@ -15,6 +21,9 @@ if not exist ".env" (
 )
 
 echo Starting Clash Royale Clan Manager...
+if not exist data mkdir data
+if not exist logs mkdir logs
+if not exist backups mkdir backups
 docker compose up -d --build
 
 echo Waiting for the dashboard to be ready...

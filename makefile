@@ -3,7 +3,7 @@
 # Purpose: Formatting & linting utilities
 # =========================================
 
-.PHONY: install format lint check format-check lint-ci ci run tree commit clean reset-db
+.PHONY: install format lint check format-check lint-ci ci test run tree zip commit clean clean-db
 
 # Python executable (assumes venv is activated)
 PYTHON := python
@@ -26,7 +26,7 @@ PYLINT_IGNORE := $(subst $(space),,$(IGNORE))
 # Installation
 #
 install:
-	pip install -r requirements.txt
+	$(PYTHON) -m pip install -r requirements-dev.txt
 
 # -----------------------------------------
 # Formatting
@@ -67,21 +67,17 @@ lint-ci:
 # -----------------------------------------
 # CI task (dry-run formatting + Pylint)
 # -----------------------------------------
-ci: format-check lint-ci
+ci: format-check lint-ci test
+
+test:
+	$(PYTHON) -m scripts.run_tests
 
 
 # -----------------------------------------
 # Run pipeline
 # -----------------------------------------
 run:
-	@echo "==> Checking database..."
-	python scripts/init_db.py
-
-	@echo "==> Synchronizing Clash Royale data..."
-	python scripts/collect_data.py
-
-	@echo "==> Launching dashboard..."
-	python -m streamlit run dashboard/home.py
+	$(PYTHON) -m scripts.run_app
 
 # Default directory is the current one
 DIR ?= .
@@ -93,19 +89,8 @@ tree:
 	@tree $(DIR) -I "$(TREE_IGNORE)"
 
 zip:
-	@echo "Creating project archive..."
-	@zip -r clash_royale_manager.zip . \
-		-x ".git/*" \
-		-x ".venv/*" \
-		-x "*/__pycache__/*" \
-		-x "clash_royale_manager.egg-info/*" \
-		-x ".vscode/*" \
-		-x "data/*" \
-		-x "logs/*" \
-		-x "secrets/*" \
-		-x "*/migrations/*" \
-		-x "*.sqlite" \
-		-x "*.sqlite3"
+	$(PYTHON) -m scripts.package_release
+
 # -----------------------------------------
 # Commit (only if checks )
 # -----------------------------------------

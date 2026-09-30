@@ -3,46 +3,18 @@
 # Description: Docker configuration for building the Clan Manager Dashboard image.
 # Author: Raphael Smilet
 # Date Created: 2026-06-06
-# Last Modified: 2026-07-03
-# Version: 0.5.0
+# Last Modified: 2026-09-30
+# Version: 0.5.1
 # Dependencies: Docker
 # ================================================================================
 
 
-# Use official Python image
 FROM python:3.12-slim
-
-# Set working directory
 WORKDIR /app
-
-# Copy requirements
-COPY requirements.txt .
-
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Set PYTHONPATH to include /app
-ENV PYTHONPATH=/app
-
-# Copy project files
+ENV PYTHONPATH=/app PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY . .
-
-# Expose ports
-##FastAPI
-EXPOSE 8000 
-##Streamlit
+RUN pip install --no-cache-dir . && mkdir -p /app/data/cache /app/data/locks /app/logs /app/backups && chown -R 1000:1000 /app
+USER 1000:1000
 EXPOSE 8501
-
-# Create a script to sync data and start Streamlit
-RUN echo '#!/bin/bash' > start.sh && \
-    echo 'echo "Checking database..."' >> start.sh && \
-	echo 'python scripts/init_db.py' >> start.sh && \
-    echo 'echo "Collecting data from Clash Royale API..."' >> start.sh && \
-    echo 'python scripts/collect_data.py' >> start.sh && \
-    echo 'echo "Starting background scheduler..."' >> start.sh && \
-    echo 'python scripts/run_scheduler.py &' >> start.sh && \
-    echo 'streamlit run dashboard/home.py --server.port=8501 --server.address=0.0.0.0' >> start.sh && \
-    chmod +x start.sh
-
-# Command to run the script
-CMD ["./start.sh"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3)"
+CMD ["python", "-m", "scripts.run_app"]

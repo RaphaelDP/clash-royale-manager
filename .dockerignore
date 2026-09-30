@@ -11,4 +11,15 @@ venv
 .gitignore
 Dockerfile
 docker-compose.yml
-README.md
+.env.*
+!.env.example
+data/
+logs/
+backups/
+secrets/
+*.zip
+*.db
+*.sqlite*
+*.log
+.pytest_cache/
+git-history.txt

@@ -1,4 +1,10 @@
 #!/bin/bash
+# Filename: start-macos.command
+# Description: Launch the Docker dashboard with persistent runtime directories.
+# Author: Raphael Smilet
+# Date Created: 2026-08-06
+# Last Modified: 2026-09-30
+# Version: 0.1.1
 set -e
 
 cd "$(dirname "$0")/.."
@@ -15,6 +21,7 @@ if [ ! -f ".env" ]; then
 fi
 
 echo "Starting Clash Royale Clan Manager..."
+mkdir -p data logs backups
 docker compose up -d --build
 
 echo "Waiting for the dashboard to be ready..."
