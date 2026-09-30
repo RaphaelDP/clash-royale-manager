@@ -4,174 +4,110 @@ Filename: _06_settings.py
 Description: Streamlit settings page.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-07
-Version: 0.5.0
+Last Modified: 2026-09-30
+Version: 0.5.2
 ================================================================================
 """
 
-from pathlib import Path
 import streamlit as st
 
-from app.core.config import settings
-from app.core.utils import count
-
-from app.database.session import get_session
-from app.database.models import (
-    Member,
-    Snapshot,
-    WarSeason,
-    RiverRace,
-    WarParticipation,
-    ContributionScore,
+from dashboard.functions import (
+    get_settings_page_data,
+    get_log_data,
+    get_job_health_data,
+    get_scheduler_settings_data,
+    save_scheduler_settings,
 )
 
-st.set_page_config(
-    page_title="Settings",
-    layout="wide",
-)
-
+st.set_page_config(page_title="Settings", layout="wide")
 st.title("⚙️ Settings")
+data = get_settings_page_data()
 
-with get_session() as db:
-
-    st.header("Database")
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        st.metric(
-            "Members",
-            db.query(count(Member.id)).scalar(),
-        )
-
-    with c2:
-        st.metric(
-            "Snapshots",
-            db.query(count(Snapshot.id)).scalar(),
-        )
-
-    with c3:
-        st.metric(
-            "Contribution Scores",
-            db.query(count(ContributionScore.id)).scalar(),
-        )
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        st.metric(
-            "War Seasons",
-            db.query(count(WarSeason.id)).scalar(),
-        )
-
-    with c2:
-        st.metric(
-            "River Races",
-            db.query(count(RiverRace.id)).scalar(),
-        )
-
-    with c3:
-        st.metric(
-            "Participations",
-            db.query(count(WarParticipation.id)).scalar(),
-        )
+st.header("Database")
+for labels, keys in (
+    (
+        ("Members", "Snapshots", "Contribution Scores"),
+        ("members", "snapshots", "contribution_scores"),
+    ),
+    (
+        ("War Seasons", "River Races", "Participations"),
+        ("war_seasons", "river_races", "participations"),
+    ),
+):
+    for column, label, key in zip(st.columns(3), labels, keys):
+        with column:
+            st.metric(label, data["database"][key])
 
 st.divider()
-
 st.header("Application")
-
-st.text_input(
-    "Clan Tag",
-    value=settings.CLAN_TAG,
-    disabled=True,
-)
-
-st.text_input(
-    "Database",
-    value=settings.DATABASE_URL,
-    disabled=True,
-)
-
-st.text_input(
-    "Log Level",
-    value=settings.LOG_LEVEL,
-    disabled=True,
-)
-
-st.text_input(
-    "API Token",
-    value="*" * 32 if settings.CR_API_TOKEN else "",
-    disabled=True,
-)
+for label, key in (
+    ("Clan Tag", "clan_tag"),
+    ("Database", "database_url"),
+    ("Log Level", "log_level"),
+    ("API Token", "api_token_mask"),
+):
+    st.text_input(label, value=data[key], disabled=True)
 
 st.divider()
-
 st.header("Environment")
-
-st.code(
-    f"""
-Python : 3.12
-Dashboard : Streamlit
-Database : SQLAlchemy
-Version : {settings.VERSION}
-""",
-    language="text",
-)
-
+st.code(data["environment"], language="text")
 st.divider()
-
 st.header("Maintenance")
-
-c1, c2 = st.columns(2)
-
-with c1:
+left, right = st.columns(2)
+with left:
     if st.button("Refresh page"):
         st.rerun()
-
-with c2:
+with right:
     st.download_button(
         "Export configuration",
-        data=f"""
-CLAN_TAG={settings.CLAN_TAG}
-DATABASE_URL={settings.DATABASE_URL}
-LOG_LEVEL={settings.LOG_LEVEL}
-""",
+        data=data["configuration_export"],
         file_name="settings.txt",
     )
 
 st.divider()
-
 st.header("📋 Recent Logs")
-
 st.caption(
-    "Scroll within the box below to see more. Useful for troubleshooting, "
-    "or to copy/share if something isn't working."
+    "Scroll within the box below to see more. Useful for troubleshooting, or to copy/share if something isn't working."
 )
-
-log_path = Path(settings.LOG_FILE)
-
-if log_path.exists():
-    with log_path.open("r", encoding="utf-8", errors="replace") as f:
-        lines = f.readlines()
-
-    line_count = st.selectbox(
-        "Lines to show",
-        [50, 200, 500, 1000],
-        index=1,
-    )
-
-    recent_lines = lines[-line_count:]
-    st.code(
-        "".join(recent_lines) or "Log file is empty.",
-        language="log",
-        height=400,
-    )
-
+line_count = st.selectbox("Lines to show", [50, 200, 500, 1000], index=1)
+logs = get_log_data(line_count)
+if logs is not None:
+    st.code(logs["recent"], language="log", height=400)
     st.download_button(
         "📥 Download full log",
-        data=log_path.read_text(encoding="utf-8", errors="replace"),
+        data=logs["full"],
         file_name="clan_manager.log",
         mime="text/plain",
     )
 else:
     st.info("No log file found yet.")
+
+
+st.divider()
+st.header("Job Health")
+st.dataframe(get_job_health_data(), hide_index=True, width="stretch")
+st.header("Scheduler")
+schedule = get_scheduler_settings_data()
+if schedule["error"]:
+    st.error(f"Stored schedule is invalid: {schedule['error']}")
+st.caption(
+    "Times use the configured scheduler timezone. "
+    "Saved settings are picked up within five seconds. "
+    "Disabling scheduling does not interrupt a running job."
+)
+with st.form("scheduler_settings"):
+    enabled = st.checkbox("Enable scheduler", value=schedule["config"]["enabled"])
+    intervals = {}
+    for name, value in schedule["config"]["intervals"].items():
+        intervals[name] = st.number_input(
+            f"{name} interval (minutes)", min_value=1, max_value=1440, value=value
+        )
+    daily = {}
+    for name, value in schedule["config"]["daily"].items():
+        daily[name] = st.text_input(f"{name} time (HH:MM)", value=value)
+    if st.form_submit_button("Save schedule"):
+        try:
+            save_scheduler_settings(enabled, intervals, daily)
+            st.success("Schedule saved.")
+        except (ValueError, OSError) as error:
+            st.error(str(error))

@@ -4,203 +4,107 @@ Filename: _05_wars.py
 Description: Streamlit page for displaying clan war performance.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-10
-Version: 0.6.0
+Last Modified: 2026-09-30
+Version: 0.6.2
 Python Version: 3.12
-Dependencies: streamlit, pandas, app.services.dashboard_service
+Dependencies: streamlit, dashboard.functions
 ================================================================================
 """
 
 import streamlit as st
-import pandas as pd
 
-from app.core.config import settings
-from app.database.session import get_session
-from app.services.dashboard_service import DashboardService
-from app.services.war_service import WarService
-
-st.set_page_config(
-    page_title="War Performance",
-    layout="wide",
+from dashboard.functions import (
+    dashboard_action_running,
+    execute_dashboard_action,
+    get_war_overview_data,
+    get_war_season_data,
+    get_player_war_stats_data,
+    refresh_war_data,
 )
 
+st.set_page_config(page_title="War Performance", layout="wide")
 st.title("⚔️ War Performance")
+st.button(
+    "Sync War Data",
+    on_click=execute_dashboard_action,
+    args=(refresh_war_data, "Synchronizing war data..."),
+    disabled=dashboard_action_running(),
+)
 
-with get_session() as db:
-    dashboard_service = DashboardService(db)
-    war_service = WarService(db)
-
-    st.header("🔴 Live Race")
-
-    live_status = dashboard_service.get_current_race_status()
-
-    if live_status:
-        st.info(
-            f"Season {live_status['season_id']}, race #{live_status['section_index']+1}\
-             (index :{live_status['season_id']}-{live_status['section_index']}) "
-            "is currently in progress."
-        )
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.metric("Have attacked", live_status["participated_count"])
-
-        with col2:
-            st.metric("Haven't attacked yet", live_status["not_participated_count"])
-
-        if live_status["not_participated"]:
-            st.warning("Members who haven't attacked yet:")
-            st.dataframe(
-                pd.DataFrame(live_status["not_participated"]),
-                hide_index=True,
-                width="stretch",
-            )
-    else:
-        st.info("No river race currently in progress.")
-
-    st.divider()
-
-    seasons = dashboard_service.get_available_seasons()
-
-    if not seasons:
-        st.warning("No war seasons found.")
-        st.stop()
-
-    season_ids = [season.season_id for season in seasons]
-
-    selected_season = st.selectbox(
-        "Select Season",
-        season_ids,
+overview = get_war_overview_data()
+live = overview["live_status"]
+st.header("🔴 Live Race")
+if live:
+    st.info(
+        f"Season {live['season_id']}, race #{live['section_index'] + 1} is currently in progress."
     )
+    left, right = st.columns(2)
+    with left:
+        st.metric("Have attacked", live["participated_count"])
+    with right:
+        st.metric("Haven't attacked yet", live["not_participated_count"])
+    if not overview["not_participated"].empty:
+        st.warning("Members who haven't attacked yet:")
+        st.dataframe(overview["not_participated"], hide_index=True, width="stretch")
+else:
+    st.info("No river race currently in progress.")
 
-    season_stats = dashboard_service.get_season_summary(selected_season)
+st.divider()
+if not overview["season_ids"]:
+    st.warning("No war seasons found.")
+    st.stop()
+selected_season = st.selectbox("Select Season", overview["season_ids"])
+limit = st.slider(
+    "Number of top players to display", min_value=1, max_value=50, value=10
+)
+data = get_war_season_data(selected_season, limit)
+st.header(f"Season {selected_season}")
+for column, label, key in zip(
+    st.columns(4),
+    ("Total Fame", "Repair Points", "Decks Used", "Participants"),
+    ("total_fame", "total_repairs", "total_decks", "participants"),
+):
+    with column:
+        st.metric(label, data["summary"][key])
 
-    if not season_stats:
-        st.warning("No statistics available for this season.")
-        st.stop()
+st.divider()
+st.subheader("🏆 Top War Players")
+if not data["top_players"].empty:
+    st.dataframe(data["top_players"], width="stretch")
+else:
+    st.info("No player statistics available.")
 
-    st.header(f"Season {selected_season}")
+st.divider()
+st.subheader("🏁 River Races")
+if not data["races"].empty:
+    st.dataframe(data["races"], width="stretch")
+else:
+    st.info("No races found.")
 
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.metric("Total Fame", season_stats.get("total_fame", 0))
-
-    with col2:
-        st.metric("Repair Points", season_stats.get("total_repairs", 0))
-
-    with col3:
-        st.metric("Decks Used", season_stats.get("total_decks", 0))
-
-    with col4:
-        st.metric("Participants", season_stats.get("participants", 0))
-
-    st.divider()
-
-    st.subheader("🏆 Top War Players")
-
-    limit = st.slider(
-        "Number of top players to display",
-        min_value=1,
-        max_value=50,
-        value=10,
+st.divider()
+st.subheader("📈 Race Comparison")
+if not data["comparison"].empty:
+    st.bar_chart(data["comparison"], x="section_index", y="avg_fame")
+    st.dataframe(data["comparison"], hide_index=True, width="stretch")
+    st.caption(
+        "Participation rate uses the CURRENT active member count as an approximation — "
+        "historical roster size at race time isn't tracked."
     )
+else:
+    st.info("No races to compare for this season.")
 
-    top_players = dashboard_service.get_war_player_ranking(
-        season_id=selected_season,
-        limit=limit,
-    )
-
-    if top_players:
-        players_df = pd.DataFrame(top_players)
-        st.dataframe(players_df, width="stretch")
-    else:
-        st.info("No player statistics available.")
-
-    st.divider()
-
-    st.subheader("🏁 River Races")
-
-    races = dashboard_service.get_river_races(selected_season)
-
-    if races:
-        races_df = pd.DataFrame(races)
-        st.dataframe(races_df, width="stretch")
-    else:
-        st.info("No races found.")
-
-    st.divider()
-
-    st.subheader("📈 Race Comparison")
-
-    comparison = dashboard_service.get_race_comparison(selected_season)
-
-    if comparison:
-        comparison_df = pd.DataFrame(comparison)
-
-        st.bar_chart(comparison_df, x="section_index", y="avg_fame")
-
-        st.dataframe(comparison_df, hide_index=True, width="stretch")
-
-        st.caption(
-            "Participation rate uses the CURRENT active member count as an "
-            "approximation — historical roster size at race time isn't tracked."
-        )
-    else:
-        st.info("No races to compare for this season.")
-
-    st.divider()
-
-    st.subheader("📊 Player War Details")
-
-    all_players = dashboard_service.get_war_player_ranking(
-        season_id=selected_season,
-        limit=50,
-    )
-
-    selected_player = st.selectbox(
-        "Select Player",
-        [player["member_tag"] for player in all_players] if all_players else [],
-        format_func=lambda tag: next(
-            (p["name"] for p in all_players if p["member_tag"] == tag), tag
-        ),
-    )
-
-    all_time = st.checkbox(
-        "Show all-time stats (ignore season filter)",
-        value=False,
-    )
-
-    if selected_player:
-        player_war_stats = dashboard_service.get_player_war_stats(
-            selected_player,
-            season_id=None if all_time else selected_season,
-        )
-
-        if player_war_stats:
-            col1, col2, col3, col4 = st.columns(4)
-
-            with col1:
-                st.metric("Fame", player_war_stats.get("fame", 0))
-
-            with col2:
-                st.metric("Repair", player_war_stats.get("repair_points", 0))
-
-            with col3:
-                st.metric("Boat Attacks", player_war_stats.get("boat_attacks", 0))
-
-            with col4:
-                st.metric("Decks Used", player_war_stats.get("decks_used", 0))
-
-    st.divider()
-
-    st.subheader("🔄 War Synchronisation")
-
-    if st.button("Sync War Data"):
-        try:
-            war_service.sync_river_race_log(settings.CLAN_TAG)
-            st.success("War data synchronized.")
-            st.rerun()
-        except Exception as error:
-            st.error(f"War sync failed: {error}")
+st.divider()
+st.subheader("📊 Player War Details")
+players = data["player_options"]
+selected_player = st.selectbox("Select Player", players, format_func=players.get)
+all_time = st.checkbox("Show all-time stats (ignore season filter)", value=False)
+if selected_player:
+    stats = get_player_war_stats_data(selected_player, selected_season, all_time)
+    if stats:
+        for column, label, key in zip(
+            st.columns(4),
+            ("Fame", "Repair", "Boat Attacks", "Decks Used"),
+            ("fame", "repair_points", "boat_attacks", "decks_used"),
+        ):
+            with column:
+                st.metric(label, stats[key])

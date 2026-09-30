@@ -4,16 +4,16 @@ Filename: home.py
 Description: Main Streamlit dashboard page for the Clan Manager.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-03
-Version: 0.5.0
+Last Modified: 2026-09-30
+Version: 0.5.2
 Python Version: 3.12
-Dependencies: streamlit
+Dependencies: streamlit, dashboard.functions
 ================================================================================
 """
 
 import streamlit as st
 
-from app.core.config import validate_required_config
+from dashboard.functions import get_home_page_data
 
 st.set_page_config(
     page_title="Clash Royale Manager",
@@ -23,7 +23,7 @@ st.set_page_config(
 
 st.title("🏆 Clash Royale Clan Manager")
 
-missing_config = validate_required_config()
+missing_config = get_home_page_data()["missing_config"]
 if missing_config:
     st.error("⚠️ Missing configuration")
 

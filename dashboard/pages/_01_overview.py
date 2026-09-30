@@ -4,345 +4,224 @@ Filename: _01_overview.py
 Description: Streamlit page for displaying clan overview and aggregated KPIs.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-10
-Version: 0.6.0
+Last Modified: 2026-09-30
+Version: 0.6.2
 Python Version: 3.12
-Dependencies: streamlit, pandas, app.services.dashboard_service
+Dependencies: streamlit, dashboard.functions
 ================================================================================
 """
 
-import pandas as pd
 import streamlit as st
 
-from app.core.utils import get_time, format_datetime
-from app.database.session import get_session
-from app.services.dashboard_service import DashboardService
-
-st.set_page_config(
-    page_title="Clan Overview",
-    layout="wide",
+from dashboard.functions import (
+    dashboard_action_running,
+    execute_dashboard_action,
+    get_overview_page_data,
+    recalculate_scores,
+    refresh_clan_members_data,
+    refresh_war_data,
 )
 
+st.set_page_config(page_title="Clan Overview", layout="wide")
 st.title("📊 Clan Overview")
 
+data = get_overview_page_data()
 
-with get_session() as db:
-    dashboard_service = DashboardService(db, api_clash=None)
-    sync_job_names = {"update_clan_members", "update_war_data"}
-    failed_jobs = [
-        j for j in dashboard_service.get_failed_jobs() if j.job_name in sync_job_names
-    ]
+if data["sync_warning"]:
+    st.warning(data["sync_warning"])
 
-    if failed_jobs:
-        known_success_dates = [
-            job.last_success_at
-            for job in failed_jobs
-            if job.last_success_at is not None
-        ]
-        stale_since = min(known_success_dates) if known_success_dates else None
+# Refresh Data
+st.header("🔄 Refresh Data")
+st.info(
+    "Click the buttons below to manually refresh clan members, war data, "
+    "or recalculate contribution scores. This will fetch the latest data "
+    "from the Clash Royale API and update the database."
+)
 
-        if stale_since:
-            st.warning(
-                "Some Clash Royale data could not be synchronized. "
-                f"Showing the latest available data from "
-                f"{format_datetime(stale_since)}."
-            )
-        else:
-            st.warning(
-                "Some Clash Royale data could not be synchronized. "
-                "No successful synchronization is available yet."
-            )
-    overview = dashboard_service.get_overview_stats()
-    database = dashboard_service.get_database_stats()
-    war = dashboard_service.get_war_stats()
-    snapshots = dashboard_service.get_snapshot_stats()
-
-    # ==========================================================================
-    # Clan KPIs
-    # ==========================================================================
-
-    st.header("📈 Clan Statistics")
-
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
-
-    with col1:
-        st.metric("Overall Members", overview["overall_members"])
-
-    with col2:
-        st.metric("Active Members", overview["active_members"])
-
-    with col3:
-        st.metric("Actual Members", overview["actual_members"])
-
-    with col4:
-        st.metric("Average Trophies", overview["average_trophies"])
-
-    with col5:
-        st.metric("Total Donations", overview["total_donations"])
-
-    with col6:
-        st.metric("Average Promotion Score", overview["average_promotion_score"])
-
-    # ==========================================================================
-    # Clan Health Score
-    # ==========================================================================
-
-    st.header("🩺 Clan Health Score")
-
-    health = dashboard_service.get_clan_health_score()
-
-    col1, col2 = st.columns([1, 2])
-
-    with col1:
-        st.metric("Overall Health", f"{health['final_score']:.1f} / 100")
-
-    with col2:
-        components_df = pd.DataFrame(
-            [
-                {"Component": key.replace("_", " ").title(), "Score": value}
-                for key, value in health["components"].items()
-            ]
-        )
-        st.bar_chart(components_df, x="Component", y="Score")
-
-    st.caption(
-        "Leadership Depth is a fixed placeholder (100) until scoring thresholds "
-        "are defined. Participation/Efficiency are scoped to the most recent race."
+running = dashboard_action_running()
+refresh_buttons = [
+    (
+        "Refresh Clan Members",
+        refresh_clan_members_data,
+        "⏳ Refreshing clan members...",
+    ),
+    ("Refresh War Data", refresh_war_data, "⏳ Refreshing war data..."),
+    (
+        "Recalculate Contribution Scores",
+        recalculate_scores,
+        "⏳ Recalculating scores...",
+    ),
+]
+for label, action, message in refresh_buttons:
+    st.button(
+        label,
+        on_click=execute_dashboard_action,
+        args=(action, message),
+        disabled=running,
     )
 
-    # ==========================================================================
-    # Activity Ranking
-    # ==========================================================================
+# ==========================================================================
+# Clan KPIs
+# ==========================================================================
 
-    st.header("😴 Inactivity Ranking")
+st.header("📈 Clan Statistics")
+col1, col2, col3, col4, col5, col6 = st.columns(6)
+overview = data["overview"]
+for column, label, key in zip(
+    (col1, col2, col3, col4, col5, col6),
+    (
+        "Overall Members",
+        "Active Members",
+        "Actual Members",
+        "Average Trophies",
+        "Total Donations",
+        "Average Promotion Score",
+    ),
+    (
+        "overall_members",
+        "active_members",
+        "actual_members",
+        "average_trophies",
+        "total_donations",
+        "average_promotion_score",
+    ),
+):
+    with column:
+        st.metric(label, overview[key])
 
-    activity_ranking = dashboard_service.get_inactivity_ranking(limit=15)
+# ==========================================================================
+# Clan Health
+# ==========================================================================
 
-    if activity_ranking:
-        activity_df = pd.DataFrame(activity_ranking)
-        st.dataframe(activity_df, hide_index=True, width="stretch")
-    else:
-        st.info("No active members to rank.")
+st.header("🩺 Clan Health Score")
+health = data["health"]
+col1, col2 = st.columns([1, 2])
+with col1:
+    st.metric("Overall Health", f"{health['final_score']:.1f} / 100")
+with col2:
+    st.bar_chart(data["health_components"], x="Component", y="Score")
+st.caption(
+    "Leadership Depth is a fixed placeholder (100) until scoring thresholds "
+    "are defined. Participation/Efficiency are scoped to the most recent race."
+)
 
-    # ==========================================================================
-    # Database status
-    # ==========================================================================
+# ==========================================================================
+# Activity Ranking
+# ==========================================================================
 
-    st.header("🗄️ Database Overview")
+st.header("😴 Inactivity Ranking")
+if not data["activity"].empty:
+    st.dataframe(data["activity"], hide_index=True, width="stretch")
+else:
+    st.info("No active members to rank.")
 
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+# ==========================================================================
+# Database status
+# ==========================================================================
 
-    with col1:
-        st.metric("Members", database["members"])
+database = data["database"]
+st.header("🗄️ Database Overview")
+col1, col2, col3, col4, col5, col6 = st.columns(6)
+for column, label, key in zip(
+    (col1, col2, col3, col4, col5, col6),
+    (
+        "Members",
+        "Snapshots",
+        "Promotion Scores",
+        "War Seasons",
+        "River Races",
+        "War Participations",
+    ),
+    (
+        "members",
+        "snapshots",
+        "promotion_scores",
+        "war_seasons",
+        "river_races",
+        "participations",
+    ),
+):
+    with column:
+        st.metric(label, database[key])
 
-    with col2:
-        st.metric("Snapshots", database["snapshots"])
+# ==========================================================================
+# Activity trends
+# ==========================================================================
 
-    with col3:
-        st.metric("Promotion Scores", database["promotion_scores"])
+st.header("📉 Activity Trends")
+if not data["snapshot_history"].empty:
+    st.line_chart(
+        data["snapshot_history"], x="date", y=["avg_trophies", "avg_donations"]
+    )
+else:
+    st.warning("No snapshot history available.")
 
-    with col4:
-        st.metric("War Seasons", database["war_seasons"])
+# ==========================================================================
+# Role distribution
+# ==========================================================================
 
-    with col5:
-        st.metric("River Races", database["river_races"])
+st.header("👥 Role Distribution")
+if not data["roles"].empty:
+    st.bar_chart(data["roles"], x="role", y="count")
+else:
+    st.warning("No role data available.")
 
-    with col6:
-        st.metric("War Participations", database["participations"])
+# ==========================================================================
+# War summary
+# ==========================================================================
 
-    # ==========================================================================
-    # Activity trends
-    # ==========================================================================
+war = data["war"]
+st.header("⚔️ War Summary")
+col1, col2, col3, col4, col5 = st.columns(5)
+for column, label, key in zip(
+    (col1, col2, col3, col4, col5),
+    ("Seasons", "Races", "Total Fame", "Repair Points", "Decks Used"),
+    (
+        "season_count",
+        "race_count",
+        "total_fame",
+        "total_repair_points",
+        "total_decks_used",
+    ),
+):
+    with column:
+        st.metric(label, war[key])
 
-    st.header("📉 Activity Trends")
+# ==========================================================================
+# Top players
+# ==========================================================================
 
-    snapshot_history = dashboard_service.get_daily_snapshot_history()
+st.header("🏆 Top Players")
+col1, col2 = st.columns(2)
+with col1:
+    st.subheader("Highest Trophies")
+    if not data["top_trophies"].empty:
+        st.dataframe(data["top_trophies"], width="stretch")
+with col2:
+    st.subheader("Highest Donations")
+    if not data["top_donations"].empty:
+        st.dataframe(data["top_donations"], width="stretch")
 
-    if snapshot_history:
-        snapshot_df = pd.DataFrame(snapshot_history)
+# ==========================================================================
+# Top war performers
+# ==========================================================================
 
-        snapshot_df["date"] = pd.to_datetime(snapshot_df["date"])
+st.header("⚔️ Top War Performers")
+if not data["top_war_players"].empty:
+    st.dataframe(data["top_war_players"], width="stretch")
+else:
+    st.warning("No war participation data available.")
 
-        st.line_chart(
-            snapshot_df,
-            x="date",
-            y=[
-                "avg_trophies",
-                "avg_donations",
-            ],
-        )
-    else:
-        st.warning("No snapshot history available.")
+# ==========================================================================
+# Data freshness
+# ==========================================================================
 
-    # ==========================================================================
-    # Role distribution
-    # ==========================================================================
-
-    st.header("👥 Role Distribution")
-
-    roles = dashboard_service.get_role_distribution()
-
-    if roles:
-        roles_df = pd.DataFrame(roles)
-
-        st.bar_chart(
-            roles_df,
-            x="role",
-            y="count",
-        )
-    else:
-        st.warning("No role data available.")
-
-    # ==========================================================================
-    # War summary
-    # ==========================================================================
-
-    st.header("⚔️ War Summary")
-
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    with col1:
-        st.metric(
-            "Seasons",
-            war["season_count"],
-        )
-
-    with col2:
-        st.metric(
-            "Races",
-            war["race_count"],
-        )
-
-    with col3:
-        st.metric(
-            "Total Fame",
-            war["total_fame"],
-        )
-
-    with col4:
-        st.metric(
-            "Repair Points",
-            war["total_repair_points"],
-        )
-
-    with col5:
-        st.metric(
-            "Decks Used",
-            war["total_decks_used"],
-        )
-
-    # ==========================================================================
-    # Top players
-    # ==========================================================================
-
-    st.header("🏆 Top Players")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("Highest Trophies")
-
-        top_trophies = dashboard_service.get_top_members_by_trophies()
-
-        if top_trophies:
-            trophies_df = pd.DataFrame(
-                [
-                    {
-                        "Player": member.name,
-                        "Tag": member.tag,
-                        "Trophies": member.trophies,
-                    }
-                    for member in top_trophies
-                ]
-            )
-
-            st.dataframe(
-                trophies_df,
-                width="stretch",
-            )
-
-    with col2:
-        st.subheader("Highest Donations")
-
-        top_donations = dashboard_service.get_top_members_by_donations()
-
-        if top_donations:
-            donations_df = pd.DataFrame(
-                [
-                    {
-                        "Player": member.name,
-                        "Tag": member.tag,
-                        "Donations": member.donations,
-                    }
-                    for member in top_donations
-                ]
-            )
-
-            st.dataframe(
-                donations_df,
-                width="stretch",
-            )
-
-    # ==========================================================================
-    # Top War Performers
-    # ==========================================================================
-
-    st.header("⚔️ Top War Performers")
-
-    top_war_players = dashboard_service.get_top_war_players()
-
-    if top_war_players:
-        war_players_df = pd.DataFrame(
-            [
-                {
-                    "Player": player.name,
-                    "Tag": player.tag,
-                    "Fame": player.fame,
-                    "Repair Points": player.repair,
-                    "Boat Attacks": player.boats,
-                    "Decks Used": player.decks,
-                }
-                for player in top_war_players
-            ]
-        )
-
-        st.dataframe(
-            war_players_df,
-            width="stretch",
-        )
-    else:
-        st.warning("No war participation data available.")
-
-    # ==========================================================================
-    # Latest database activity
-    # ==========================================================================
-
-    st.header("🕒 Data Freshness")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric(
-            "Latest Snapshot",
-            format_datetime(snapshots["latest_snapshot"]),
-        )
-
-    with col2:
-        st.metric(
-            "Oldest Snapshot",
-            format_datetime(snapshots["oldest_snapshot"]),
-        )
-
-    with col3:
-        if snapshots["latest_snapshot"]:
-            days_since_update = (get_time() - snapshots["latest_snapshot"]).days
-
-            st.metric(
-                "Days Since Update",
-                days_since_update,
-            )
-        else:
-            st.metric(
-                "Days Since Update",
-                "-",
-            )
+st.header("🕒 Data Freshness")
+snapshots = data["snapshots"]
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Latest Snapshot", snapshots["latest_display"])
+with col2:
+    st.metric("Oldest Snapshot", snapshots["oldest_display"])
+with col3:
+    st.metric("Days Since Update", snapshots["days_since_update"])
