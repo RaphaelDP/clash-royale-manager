@@ -4,19 +4,21 @@ Filename: member_service.py
 Description: Service for managing clan members, including creation, updates, and departures.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-03
-Version: 0.5.0
+Last Modified: 2026-09-30
+Version: 0.5.2
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils
 ================================================================================
 """
 
 import json
+import os
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, List
 from sqlalchemy import and_, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.logger import logger
 from app.core.utils import convert_timestamp_to_datetime, get_time
@@ -46,6 +48,8 @@ class MemberService:
         trophies: int,
         donations: int,
         last_seen: str,
+        *,
+        commit: bool = True,
     ) -> Member:
         """
         Create or update a member in the database.
@@ -95,10 +99,15 @@ class MemberService:
             self.db.add(new_member)
             logger.info("Created new member %s with role %s.", tag, role)
 
-        self.db.commit()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
         return existing_member or new_member
 
-    def remove_member_from_clan(self, tag: str, reason: str = "left") -> Member | None:
+    def remove_member_from_clan(
+        self, tag: str, reason: str = "left", *, commit: bool = True
+    ) -> Member | None:
         """
         Mark a member as left/fired but preserve their war history.
         Sets role to 'left' or 'fired' and clears active fields.
@@ -111,7 +120,10 @@ class MemberService:
         if member:
             member.role = reason
             member.last_seen = get_time()  # Record when they left
-            self.db.commit()
+            if commit:
+                self.db.commit()
+            else:
+                self.db.flush()
             logger.info("Member %s marked as %s.", tag, reason)
             return member
 
@@ -124,6 +136,7 @@ class MemberService:
             trophies=exmember_data.get("trophies", 0),
             donations=exmember_data.get("donations", 0),
             last_seen=exmember_data.get("lastSeen", ""),
+            commit=commit,
         )
         return self.db.query(Member).filter_by(tag=tag).first()
 
@@ -241,9 +254,23 @@ class MemberService:
 
         state = (
             self.db.query(JobRunState)
+            .filter_by(job_name="increment_membership_days")
+            .first()
+        )
+        legacy = (
+            self.db.query(JobRunState)
             .filter_by(job_name="increment_days_in_clan")
             .first()
         )
+        if legacy:
+            if state is None:
+                legacy.job_name = "increment_membership_days"
+                state = legacy
+            else:
+                dates = [d for d in (state.last_run_date, legacy.last_run_date) if d]
+                state.last_run_date = max(dates) if dates else None
+                self.db.delete(legacy)
+            self.db.commit()
         if state and state.last_run_date == today:
             logger.info(
                 "increment_days_in_clan already ran today (%s); skipping.", today
@@ -258,9 +285,12 @@ class MemberService:
 
         if state:
             state.last_run_date = today
+            state.last_attempt_at = get_time()
+            state.last_success_at = get_time()
+            state.last_error = None
         else:
             state = JobRunState(
-                job_name="increment_days_in_clan",
+                job_name="increment_membership_days",
                 last_run_date=today,
                 last_attempt_at=get_time(),
                 last_success_at=get_time(),
@@ -313,10 +343,22 @@ class MemberService:
         if not member:
             return {}
 
+        war_participations = (
+            self.db.query(WarParticipation)
+            .join(WarParticipation.river_race)
+            .options(joinedload(WarParticipation.river_race))
+            .filter(WarParticipation.member_tag == tag)
+            .order_by(
+                RiverRace.created_date.desc(),
+                RiverRace.section_index.desc(),
+            )
+            .all()
+        )
+
         return {
             "member": member,
             "snapshots": member.snapshots,
-            "war_participations": member.war_participations,
+            "war_participations": war_participations,
             "contribution_scores": member.contribution_scores,
         }
 
@@ -371,52 +413,48 @@ class MemberService:
             return member_data
 
         cache_dir = Path("data/cache/players")
-        cache_dir.mkdir(parents=True, exist_ok=True)
-
-        cache_file = cache_dir / f"{member_tag.replace('#', '')}.json"
-
-        player_data: dict[str, Any]
-
-        cache_exists = cache_file.exists()
-        cache_updated_at = (
-            datetime.fromtimestamp(cache_file.stat().st_mtime) if cache_exists else None
-        )
-
+        safe_tag = member_tag.lstrip("#")
+        if not safe_tag or not safe_tag.isalnum():
+            raise ValueError("Invalid player tag for profile cache.")
+        cache_file = cache_dir / f"{safe_tag}.json"
+        cached = None
+        cache_updated_at = None
         try:
-            if cache_exists and not refresh:
-                with cache_file.open("r", encoding="utf-8") as file:
-                    player_data = json.load(file)
+            cached = json.loads(cache_file.read_text(encoding="utf-8"))
+            if not isinstance(cached, dict):
+                cached = None
             else:
-                player_data = self.api_client.get_player(member_tag)
-
-                with cache_file.open("w", encoding="utf-8") as file:
-                    json.dump(player_data, file, indent=4)
-
                 cache_updated_at = datetime.fromtimestamp(cache_file.stat().st_mtime)
+        except (OSError, ValueError):
+            pass
+        player_data = cached
+        error = None
+        if refresh or cached is None:
+            try:
+                player_data = self.api_client.get_player(member_tag, refresh=True)
+                if not isinstance(player_data, dict):
+                    raise ValueError("Invalid player profile response.")
+                cache_dir.mkdir(parents=True, exist_ok=True)
 
-            member_data["api"] = player_data
-            member_data["api_data_updated_at"] = cache_updated_at
-            member_data["api_refresh_failed"] = False
-
-        except Exception as e:
-            logger.warning(
-                "Unable to refresh Clash Royale profile for %s: %s",
-                member_tag,
-                e,
-            )
-
-            if cache_exists:
-                with cache_file.open("r", encoding="utf-8") as file:
-                    player_data = json.load(file)
-
-                member_data["api"] = player_data
-                member_data["api_data_updated_at"] = cache_updated_at
-                member_data["api_refresh_failed"] = True
-                member_data["api_refresh_error"] = str(e)
-            else:
-                member_data["api"] = {}
-                member_data["api_data_updated_at"] = None
-                member_data["api_refresh_failed"] = True
-                member_data["api_refresh_error"] = str(e)
-
+                descriptor, temporary = tempfile.mkstemp(dir=cache_dir, suffix=".tmp")
+                try:
+                    with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+                        json.dump(player_data, file)
+                    os.replace(temporary, cache_file)
+                finally:
+                    Path(temporary).unlink(missing_ok=True)
+                cache_updated_at = datetime.fromtimestamp(cache_file.stat().st_mtime)
+            except Exception as exc:
+                error = str(exc)
+                player_data = cached
+                logger.warning(
+                    "Player profile refresh failed for %s: %s", member_tag, exc
+                )
+        member_data.update(
+            api=player_data or {},
+            api_data_updated_at=cache_updated_at,
+            api_refresh_failed=error is not None,
+        )
+        if error:
+            member_data["api_refresh_error"] = error
         return member_data

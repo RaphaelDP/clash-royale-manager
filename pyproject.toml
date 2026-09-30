@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clash-royale-manager"
-version = "1.0.0"
+dynamic = ["version"]
 description = "A dashboard to manage and analyze Clash Royale clan data, including member activity, war performance, and promotion scores."
 readme = "README.md"
 license = {text = "MIT"}
@@ -12,7 +12,7 @@ requires-python = ">=3.12"
 authors = [
     {name = "Raphael Smilet", email = "your.email@example.com"},
 ]
-keywords = ["clash-royale", "dashboard", "sqlalchemy", "fastapi", "streamlit"]
+keywords = ["clash-royale", "dashboard", "sqlalchemy", "streamlit"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -20,15 +20,12 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
-    "Framework :: FastAPI",
     "Framework :: Streamlit",
     "Topic :: Database",
 ]
 
 dependencies = [
     # Core
-    "fastapi==0.136.3",
-    "uvicorn==0.49.0",
     "sqlalchemy==2.0.50",
     "alembic==1.18.4",
     "pandas==3.0.3",
@@ -55,7 +52,7 @@ dev = [
 
 [project.scripts]
 init_db = "scripts.init_db:init_db"
-collect_data = "scripts.collect_data:collect_data"
+collect_data = "scripts.collect_data:main"
 
 [project.urls]
 Homepage = "https://github.com/raphaeldp/clash-royale-manager"
@@ -147,3 +144,6 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "@abstractmethod",
 ]
+
+[tool.setuptools.dynamic]
+version = {attr = "app.__version__"}

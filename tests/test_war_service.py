@@ -4,8 +4,8 @@ Filename: test_war_service.py
 Description: Unit tests for the WarService class.
 Author: Raphael Smilet
 Date Created: 2026-06-17
-Last Modified: 2026-06-18
-Version: 0.4.0
+Last Modified: 2026-09-30
+Version: 0.4.1
 Python Version: 3.12
 Dependencies: pytest, app.services.war_service
 ================================================================================
@@ -262,17 +262,11 @@ def test_sync_river_race_log_clan_not_found(
         return_value=mock_river_race_log_with_standings,
     )
 
-    war_service.sync_river_race_log("#TEST123")
-
-    assert db_session.query(WarSeason).count() == 1
-    assert db_session.query(RiverRace).count() == 1
+    with pytest.raises(ValueError, match="missing from race standings"):
+        war_service.sync_river_race_log("#OTHER")
+    assert db_session.query(WarSeason).count() == 0
+    assert db_session.query(RiverRace).count() == 0
     assert db_session.query(WarParticipation).count() == 0
-
-    season = db_session.query(WarSeason).one()
-    assert season.season_id == "132"
-
-    race = db_session.query(RiverRace).one()
-    assert race.section_index == 0
 
 
 def test_sync_river_race_log_rollback(
@@ -372,7 +366,8 @@ def test_sync_current_river_race_no_season(
         return_value=mock_current_river_race,
     )
 
-    war_service.sync_current_river_race("#TEST123")
+    with pytest.raises(ValueError, match="No historical season"):
+        war_service.sync_current_river_race("#TEST123")
 
     assert db_session.query(RiverRace).count() == 0
     assert db_session.query(WarParticipation).count() == 0

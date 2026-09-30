@@ -4,8 +4,8 @@ Filename: jobs.py
 Description: Scheduled jobs for data collection, updates, and analytics.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-09-11
-Version: 0.9.1
+Last Modified: 2026-09-30
+Version: 0.9.2
 Python Version: 3.12
 Dependencies: app.services, app.integrations.discord, app.database.session
 ================================================================================
@@ -15,6 +15,7 @@ from collections.abc import Callable
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.job_lock import job_lock
 from app.core.logger import logger
 from app.core.utils import get_time
 from app.database.models import JobRunState
@@ -53,10 +54,12 @@ def _get_job_state(db: Session, job_name: str) -> JobRunState:
     return state
 
 
-def _run_job(
+def _execute_job(
     job_name: str,
     job_function: Callable[[Session], None],
     db_session: Session | None = None,
+    *,
+    daily: bool = False,
 ) -> bool:
     """
     Execute a job and persist its execution state.
@@ -79,6 +82,8 @@ def _run_job(
 
     try:
         state = _get_job_state(db, job_name)
+        if daily and state.last_run_date == get_time().date():
+            return True
         state.last_attempt_at = get_time()
         state.last_error = None
         db.commit()
@@ -87,6 +92,8 @@ def _run_job(
 
         state = _get_job_state(db, job_name)
         state.last_success_at = get_time()
+        if daily:
+            state.last_run_date = get_time().date()
         state.last_error = None
         db.commit()
 
@@ -96,10 +103,14 @@ def _run_job(
     except Exception as e:
         db.rollback()
 
-        state = _get_job_state(db, job_name)
-        state.last_attempt_at = get_time()
-        state.last_error = str(e)
-        db.commit()
+        try:
+            state = _get_job_state(db, job_name)
+            state.last_attempt_at = get_time()
+            state.last_error = str(e)
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("Unable to persist job failure state.")
 
         logger.error("Job '%s' failed: %s", job_name, e)
         return False
@@ -107,6 +118,14 @@ def _run_job(
     finally:
         if own_session:
             db.close()
+
+
+def _run_job(job_name, job_function, db_session=None, *, daily=False):
+    with job_lock(job_name) as acquired:
+        if not acquired:
+            logger.warning("Job %s is already running.", job_name)
+            return False
+        return _execute_job(job_name, job_function, db_session, daily=daily)
 
 
 ## Different Jobs Definitions
@@ -143,7 +162,7 @@ def create_daily_snapshots(db_session: Session | None = None) -> bool:
         snapshot_service.create_daily_snapshots(None)
         logger.info("Created daily snapshots.")
 
-    return _run_job("create_daily_snapshots", job, db_session)
+    return _run_job("create_daily_snapshots", job, db_session, daily=True)
 
 
 def calculate_scores(db_session: Session | None = None) -> bool:
@@ -183,14 +202,15 @@ def send_daily_report(db_session: Session | None = None) -> bool:
         else:
             logger.info("Discord webhook not configured; skipping report.")
 
-    return _run_job("send_daily_report", job, db_session)
+    return _run_job("send_daily_report", job, db_session, daily=True)
 
 
 def backup_database(db_session: Session | None = None) -> bool:
     """Create a timestamped database backup."""
 
     def job(_db: Session) -> None:
-        run_database_backup()
+        if run_database_backup() is None:
+            raise RuntimeError("No database backup was created.")
         logger.info("Database backup completed.")
 
-    return _run_job("backup_database", job, db_session)
+    return _run_job("backup_database", job, db_session, daily=True)

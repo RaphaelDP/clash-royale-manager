@@ -4,8 +4,8 @@ Filename: config.py
 Description: Centralized configuration settings for the application, loaded from environment variables.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-06
-Version: 0.1.0
+Last Modified: 2026-09-30
+Version: 0.1.1
 Python Version: 3.11
 Dependencies: python-dotenv
 ================================================================================
@@ -13,8 +13,10 @@ Dependencies: python-dotenv
 
 import os
 from dotenv import load_dotenv
+from app import __version__
 
-load_dotenv()
+if os.getenv("PYTHON_DOTENV_DISABLED") != "1":
+    load_dotenv()
 
 
 class Settings:
@@ -40,7 +42,7 @@ class Settings:
     """
 
     # Version
-    VERSION = "0.5.1"
+    VERSION = __version__
 
     # Clash Royale API
     CR_API_TOKEN = os.getenv("CR_API_TOKEN")
@@ -78,4 +80,4 @@ def validate_required_config() -> list[str]:
         "CR_API_TOKEN": settings.CR_API_TOKEN,
         "CLAN_TAG": settings.CLAN_TAG,
     }
-    return [name for name, value in required.items() if not value]
+    return [name for name, value in required.items() if not value or not value.strip()]

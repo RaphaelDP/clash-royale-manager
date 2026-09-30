@@ -4,8 +4,8 @@ Filename: collect_data.py
 Description: Script to collect and sync data from the Clash Royale API.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-09-11
-Version: 0.9.1
+Last Modified: 2026-09-30
+Version: 0.9.2
 Python Version: 3.12
 Dependencies: app.scheduler.jobs
 ================================================================================
@@ -42,10 +42,9 @@ def main() -> None:
                 logger.warning(
                     "Data collection stopped because '%s' failed.", job.__name__
                 )
-                break
+                raise RuntimeError(f"Data collection failed at {job.__name__}.")
 
-        else:
-            logger.info("Data collection completed successfully.")
+        logger.info("Data collection completed successfully.")
 
     finally:
         db.close()

@@ -4,8 +4,8 @@ Filename: clan_service.py
 Description: Service for managing clan data, including fetching and updating members.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-07
-Version: 0.2.3
+Last Modified: 2026-09-30
+Version: 0.2.4
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models
 ================================================================================
@@ -50,7 +50,25 @@ class ClanService:
         """
         try:
             clan_data: Dict[str, Any] = self.api_client.get_clan(clan_tag)
-            members_data: List[Dict[str, Any]] = clan_data.get("memberList", [])
+            members_data = clan_data.get("memberList")
+            if not isinstance(members_data, list):
+                raise ValueError(
+                    "Clan response is missing memberList; roster unchanged."
+                )
+            if clan_data.get("tag", clan_tag) != clan_tag:
+                raise ValueError("Clan response tag does not match the requested clan.")
+            if "members" in clan_data and clan_data["members"] != len(members_data):
+                raise ValueError("Incomplete clan roster response.")
+            if any(
+                not isinstance(m, dict)
+                or not m.get("tag")
+                or not m.get("name")
+                or not m.get("role")
+                for m in members_data
+            ):
+                raise ValueError("Invalid member in clan roster.")
+            if len({m["tag"] for m in members_data}) != len(members_data):
+                raise ValueError("Duplicate member tags in clan roster.")
 
             current_tags: set[str] = {member["tag"] for member in members_data}
 
@@ -63,6 +81,7 @@ class ClanService:
                     trophies=member_data.get("trophies", 0),
                     donations=member_data.get("donations", 0),
                     last_seen=member_data.get("lastSeen", ""),
+                    commit=False,
                 )
                 members.append(member)
 
@@ -86,5 +105,7 @@ class ClanService:
         active_members = self.member_service.get_active_members()
         departed_tags = {m.tag for m in active_members if m.tag not in current_tags}
         for tag in departed_tags:
-            self.member_service.remove_member_from_clan(tag, reason="left")
+            self.member_service.remove_member_from_clan(
+                tag, reason="left", commit=False
+            )
             logger.info("Member %s left the clan.", tag)

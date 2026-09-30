@@ -1,0 +1,7 @@
+# Filename: requirements-dev.txt
+# Description: Development dependencies from the package manifest.
+# Author: Raphael Smilet
+# Date Created: 2026-09-30
+# Last Modified: 2026-09-30
+# Version: 0.1.1
+-e .[dev]

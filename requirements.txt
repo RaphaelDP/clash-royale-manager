@@ -3,43 +3,12 @@
 # Description: Python dependencies for the Clan Manager Dashboard project.
 # Author: Raphael Smilet
 # Date Created: 2026-06-06
-# Last Modified: 2026-06-06
-# Version: 0.1.0
+# Last Modified: 2026-09-30
+# Version: 0.1.1
 # Python Version: 3.11
 # Dependencies: None
 # ================================================================================
 
 
-# API
-requests
-requests-cache
-tenacity
-fastapi
-
-# Database
-sqlalchemy
-alembic
-
-# Configuration
-python-dotenv
-
-# Data manipulation
-pandas
-
-# Dashboard
-streamlit
-
-# Scheduler
-apscheduler
-
-# Logging & Utilities
-python-dateutil
-
-# Testing
-pytest
-pytest-mock
-freezegun
-
-# Code Quality
-black
-isort
+# Runtime dependencies have one source of truth in pyproject.toml.
+.

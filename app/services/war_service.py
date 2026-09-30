@@ -4,8 +4,8 @@ Filename: war_service.py
 Description: Service for managing war data, including river races and participation.
 Author: Raphael Smilet
 Date Created: 2026-06-09
-Last Modified: 2026-06-18
-Version: 0.4.2
+Last Modified: 2026-09-30
+Version: 0.4.3
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils, app.services.clash_api
 ================================================================================
@@ -37,169 +37,130 @@ class WarService:
         self.api_client: ClashAPIClient = api_client or ClashAPIClient()
         self.member_service: MemberService = MemberService(db_session, self.api_client)
 
-    def sync_river_race_log(self, clan_tag: str) -> None:
-        """
-        Sync the river race log for a clan from the Clash Royale API.
-        Only stores data for the specified clan.
-
-        Args:
-            clan_tag: The clan tag (e.g., "#Q8YG902J").
-        """
-        try:
-            river_race_log: List[Dict[str, Any]] = self.api_client.get_river_race_log(
-                clan_tag
-            )
-
-            for race_data in river_race_log:
-                try:
-                    war_season: WarSeason = self._create_or_update_season(
-                        season_id=str(race_data.get("seasonId", "")),
-                        start_date=convert_timestamp_to_datetime(
-                            race_data.get("createdDate", "")
-                        ),
-                    )
-                except Exception as e:
-                    logger.error(
-                        "Failed to create or update war season for race %s-%s: %s",
-                        race_data.get("seasonId"),
-                        race_data.get("sectionIndex"),
-                        e,
-                    )
-                    continue  # can't proceed with this race without a season
-
-                try:
-                    river_race: RiverRace = self._create_or_update_river_race(
-                        season_id=war_season.season_id,
-                        section_index=race_data.get("sectionIndex", 0),
-                        created_date=convert_timestamp_to_datetime(
-                            race_data.get("createdDate", ""),
-                        ),
-                        is_completed=True,  # from sync_river_race_log, we know this race is complete
-                    )
-                except Exception as e:
-                    logger.error(
-                        "Failed to create or update river race for race %s-%s: %s",
-                        race_data.get("seasonId"),
-                        race_data.get("sectionIndex"),
-                        e,
-                    )
-                    continue  # can't proceed with this race without a river race
-
-                # Find your clan's data in the standings
-                your_clan_data = self._find_clan_data(
-                    race_data.get("standings", []), clan_tag
+    def _sync_participants(self, race, participants):
+        if not isinstance(participants, list):
+            raise ValueError("Missing war participants list.")
+        existing = {
+            p.member_tag: p
+            for p in self.db.query(WarParticipation)
+            .filter_by(river_race_id=race.id)
+            .all()
+        }
+        tags = [p.get("tag") for p in participants]
+        if any(not tag for tag in tags) or len(tags) != len(set(tags)):
+            raise ValueError("Invalid or duplicate war participant tags.")
+        members = {
+            m.tag: m for m in self.db.query(Member).filter(Member.tag.in_(tags)).all()
+        }
+        for participant in participants:
+            tag = participant["tag"]
+            if tag not in members:
+                # Historical participants need no additional live API lookup.
+                member = Member(
+                    tag=tag,
+                    name=participant.get("name") or tag,
+                    role="left",
+                    days_in_clan=0,
                 )
-                if not your_clan_data:
-                    logger.warning(
-                        "No data found for clan %s in race %s-%s. Skipping this race.",
-                        clan_tag,
-                        race_data.get("seasonId"),
-                        race_data.get("sectionIndex"),
-                    )
-                    continue  # skip only this race, keep syncing the rest of the log
+                self.db.add(member)
+                self.db.flush()
+                members[tag] = member
+            record = self._create_or_update_participation(
+                river_race_id=race.id,
+                member_tag=tag,
+                fame=participant.get("fame", 0),
+                repair_points=participant.get("repairPoints", 0),
+                boat_attacks=participant.get("boatAttacks", 0),
+                decks_used=participant.get("decksUsed", 0),
+                decks_used_today=participant.get("decksUsedToday", 0),
+                river_race=race,
+                existing_participations=existing,
+                member_lookup=members,
+            )
+            if record is None:
+                raise ValueError(f"Unable to store participant {tag}.")
+            existing[tag] = record
 
-                participants = your_clan_data.get("participants", [])
-                participant_tags = [
-                    p.get("tag", "") for p in participants if p.get("tag")
-                ]
-
-                existing_participations = {
-                    p.member_tag: p
-                    for p in self.db.query(WarParticipation)
-                    .filter_by(river_race_id=river_race.id)
-                    .all()
-                }
-                member_lookup = {
-                    m.tag: m
-                    for m in self.db.query(Member)
-                    .filter(Member.tag.in_(participant_tags))
-                    .all()
-                }
-
-                # Create or update participations for your clan's members
-                for participant in participants:
-                    try:
-                        self._create_or_update_participation(
-                            river_race_id=river_race.id,
-                            member_tag=participant.get("tag", ""),
-                            fame=participant.get("fame", 0),
-                            repair_points=participant.get("repairPoints", 0),
-                            boat_attacks=participant.get("boatAttacks", 0),
-                            decks_used=participant.get("decksUsed", 0),
-                            decks_used_today=participant.get("decksUsedToday", 0),
-                            river_race=river_race,
-                            existing_participations=existing_participations,
-                            member_lookup=member_lookup,
-                        )
-                    except Exception as e:
-                        logger.error(
-                            "Failed in race %s-%s to create or update participation for member %s : %s",
-                            race_data.get("seasonId"),
-                            race_data.get("sectionIndex"),
-                            repr(participant),
-                            e,
-                        )
-
+    def sync_river_race_log(self, clan_tag: str) -> None:
+        """Store complete historical results atomically; never hide partial failures."""
+        try:
+            races = self.api_client.get_river_race_log(clan_tag)
+            if not isinstance(races, list):
+                raise ValueError("Invalid river race log.")
+            for data in races:
+                clan = self._find_clan_data(data.get("standings", []), clan_tag)
+                if clan is None:
+                    raise ValueError("Requested clan missing from race standings.")
+                date = convert_timestamp_to_datetime(data.get("createdDate"))
+                if (
+                    date is None
+                    or data.get("seasonId") is None
+                    or not isinstance(data.get("sectionIndex"), int)
+                ):
+                    raise ValueError("Invalid historical race identity.")
+                season = self._create_or_update_season(str(data["seasonId"]), date)
+                race = self._create_or_update_river_race(
+                    season.season_id, data["sectionIndex"], date, is_completed=True
+                )
+                self._sync_participants(race, clan.get("participants"))
             self.db.commit()
-            logger.info("Synced river race log for clan %s.", clan_tag)
-        except Exception as e:
+        except Exception:
             self.db.rollback()
-            logger.error("Failed to sync river race log: %s", e)
             raise
 
     def sync_current_river_race(self, clan_tag: str) -> None:
-        """
-        Sync the current river race for a clan from the Clash Royale API.
-
-        Args:
-            clan_tag: The clan tag (e.g., "#Q8YG902J").
-        """
+        """Resolve live identity from chronological history, protecting closed results."""
         try:
-            current_race_data: Dict[str, Any] = self.api_client.get_current_river_race(
-                clan_tag
+            data = self.api_client.get_current_river_race(clan_tag)
+            clan = data.get("clan")
+            if not isinstance(clan, dict) or clan.get("tag", clan_tag) != clan_tag:
+                raise ValueError("Missing or mismatched live race clan.")
+            section = data.get("sectionIndex")
+            if not isinstance(section, int) or section < 0:
+                raise ValueError("Missing live race section index.")
+            latest = (
+                self.db.query(RiverRace)
+                .filter(RiverRace.is_completed.is_(True))
+                .order_by(RiverRace.created_date.desc())
+                .first()
             )
-
-            # Extract your clan's data from the response
-            your_clan_data = current_race_data.get("clan", {})
-            if not your_clan_data:
-                logger.warning(
-                    "No current river race data found for clan %s.", clan_tag
+            season = (
+                self.db.query(WarSeason).order_by(WarSeason.start_date.desc()).first()
+            )
+            if data.get("seasonId") is not None:
+                season_id = str(data["seasonId"])
+            elif latest is not None:
+                season_id = latest.season_id
+                if section < latest.section_index:
+                    # A reset to section zero identifies the next numeric season.
+                    if section != 0 or not season_id.isdigit():
+                        raise ValueError(
+                            "Ambiguous live season; completed results were preserved."
+                        )
+                    season_id = str(int(season_id) + 1)
+            elif season is not None:
+                season_id = season.season_id
+            else:
+                raise ValueError(
+                    "No historical season available to identify the live race."
                 )
-                return
-
-            # Use the latest season from the database
-            latest_season: WarSeason | None = (
-                self.db.query(WarSeason).order_by(WarSeason.id.desc()).first()
+            race = (
+                self.db.query(RiverRace)
+                .filter_by(season_id=season_id, section_index=section)
+                .first()
             )
-            if not latest_season:
-                logger.warning("No war seasons found. Sync river race log first.")
+            if race is not None and race.is_completed:
+                # The live endpoint may lag the log at a weekly/season boundary.
                 return
-
-            # Create or update the river race
-            river_race: RiverRace = self._create_or_update_river_race(
-                season_id=latest_season.season_id,
-                section_index=current_race_data.get("sectionIndex", 0),
-                created_date=get_time(),  # Use current time (API doesn't provide createdDate)
-                is_completed=False,  # from sync_current_river_race, we know it's not complete yet
+            if self.db.query(WarSeason).filter_by(season_id=season_id).first() is None:
+                self._create_or_update_season(season_id, get_time())
+            race = self._create_or_update_river_race(
+                season_id, section, get_time(), is_completed=False
             )
-
-            # Create or update participations for your clan's members
-            for participant in your_clan_data.get("participants", []):
-                self._create_or_update_participation(
-                    river_race_id=river_race.id,
-                    member_tag=participant.get("tag", ""),
-                    fame=participant.get("fame", 0),
-                    repair_points=participant.get("repairPoints", 0),
-                    boat_attacks=participant.get("boatAttacks", 0),
-                    decks_used=participant.get("decksUsed", 0),
-                    decks_used_today=participant.get("decksUsedToday", 0),
-                )
-
+            self._sync_participants(race, clan.get("participants"))
             self.db.commit()
-            logger.info("Synced current river race for clan %s.", clan_tag)
-        except Exception as e:
+        except Exception:
             self.db.rollback()
-            logger.error("Failed to sync current river race: %s", e)
             raise
 
     def _find_clan_data(
@@ -285,8 +246,9 @@ class WarService:
             .first()
         )
         if existing_race:
-            if is_completed and not existing_race.is_completed:
+            if is_completed:
                 existing_race.is_completed = True
+                existing_race.created_date = created_date
                 self.db.flush()
             return existing_race
         new_race: RiverRace = RiverRace(
@@ -374,7 +336,7 @@ class WarService:
         if not member:
             try:
                 member = self.member_service.remove_member_from_clan(
-                    member_tag, reason="left"
+                    member_tag, reason="left", commit=False
                 )
             except Exception as e:
                 logger.error(

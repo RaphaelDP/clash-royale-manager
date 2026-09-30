@@ -1,14 +1,12 @@
 """
-================================================================================
 Filename: dashboard_service.py
 Description: Service providing aggregated SQL statistics for the Streamlit dashboard.
 Author: Raphael Smilet
 Date Created: 2026-07-07
-Last Modified: 2026-07-10
-Version: 0.6.0
+Last Modified: 2026-09-30
+Version: 0.6.1
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models
-================================================================================
 """
 
 from __future__ import annotations
@@ -158,7 +156,10 @@ class DashboardService:
         if roles is not None:
             query = query.filter(Member.role.in_(roles))
         if has_contribution_score:
-            query = query.filter(Member.contribution_score.isnot(None))
+            query = query.filter(
+                Member.contribution_score.isnot(None),
+                Member.role.notin_(["left", "fired"]),
+            )
 
         return query.all()
 
@@ -305,6 +306,7 @@ class DashboardService:
                     == latest_scores.c.latest_calculated_at
                 ),
             )
+            .filter(Member.role.notin_(["left", "fired"]))
             .order_by(ContributionScore.score.desc())
             .all()
         )
@@ -395,7 +397,11 @@ class DashboardService:
 
         rows = (
             self.db.query(Snapshot.member_tag, Snapshot.collected_at, Snapshot.trophies)
-            .filter(Snapshot.collected_at >= window_start)
+            .join(Member, Member.tag == Snapshot.member_tag)
+            .filter(
+                Snapshot.collected_at >= window_start,
+                Member.role.notin_(["left", "fired"]),
+            )
             .order_by(Snapshot.member_tag, Snapshot.collected_at)
             .all()
         )
@@ -576,7 +582,7 @@ class DashboardService:
         for tag, name, last_seen in members:
             days_since = (now - last_seen).days if last_seen else None
 
-            if days_since > 0:
+            if days_since is None or days_since > 0:
                 ranking.append(
                     {
                         "tag": tag,
@@ -676,7 +682,10 @@ class DashboardService:
             row.member_tag
             for row in (
                 self.db.query(WarParticipation.member_tag)
-                .filter(WarParticipation.river_race_id == current_race.id)
+                .filter(
+                    WarParticipation.river_race_id == current_race.id,
+                    WarParticipation.decks_used > 0,
+                )
                 .all()
             )
         }
@@ -911,7 +920,13 @@ class DashboardService:
         Top members ordered by trophies.
         """
 
-        return self.db.query(Member).order_by(Member.trophies.desc()).limit(limit).all()
+        return (
+            self.db.query(Member)
+            .filter(Member.role.notin_(["left", "fired"]))
+            .order_by(Member.trophies.desc())
+            .limit(limit)
+            .all()
+        )
 
     def get_top_members_by_donations(self, limit: int = 10) -> list[Member]:
         """
@@ -919,7 +934,11 @@ class DashboardService:
         """
 
         return (
-            self.db.query(Member).order_by(Member.donations.desc()).limit(limit).all()
+            self.db.query(Member)
+            .filter(Member.role.notin_(["left", "fired"]))
+            .order_by(Member.donations.desc())
+            .limit(limit)
+            .all()
         )
 
     def get_top_members_by_contribution_score(self, limit: int = 10) -> list[Member]:
@@ -928,7 +947,10 @@ class DashboardService:
         """
         return (
             self.db.query(Member)
-            .filter(Member.contribution_score.isnot(None))
+            .filter(
+                Member.contribution_score.isnot(None),
+                Member.role.notin_(["left", "fired"]),
+            )
             .order_by(Member.contribution_score.desc())
             .limit(limit)
             .all()

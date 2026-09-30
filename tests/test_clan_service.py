@@ -4,8 +4,8 @@ Filename: test_clan_service.py
 Description: Unit tests for the ClanService class.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-18
-Version: 0.3.0
+Last Modified: 2026-09-30
+Version: 0.3.2
 Python Version: 3.12
 Dependencies: pytest, app.services.clan_service, app.database.session
 ================================================================================
@@ -105,3 +105,86 @@ def test_sync_clan_members_updates_existing_member(
     assert member.trophies == 6000
     assert member.name == "Player 1"
     assert member.role == "Leader"
+
+
+def test_sync_clan_members_marks_departed_member(
+    db_session,
+    mocker,
+    mock_clan_data,
+):
+    """Test that sync_clan_members marks departed members as left."""
+
+    mock_client = mocker.MagicMock()
+    mock_client.get_clan.return_value = mock_clan_data
+
+    clan_service = ClanService(
+        db_session,
+        api_client=mock_client,
+    )
+
+    # Initial sync: both members are active.
+    clan_service.sync_clan_members("#TEST123")
+
+    # PLAYER2 leaves the clan.
+    updated_clan_data = {
+        **mock_clan_data,
+        "memberList": [
+            mock_clan_data["memberList"][0],
+        ],
+    }
+    mock_client.get_clan.return_value = updated_clan_data
+
+    clan_service.sync_clan_members("#TEST123")
+
+    departed_member = db_session.query(Member).filter_by(tag="#TEST_PLAYER2").first()
+
+    assert departed_member is not None
+    assert departed_member.role == "left"
+
+
+def test_sync_clan_members_reactivates_returning_member(
+    db_session,
+    mocker,
+    mock_clan_data,
+):
+    """Test that a member who left is reactivated when they return."""
+
+    mock_client = mocker.MagicMock()
+    mock_client.get_clan.return_value = mock_clan_data
+
+    clan_service = ClanService(
+        db_session,
+        api_client=mock_client,
+    )
+
+    # Initial sync: both members are active.
+    clan_service.sync_clan_members("#TEST123")
+
+    # PLAYER2 leaves the clan.
+    updated_clan_data = {
+        **mock_clan_data,
+        "memberList": [
+            mock_clan_data["memberList"][0],
+        ],
+    }
+    mock_client.get_clan.return_value = updated_clan_data
+
+    clan_service.sync_clan_members("#TEST123")
+
+    departed_member = db_session.query(Member).filter_by(tag="#TEST_PLAYER2").first()
+
+    assert departed_member is not None
+    assert departed_member.role == "left"
+
+    # PLAYER2 returns to the clan.
+    mock_client.get_clan.return_value = mock_clan_data
+
+    clan_service.sync_clan_members("#TEST123")
+
+    returned_member = db_session.query(Member).filter_by(tag="#TEST_PLAYER2").first()
+
+    assert returned_member is not None
+    assert returned_member.role == "Member"
+
+    # Ensure the returning member was updated rather than duplicated.
+    assert db_session.query(Member).filter_by(tag="#TEST_PLAYER2").count() == 1

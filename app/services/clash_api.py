@@ -4,8 +4,8 @@ Filename: clash_api.py
 Description: Client for interacting with the Clash Royale API, including retries, caching, and logging.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-07
-Version: 0.4.1
+Last Modified: 2026-09-30
+Version: 0.4.2
 Python Version: 3.12
 Dependencies: requests, requests-cache, tenacity
 ================================================================================
@@ -14,9 +14,11 @@ All API requests are available through https://developer.clashroyale.com/#/docum
 """
 
 from typing import Dict, Any, List
+from pathlib import Path
+from contextlib import nullcontext
 import requests
 from requests_cache import CachedSession
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 from app.core.config import settings
 from app.core.logger import logger
 from app.core.constants import (
@@ -48,15 +50,26 @@ class ClashAPIClient:
             "Accept": "application/json",
         }
         # Use CachedSession for caching API responses
+        cache_path = Path("data/cache") / CACHE_NAME
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
         self.session: CachedSession = CachedSession(
-            CACHE_NAME,
+            str(cache_path),
             backend="sqlite",
             expire_after=CACHE_EXPIRATION,
         )
 
     @retry(
         stop=stop_after_attempt(MAX_RETRIES),
-        wait=wait_exponential(multiplier=1, min=4, max=10),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception(
+            lambda exc: isinstance(exc, (requests.ConnectionError, requests.Timeout))
+            or (
+                isinstance(exc, requests.HTTPError)
+                and exc.response is not None
+                and (exc.response.status_code == 429 or exc.response.status_code >= 500)
+            )
+        ),
+        reraise=True,
     )
     def _request(
         self, endpoint: str, params: Dict[str, Any] | None = None
@@ -115,7 +128,7 @@ class ClashAPIClient:
         encoded_tag: str = clan_tag.replace("#", "%23")
         return self._request(f"/clans/{encoded_tag}")
 
-    def get_player(self, player_tag: str) -> Dict[str, Any]:
+    def get_player(self, player_tag: str, refresh: bool = False) -> Dict[str, Any]:
         """
         Fetch player data from the Clash Royale API.
 
@@ -126,7 +139,8 @@ class ClashAPIClient:
             Dict[str, Any]: Player data, including trophies, cards, and stats.
         """
         encoded_tag: str = player_tag.replace("#", "%23")
-        return self._request(f"/players/{encoded_tag}")
+        with self.session.cache_disabled() if refresh else nullcontext():
+            return self._request(f"/players/{encoded_tag}")
 
     def get_current_river_race(self, clan_tag: str) -> Dict[str, Any]:
         """
@@ -159,4 +173,6 @@ class ClashAPIClient:
         response: Dict[str, Any] = self._request(
             f"/clans/{encoded_tag}/riverracelog", params
         )
-        return response.get("items", [])
+        if not isinstance(response.get("items"), list):
+            raise ValueError("Race log response is missing items.")
+        return response["items"]

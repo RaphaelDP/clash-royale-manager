@@ -4,14 +4,16 @@ Filename: snapshot_service.py
 Description: Service for creating and managing member data snapshots.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-06
-Version: 0.3.1
+Last Modified: 2026-09-30
+Version: 0.3.2
 Python Version: 3.11
 Dependencies: sqlalchemy, app.database.models
 ================================================================================
 """
 
 from typing import List
+from datetime import datetime, time
+from sqlalchemy import select
 
 from app.core.logger import logger
 from app.database.models import Snapshot, Member
@@ -62,7 +64,15 @@ class SnapshotService:
             List[Snapshot]: List of created Snapshot objects.
         """
         if members is None:
-            members: List[Member] = self.db.query(Member).all()
+            today = datetime.combine(get_time().date(), time.min)
+            observed = select(Snapshot.member_tag).where(Snapshot.collected_at >= today)
+            members = (
+                self.db.query(Member)
+                .filter(
+                    Member.role.notin_(["left", "fired"]), Member.tag.notin_(observed)
+                )
+                .all()
+            )
         snapshots: List[Snapshot] = []
         for member in members:
             snapshot = self.create_snapshot(member)

@@ -4,8 +4,8 @@ Filename: test_jobs.py
 Description: Unit tests for scheduled jobs and job execution state.
 Author: Raphael Smilet
 Date Created: 2026-09-11
-Last Modified: 2026-09-11
-Version: 0.9.1
+Last Modified: 2026-09-30
+Version: 0.9.3
 Python Version: 3.12
 Dependencies: pytest, app.scheduler.jobs, app.database.models
 =============================================================
@@ -357,18 +357,18 @@ def test_send_daily_report_failure(db_session, mocker):
 # =============================================================================
 
 
-def test_backup_database(mocker):
+def test_backup_database(db_session, mocker):
     """Test the database backup job."""
 
     backup = mocker.patch("app.scheduler.jobs.run_database_backup")
 
-    result = jobs.backup_database()
+    result = jobs.backup_database(db_session)
 
     assert result is True
     backup.assert_called_once_with()
 
 
-def test_backup_database_failure(mocker):
+def test_backup_database_failure(db_session, mocker):
     """Test that database backup failures are handled."""
 
     mocker.patch(
@@ -376,6 +376,6 @@ def test_backup_database_failure(mocker):
         side_effect=RuntimeError("Backup Error"),
     )
 
-    result = jobs.backup_database()
+    result = jobs.backup_database(db_session)
 
     assert result is False

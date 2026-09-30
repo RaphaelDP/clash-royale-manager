@@ -4,8 +4,8 @@ Filename: utils.py
 Description: Utility functions for the Clan Manager Dashboard.
 Author: Raphael Smilet
 Date Created: 2026-06-09
-Last Modified: 2026-06-09
-Version: 1.0.0
+Last Modified: 2026-09-30
+Version: 1.0.1
 Python Version: 3.12
 Dependencies: datetime
 ================================================================================
@@ -30,7 +30,7 @@ def activity_score_from_days(days: float | None) -> int:
     if days is None:
         return 0
 
-    score = 100 / (1 + pow(days / ACTIVITY_HALF_LIFE, ACTIVITY_STEEPNESS))
+    score = 100 / (1 + pow(max(0, days) / ACTIVITY_HALF_LIFE, ACTIVITY_STEEPNESS))
     return round(score)
 
 
