@@ -1,12 +1,12 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-09-30 · Document version: 0.2.1
+Updated: 2026-10-01 · Document version: 0.2.3
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
-Application version: **0.9.7.dev0**. GitHub main was previously verified at
-`cac66ad` before this work. Changes are being recorded as local commits after
-the [history and tag audit](git-history-audit.md); remote refs remain unchanged.
+Application version: **0.9.7.dev0**. The four implementation commits are now on
+`origin/main`. The [history and tag audit](git-history-audit.md) records the original
+refs and the exact archive mapping for tag cleanup.
 
 Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ pending.
 
@@ -95,24 +95,32 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
 - Full isolated test suite: **175 passed**.
 - Repository Black check: **65 files unchanged**.
 - Repository Pylint check: **10.00/10**; shell syntax and diff whitespace checks pass.
-- Synthetic query profile and source-only Docker build: completed.
-- Credentials and existing runtime data: not read or modified.
+- Synthetic query profile, Docker build/smoke test, and isolated live cycle: completed.
+- Current working tree: `make ci` passes Black, Pylint (10.00/10), and all 175 tests.
+- All 374 named functions across 48 Python files have descriptions, Args, and
+  Returns. Signatures and documented arguments match; executable syntax trees
+  are unchanged. The module-length budget is 1,300 lines for complete contracts.
+- Existing runtime data: not read or modified. Credentials were loaded only for
+  the explicitly authorized isolated live check, without displaying their values.
 
 ## Required gates before v1.0
 
-- ⬜ Run an isolated Docker container smoke test: mounted-directory ownership,
-  Streamlit health, child shutdown, container replacement, and backup persistence.
-  The image built, but the disk filled before this test; its temporary image/cache
-  were removed to recover space. No deployment success is claimed.
+- ✅ Isolated Docker smoke test passed on 2026-10-01: mount ownership, Streamlit
+  health, both children, clean shutdown, container replacement, and backup/restore.
+  Compose configuration also validates. Tests used synthetic bind-mounted data,
+  disabled networking, and no published host ports; production rollout remains separate.
 - ⬜ Rehearse upgrade and restore against an operator-provided disposable database
   copy; compare member/history counts and inspect the resulting dashboard.
-- ⬜ Verify live API synchronization and boundary behavior with authorized test
-  credentials, including stale/incomplete history. No private credentials were used.
+- ✅ Live synchronization passed using authorized credentials, temporary data,
+  and disabled Discord: members, history/current race, daily jobs, scoring, restore.
+- ⬜ Verify actual season boundaries and prolonged stale/incomplete history; one
+  successful live cycle does not establish those behaviors.
 - ⬜ Verify optional Discord delivery and documented crash/retry behavior if enabled.
 - ⬜ Complete an operator acceptance pass for stale/partially unavailable data on
   the intended deployment. Local automated page tests do not replace this check.
 - ✅ Review the changes and record focused local commits.
-- ⬜ Publish the reviewed commits and tag a release only after its gates pass.
+- ✅ The four reviewed implementation commits are published on `origin/main`.
+- ⬜ Publish the tag cleanup and create a release only after its acceptance gates pass.
 
 ## Optional enhancements after reliability gates
 

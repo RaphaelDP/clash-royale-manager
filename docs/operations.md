@@ -1,6 +1,6 @@
 # Operations guide
 
-Updated: 2026-09-30 · Document version: 0.1.0
+Updated: 2026-10-01 · Document version: 0.1.2
 
 ## Configuration
 
@@ -136,7 +136,10 @@ restored database in production. Never delete WAL files from a running database.
 
 ## Verification status
 
-A source-only Docker image built successfully on 2026-09-30. Disk exhaustion
-prevented the container restart/volume ownership smoke test; the temporary image
-was removed to recover space. Those deployment checks remain a release gate.
-Live API and Discord delivery were not exercised against private credentials.
+Docker build, isolated startup, mount ownership, container replacement, shutdown,
+and backup restore checks passed on 2026-10-01 after clearing the pip download cache.
+An authorized live API cycle also passed using temporary data and disabled Discord.
+The live check collected 49 current members and 11 races; repeated daily jobs
+were idempotent, and restored table counts matched the temporary source database.
+The existing production database was not inspected or upgraded; season-boundary
+behavior and optional Discord delivery still need acceptance testing.
