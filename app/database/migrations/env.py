@@ -4,8 +4,8 @@ Filename: env.py
 Description: Apply migrations to an explicit connection or the configured application database.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-09-30
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -24,6 +24,16 @@ target_metadata = Base.metadata
 
 
 def run(connection):
+    """
+    Apply Alembic migrations using the supplied database connection.
+
+    Args:
+        connection: Open SQLAlchemy connection used for schema inspection or
+            migration.
+
+    Returns:
+        None.
+    """
     context.configure(
         connection=connection, target_metadata=target_metadata, render_as_batch=True
     )

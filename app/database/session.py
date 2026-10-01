@@ -4,8 +4,8 @@ Filename: session.py
 Description: Database session configuration and dependency for FastAPI.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-06
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.11
 Dependencies: sqlalchemy
 ================================================================================
@@ -29,13 +29,18 @@ SessionLocal = sessionmaker(  # pylint: disable=invalid-name
 @contextmanager
 def get_session():
     """
-    Dependency to get a database session for FastAPI routes.
+    Open a database session and close it when the context exits.
+
+    This helper does not automatically commit changes.
+
+    Args:
+        None.
+
+    Returns:
+        AbstractContextManager[Session]: Context manager owning one database session.
 
     Yields:
-        SessionLocal: A SQLAlchemy database session.
-
-    Note:
-        Automatically closes the session after use.
+        Session: Open session, always closed when the context exits.
     """
     db = SessionLocal()
     try:

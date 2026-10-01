@@ -4,8 +4,8 @@ Filename: bot.py
 Description: Sends clan notifications to Discord via an incoming webhook.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-12
-Version: 0.2.0
+Last Modified: 2026-10-01
+Version: 0.2.1
 Python Version: 3.12
 Dependencies: requests
 ================================================================================
@@ -33,13 +33,16 @@ class DiscordBot:
 
     def __init__(self, webhook_url: str | None = _UNSET):
         """
-        Initialize the DiscordBot with a webhook URL.
+        Initialize DiscordBot with its configured dependencies.
 
         Args:
             webhook_url: Discord incoming webhook URL. Defaults to
-                settings.DISCORD_WEBHOOK_URL if not provided at all.
-                Pass None explicitly to force "no webhook configured"
-                regardless of settings (e.g. for tests).
+                settings.DISCORD_WEBHOOK_URL if not provided at all. Pass None
+                explicitly to force "no webhook configured" regardless of settings (e.g.
+                for tests).
+
+        Returns:
+            None.
         """
         self.webhook_url = (
             settings.DISCORD_WEBHOOK_URL if webhook_url is _UNSET else webhook_url
@@ -50,9 +53,8 @@ class DiscordBot:
         Send a notification message to the configured Discord channel.
 
         Args:
-            message: The notification message to send. Discord caps
-                message content at 2000 characters; longer messages are
-                truncated with a note appended.
+            message: The notification message to send. Discord caps message content at
+                2000 characters; longer messages are truncated with a note appended.
 
         Returns:
             bool: True if the notification was sent successfully (HTTP 2xx),

@@ -4,8 +4,8 @@ Filename: scheduler.py
 Description: Configure scheduled jobs with persisted settings and controlled daily catch-up.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-09-30
-Version: 0.2.1
+Last Modified: 2026-10-01
+Version: 0.2.2
 Python Version: 3.12
 ================================================================================
 """
@@ -33,7 +33,18 @@ JOB_NAMES = (
 
 
 def apply_schedule(scheduler, config, *, catch_up=False):
-    """Install validated settings; recover today's missed daily work only."""
+    """
+    Install validated settings; recover today's missed daily work only.
+
+    Args:
+        scheduler: The APScheduler instance to configure.
+        config: The validated schedule configuration.
+        catch_up: If True, schedule missed daily jobs for today; otherwise, skip
+            them.
+
+    Returns:
+        None.
+    """
     for name in JOB_NAMES:
         if scheduler.get_job(name):
             scheduler.remove_job(name)
@@ -81,8 +92,16 @@ def apply_schedule(scheduler, config, *, catch_up=False):
             )
 
 
-def start_scheduler():
-    """Start a single-worker scheduler with same-day recovery."""
+def start_scheduler() -> BackgroundScheduler:
+    """
+    Start a single-worker scheduler with same-day recovery.
+
+    Args:
+        None.
+
+    Returns:
+        BackgroundScheduler: Running scheduler with its last valid configuration.
+    """
     scheduler = BackgroundScheduler(
         timezone=settings.SCHEDULER_TIMEZONE,
         executors={"default": {"type": "threadpool", "max_workers": 1}},
@@ -96,7 +115,15 @@ def start_scheduler():
 
 
 def reload_scheduler(scheduler):
-    """Apply changed settings while retaining the last valid schedule on errors."""
+    """
+    Apply changed settings while retaining the last valid schedule on errors.
+
+    Args:
+        scheduler: The APScheduler instance to reload.
+
+    Returns:
+        None.
+    """
     try:
         config = load_schedule()
         if config != scheduler.runtime_config:

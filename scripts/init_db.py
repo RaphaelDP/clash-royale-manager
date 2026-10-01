@@ -4,8 +4,8 @@ Filename: init_db.py
 Description: Initialize and upgrade databases through the Alembic migration chain.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-09-30
-Version: 0.1.1
+Last Modified: 2026-10-01
+Version: 0.1.2
 Python Version: 3.12
 ================================================================================
 """
@@ -25,7 +25,17 @@ MIGRATIONS = Path(models.__file__).resolve().parents[1] / "migrations"
 
 
 def migration_config(connection) -> Config:
-    """Build Alembic settings using the supplied database connection."""
+    """
+    Build Alembic settings using the supplied database connection.
+
+    Args:
+        connection: Open SQLAlchemy connection used for schema inspection or
+            migration.
+
+    Returns:
+        Config: Alembic configuration pointing at packaged migrations and the
+        connection.
+    """
     config = Config()
     config.set_main_option("script_location", str(MIGRATIONS))
     config.attributes["connection"] = connection
@@ -33,7 +43,19 @@ def migration_config(connection) -> Config:
 
 
 def recognize_unversioned_schema(connection) -> str:
-    """Adopt only a recognized legacy schema, never stamp unknown tables blindly."""
+    """
+    Adopt only a recognized legacy schema, never stamp unknown tables blindly.
+
+    Args:
+        connection: Open SQLAlchemy connection used for schema inspection or
+            migration.
+
+    Returns:
+        str: Recognized Alembic revision suitable for stamping before upgrade.
+
+    Raises:
+        RuntimeError: Tables, columns, types, keys, or constraints are unrecognized.
+    """
     inspector = inspect(connection)
     tables = set(inspector.get_table_names()) - {"alembic_version"}
     expected = set(Base.metadata.tables)
@@ -108,7 +130,16 @@ def recognize_unversioned_schema(connection) -> str:
 
 
 def init_db(target_engine=None) -> None:
-    """Create or upgrade the configured database, preserving recognized legacy data."""
+    """
+    Create or upgrade the configured database, preserving recognized legacy data.
+
+    Args:
+        target_engine: Optional SQLAlchemy engine; defaults to the configured
+            application engine.
+
+    Returns:
+        None.
+    """
     target = target_engine or engine
     if target.url.drivername.startswith("sqlite") and target.url.database not in (
         None,

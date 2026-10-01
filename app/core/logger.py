@@ -4,8 +4,8 @@ Filename: logger.py
 Description: Logging configuration for the application, including file and console handlers.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-10
-Version: 0.5.0
+Last Modified: 2026-10-01
+Version: 0.5.1
 Python Version: 3.12
 Dependencies: None
 ================================================================================
@@ -23,8 +23,14 @@ def _is_running_in_docker() -> bool:
     """
     Detect whether the application is running inside a Docker container.
 
-    Docker automatically creates the file '/.dockerenv' inside containers,
-    making it a simple and reliable way to detect the runtime environment.
+    Docker automatically creates the file '/.dockerenv' inside containers, making it a
+    simple and reliable way to detect the runtime environment.
+
+    Args:
+        None.
+
+    Returns:
+        bool: Whether the /.dockerenv marker is present.
     """
     return os.path.exists("/.dockerenv")
 

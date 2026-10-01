@@ -4,8 +4,8 @@ Filename: run_tests.py
 Description: Run the test suite without reading credentials or touching runtime data.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-09-30
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -18,7 +18,15 @@ import tempfile
 
 
 def main():
-    """Run pytest in a temporary directory with isolated runtime settings."""
+    """
+    Run pytest in a temporary directory with isolated runtime settings.
+
+    Args:
+        None.
+
+    Returns:
+        NoReturn: Exits with the pytest subprocess status.
+    """
     root = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix="clan-manager-tests-") as directory:
         env = dict(os.environ)

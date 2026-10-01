@@ -4,8 +4,8 @@ Filename: reports.py
 Description: Generate Discord reports for clan activity and wars.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-12
-Version: 0.2.0
+Last Modified: 2026-10-01
+Version: 0.2.1
 Python Version: 3.12
 Dependencies: app.services.dashboard_service, app.core.constants
 ================================================================================
@@ -27,15 +27,27 @@ class DiscordReporter:
 
     def __init__(self, db_session):
         """
-        Initialize the DiscordReporter with a database session.
+        Initialize DiscordReporter with its configured dependencies.
 
         Args:
             db_session: SQLAlchemy database session for fetching report data.
+
+        Returns:
+            None.
         """
         self.db = db_session
         self.dashboard_service = DashboardService(db_session)
 
     def _format_member_list(self, members: list[dict]) -> str:
+        """
+        Format member names for a report, truncating at MAX_LISTED_MEMBERS.
+
+        Args:
+            members: Member dictionaries containing names for the report.
+
+        Returns:
+            str: Indented, comma-separated names with an ellipsis when truncated.
+        """
         names = ", ".join(m["name"] for m in members[:MAX_LISTED_MEMBERS])
         if len(members) > MAX_LISTED_MEMBERS:
             names += " ..."
@@ -44,6 +56,9 @@ class DiscordReporter:
     def generate_activity_report(self) -> str:
         """
         Generate a formatted daily activity report for Discord.
+
+        Args:
+            None.
 
         Returns:
             str: Formatted report string, including:

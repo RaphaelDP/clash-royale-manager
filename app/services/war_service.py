@@ -4,8 +4,8 @@ Filename: war_service.py
 Description: Service for managing war data, including river races and participation.
 Author: Raphael Smilet
 Date Created: 2026-06-09
-Last Modified: 2026-09-30
-Version: 0.4.3
+Last Modified: 2026-10-01
+Version: 0.4.4
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils, app.services.clash_api
 ================================================================================
@@ -27,17 +27,32 @@ class WarService:
 
     def __init__(self, db_session: Session, api_client: ClashAPIClient = None) -> None:
         """
-        Initialize the WarService with a database session and API client.
+        Initialize WarService with its configured dependencies.
+
         Args:
             db_session: SQLAlchemy database session for interacting with the database.
-            api_client: Optional ClashAPIClient instance. If not provided, a new instance will be
+            api_client: Optional ClashAPIClient; a new client is created when omitted.
 
+        Returns:
+            None.
         """
         self.db: Session = db_session
         self.api_client: ClashAPIClient = api_client or ClashAPIClient()
         self.member_service: MemberService = MemberService(db_session, self.api_client)
 
     def _sync_participants(self, race, participants):
+        """
+        Validate and upsert one race's participants in the caller's transaction.
+
+        Unknown historical players are retained as departed members. No commit is made.
+
+        Args:
+            race: RiverRace instance whose participant records are synchronized.
+            participants: API participant dictionaries for the selected clan and race.
+
+        Returns:
+            None.
+        """
         if not isinstance(participants, list):
             raise ValueError("Missing war participants list.")
         existing = {
@@ -82,7 +97,15 @@ class WarService:
             existing[tag] = record
 
     def sync_river_race_log(self, clan_tag: str) -> None:
-        """Store complete historical results atomically; never hide partial failures."""
+        """
+        Store complete historical results atomically; never hide partial failures.
+
+        Args:
+            clan_tag: Clash Royale clan tag, including its leading #.
+
+        Returns:
+            None.
+        """
         try:
             races = self.api_client.get_river_race_log(clan_tag)
             if not isinstance(races, list):
@@ -109,7 +132,15 @@ class WarService:
             raise
 
     def sync_current_river_race(self, clan_tag: str) -> None:
-        """Resolve live identity from chronological history, protecting closed results."""
+        """
+        Resolve live identity from chronological history, protecting closed results.
+
+        Args:
+            clan_tag: Clash Royale clan tag, including its leading #.
+
+        Returns:
+            None.
+        """
         try:
             data = self.api_client.get_current_river_race(clan_tag)
             clan = data.get("clan")
@@ -234,8 +265,8 @@ class WarService:
             section_index: Index of the river race section.
             created_date: Creation date of the river race.
             is_completed: Whether this race is confirmed complete (True from
-                sync_river_race_log, False from sync_current_river_race). An
-                existing race only ever flips False -> True, never back.
+                sync_river_race_log, False from sync_current_river_race). An existing
+                race only ever flips False -> True, never back.
 
         Returns:
             RiverRace: The created or updated RiverRace object.
@@ -285,20 +316,19 @@ class WarService:
             boat_attacks: Number of boat attacks.
             decks_used: Number of decks used.
             decks_used_today: Number of decks used today.
-            river_race: Optional pre-fetched RiverRace, avoiding a
-                redundant query when the caller already has it (both
-                sync loops do).
-            existing_participations: Optional {member_tag: WarParticipation}
-                map for this river_race, pre-fetched once per race sync
-                instead of querying per participant. Falls back to a
-                per-call query when not provided (e.g. direct calls,
-                including tests).
-            member_lookup: Optional {tag: Member} map of already-known
-                members, pre-fetched once per sync batch instead of
-                querying per participant. Same fallback behavior.
+            river_race: Optional pre-fetched RiverRace, avoiding a redundant query when
+                the caller already has it (both sync loops do).
+            existing_participations: Optional {member_tag: WarParticipation} map for
+                this river_race, pre-fetched once per race sync instead of querying per
+                participant. Falls back to a per-call query when not provided (e.g.
+                direct calls, including tests).
+            member_lookup: Optional {tag: Member} map of already-known members,
+                pre-fetched once per sync batch instead of querying per participant.
+                Same fallback behavior.
 
         Returns:
-            WarParticipation: The created or updated WarParticipation object.
+            WarParticipation | None: Upserted record, or None if race/member resolution
+            fails.
         """
 
         if not member_tag:

@@ -5,8 +5,8 @@ Description: Service for calculating contribution scores and promotion/
     demotion/kick recommendations for members.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-13
-Version: 0.3.0
+Last Modified: 2026-10-01
+Version: 0.3.1
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.constants
 ================================================================================
@@ -80,6 +80,15 @@ class ScoreService:
     """
 
     def __init__(self, db_session: Session):
+        """
+        Initialize ScoreService with its configured dependencies.
+
+        Args:
+            db_session: SQLAlchemy session used by the service or test.
+
+        Returns:
+            None.
+        """
         self.db = db_session
 
     # ==========================================================================
@@ -87,7 +96,15 @@ class ScoreService:
     # ==========================================================================
 
     def _get_recent_race_ids(self) -> list[int]:
-        """Last RECENT_RACES_WINDOW completed races, most recent first."""
+        """
+        Last RECENT_RACES_WINDOW completed races, most recent first.
+
+        Args:
+            None.
+
+        Returns:
+            list[int]: Most recent completed race IDs, newest first.
+        """
         races = (
             self.db.query(RiverRace.id)
             .filter(RiverRace.is_completed.is_(True))
@@ -99,10 +116,15 @@ class ScoreService:
 
     def get_last_completed_race(self) -> RiverRace | None:
         """
-        The most recently completed river race, or None if none exist yet.
-        Shared by get_promotion_recommendations and DashboardService's Clan
-        Health Score (War Participation/Efficiency components), so both use
-        one query instead of two copies.
+        The most recently completed river race, or None if none exist yet. Shared by
+        get_promotion_recommendations and DashboardService's Clan Health Score (War
+        Participation/Efficiency components), so both use one query instead of two copies.
+
+        Args:
+            None.
+
+        Returns:
+            RiverRace | None: Most recent completed race, or None if unavailable.
         """
         return (
             self.db.query(RiverRace)
@@ -113,12 +135,18 @@ class ScoreService:
 
     def _war_activity_score(self, member_tag: str) -> float:
         """
-        Attacked races / races the member has a participation record for
-        at all. A WarParticipation row's existence signals they were a
-        clan member for that race (the Clash Royale API includes 0-fame
-        entries for members who didn't attack) - its absence means they
-        weren't in the clan for that race, so it's excluded rather than
+        Attacked races / races the member has a participation record for at all. A
+        WarParticipation row's existence signals they were a clan member for that race (the
+        Clash Royale API includes 0-fame entries for members who didn't attack) - its
+        absence means they weren't in the clan for that race, so it's excluded rather than
         penalized.
+
+        Args:
+            member_tag: Clash Royale player tag identifying the member.
+
+        Returns:
+            float: Percentage of recorded completed races with positive deck usage, capped
+            at 100.
         """
         available_races = (
             self.db.query(count(func.distinct(WarParticipation.river_race_id)))
@@ -150,10 +178,19 @@ class ScoreService:
     def _normalized_metric(
         self, member_tag: str, recent_race_ids: list[int], column
     ) -> float:
-        """Member's average of `column` vs clan average, over recent_race_ids,
-        capped. Excludes races where decks_used == 0 - a member present but
-        not attacking has no performance to measure, so it shouldn't drag
-        down (or inflate) either average."""
+        """
+        Member's average of `column` vs clan average, over recent_race_ids, capped. Excludes
+        races where decks_used == 0 - a member present but not attacking has no performance
+        to measure, so it shouldn't drag down (or inflate) either average.
+
+        Args:
+            member_tag: Clash Royale player tag identifying the member.
+            recent_race_ids: Completed race IDs that define the scoring window.
+            column: WarParticipation SQLAlchemy column to average and normalize.
+
+        Returns:
+            float: Member/clan average percentage capped at the configured submetric limit.
+        """
         member_avg = (
             self.db.query(func.avg(column))
             .filter(
@@ -183,7 +220,16 @@ class ScoreService:
     def _war_performance_score(
         self, member_tag: str, recent_race_ids: list[int]
     ) -> float:
-        """40% fame + 30% decks + 20% repairs + 10% boats, each vs clan avg."""
+        """
+        40% fame + 30% decks + 20% repairs + 10% boats, each vs clan avg.
+
+        Args:
+            member_tag: Clash Royale player tag identifying the member.
+            recent_race_ids: Completed race IDs that define the scoring window.
+
+        Returns:
+            float: Weighted fame/deck/repair/boat performance capped at 100.
+        """
         if not recent_race_ids:
             return 0
 
@@ -209,7 +255,15 @@ class ScoreService:
         return min(100, composite)
 
     def _donations_score(self, member: Member) -> float:
-        """30-day snapshot average donations / DONATION_TARGET x 100."""
+        """
+        30-day snapshot average donations / DONATION_TARGET x 100.
+
+        Args:
+            member: Member model whose stored metrics or relationships are used.
+
+        Returns:
+            float: Donation score capped at 100, using snapshots or current donations.
+        """
         window_start = get_time() - timedelta(days=DONATIONS_AVERAGE_WINDOW_DAYS)
 
         avg_donations = (
@@ -228,8 +282,16 @@ class ScoreService:
         return min(100, (avg_donations / DONATION_TARGET) * 100)
 
     def _trophy_level_score(self, member: Member) -> float:
-        """Trophies relative to the clan's TROPHY_PERCENTILE (computed in Python -
-        percentile_cont is Postgres-only, this works identically on SQLite too)."""
+        """
+        Trophies relative to the clan's TROPHY_PERCENTILE (computed in Python -
+        percentile_cont is Postgres-only, this works identically on SQLite too).
+
+        Args:
+            member: Member model whose stored metrics or relationships are used.
+
+        Returns:
+            float: Trophy score relative to the current clan percentile, capped at 100.
+        """
         all_trophies = sorted(
             t
             for (t,) in self.db.query(Member.trophies)
@@ -252,6 +314,15 @@ class ScoreService:
         return min(100, (member.trophies / percentile_trophies) * 100)
 
     def _activity_component_score(self, member: Member) -> float:
+        """
+        Convert the member's last-seen timestamp into the activity component.
+
+        Args:
+            member: Member model whose stored metrics or relationships are used.
+
+        Returns:
+            float: Activity score from zero to 100; zero for unknown last-seen time.
+        """
         days_since = (get_time() - member.last_seen).days if member.last_seen else None
         return activity_score_from_days(days_since)
 
@@ -259,13 +330,18 @@ class ScoreService:
         self, member_tag: str, recent_race_ids: list[int]
     ) -> float | None:
         """
-        100 - coefficient of variation of fame, over the member's actual
-        participation records within recent_race_ids. No padding: a race
-        with no row means they weren't a clan member for it (excluded); a
-        race with a 0-fame row means they were present but skipped
-        (counted - that's exactly the sporadic behavior this component
-        should catch). Returns None if fewer than MIN_RACES_FOR_CONSISTENCY
-        eligible races exist.
+        100 - coefficient of variation of fame, over the member's actual participation
+        records within recent_race_ids. No padding: a race with no row means they weren't a
+        clan member for it (excluded); a race with a 0-fame row means they were present but
+        skipped (counted - that's exactly the sporadic behavior this component should
+        catch). Returns None if fewer than MIN_RACES_FOR_CONSISTENCY eligible races exist.
+
+        Args:
+            member_tag: Clash Royale player tag identifying the member.
+            recent_race_ids: Completed race IDs that define the scoring window.
+
+        Returns:
+            float | None: Bounded consistency score, or None for insufficient history.
         """
         if not recent_race_ids:
             return None
@@ -295,9 +371,14 @@ class ScoreService:
 
     def _clan_average_consistency(self, recent_race_ids: list[int]) -> float:
         """
-        Mean raw consistency across active members who qualify (>=
-        MIN_RACES_FOR_CONSISTENCY eligible races). Used as the fallback for
-        members who don't have enough history yet.
+        Mean raw consistency across active members who qualify (>= MIN_RACES_FOR_CONSISTENCY
+        eligible races). Used as the fallback for members who don't have enough history yet.
+
+        Args:
+            recent_race_ids: Completed race IDs that define the scoring window.
+
+        Returns:
+            float: Mean qualified current-member consistency, or zero without qualifiers.
         """
         active_members = (
             self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
@@ -316,9 +397,15 @@ class ScoreService:
 
     def _consistency_score(self, member_tag: str, recent_race_ids: list[int]) -> float:
         """
-        Member's raw consistency score, or the clan average (among
-        qualifying members) if they don't have MIN_RACES_FOR_CONSISTENCY
-        eligible races themselves yet.
+        Member's raw consistency score, or the clan average (among qualifying members) if
+        they don't have MIN_RACES_FOR_CONSISTENCY eligible races themselves yet.
+
+        Args:
+            member_tag: Clash Royale player tag identifying the member.
+            recent_race_ids: Completed race IDs that define the scoring window.
+
+        Returns:
+            float: Member consistency when eligible; otherwise the qualifying clan average.
         """
         raw_score = self._raw_consistency_score(member_tag, recent_race_ids)
         if raw_score is not None:
@@ -327,6 +414,15 @@ class ScoreService:
         return self._clan_average_consistency(recent_race_ids)
 
     def _seniority_score(self, member: Member) -> float:
+        """
+        Scale observed membership days to the capped seniority component.
+
+        Args:
+            member: Member model whose stored metrics or relationships are used.
+
+        Returns:
+            float: Membership-day contribution capped at 100.
+        """
         return min(100, (member.days_in_clan / SENIORITY_DAYS_CAP) * 100)
 
     # ==========================================================================
@@ -338,8 +434,14 @@ class ScoreService:
         Calculate and persist a contribution score for one member.
 
         Creates a new ContributionScore row (preserving history) and updates
-        Member.contribution_score / contribution_score_updated_at with the
-        latest value.
+        Member.contribution_score / contribution_score_updated_at with the latest value.
+
+        Args:
+            member_tag: Clash Royale player tag identifying the member.
+
+        Returns:
+            ContributionScore | None: Persisted score and components, or None for an unknown
+            member.
         """
         member: Member | None = self.db.query(Member).filter_by(tag=member_tag).first()
         if not member:
@@ -396,6 +498,12 @@ class ScoreService:
     def calculate_all_scores(self) -> list[ContributionScore]:
         """
         Calculate and persist scores for every active member.
+
+        Args:
+            None.
+
+        Returns:
+            list[ContributionScore]: Newly persisted scores for all current members.
         """
         active_members = (
             self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
@@ -415,9 +523,27 @@ class ScoreService:
     # ==========================================================================
 
     def _role_rank(self, role: str) -> int:
+        """
+        Look up a role's index in the supported clan hierarchy.
+
+        Args:
+            role: Current clan role to locate in the role hierarchy.
+
+        Returns:
+            int: Zero-based hierarchy index, or -1 for an unrecognized role.
+        """
         return _ROLE_ORDER.index(role) if role in _ROLE_ORDER else -1
 
     def _one_step_up(self, role: str) -> str:
+        """
+        Promote a member or elder by one supported role level.
+
+        Args:
+            role: Current clan role to locate in the role hierarchy.
+
+        Returns:
+            str: Next supported role, or the input role when no promotion applies.
+        """
         if role == "member":
             return "elder"
         if role == "elder":
@@ -425,6 +551,15 @@ class ScoreService:
         return role  # coLeader stays coLeader (can't reach leader this way)
 
     def _one_step_down(self, role: str) -> str:
+        """
+        Demote a co-leader or elder by one supported role level.
+
+        Args:
+            role: Current clan role to locate in the role hierarchy.
+
+        Returns:
+            str: Next lower supported role, or the input role when no demotion applies.
+        """
         if role == "coLeader":
             return "elder"
         if role == "elder":
@@ -432,6 +567,16 @@ class ScoreService:
         return role  # member has no lower role
 
     def _role_for_rank_band(self, current_role: str, rank: int) -> str:
+        """
+        Select a recommended role from the configured fame-ranking bands.
+
+        Args:
+            current_role: Member role before applying the ranking recommendation.
+            rank: One-based position in the completed-race fame ranking.
+
+        Returns:
+            str: Role recommended by the configured ranking band.
+        """
         if rank <= PROMOTION_BAND_TOP:
             return self._one_step_up(current_role)
 
@@ -448,6 +593,16 @@ class ScoreService:
         return "member"  # rank beyond PROMOTION_BAND_DEMOTE_COLEADER
 
     def _fame_in_race(self, member_tag: str, race_id: int | None) -> int:
+        """
+        Sum a player's fame in one race, defaulting missing participation to zero.
+
+        Args:
+            member_tag: Clash Royale player tag identifying the member.
+            race_id: Race ID to inspect, or None when no previous race is available.
+
+        Returns:
+            int: Summed fame, or zero when the race or participation is absent.
+        """
         if race_id is None:
             return 0
         fame = (
@@ -480,16 +635,15 @@ class ScoreService:
         member who joined between the two races can't be penalized for a
         race they weren't present for.
 
-        READ-ONLY - does not modify Member.role; the public API can't
-        write role changes, so this produces recommendations for manual
-        action in-game.
+        READ-ONLY - does not modify Member.role; the public API can't write role changes, so
+        this produces recommendations for manual action in-game.
+
+        Args:
+            None.
 
         Returns:
-            list[dict]: one entry per active member:
-                {tag, name, current_role, rank, fame, recommended_role,
-                 action, reason}
-                action is one of: "promote", "demote", "kick", "no_change"
-                rank is None for members excluded as not-yet-eligible.
+            list[dict[str, Any]]: Member actions, recommended roles, ranks, fame, and
+            reasons.
         """
         last_race = self.get_last_completed_race()
         if not last_race:

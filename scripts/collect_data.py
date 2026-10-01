@@ -4,8 +4,8 @@ Filename: collect_data.py
 Description: Script to collect and sync data from the Clash Royale API.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-09-30
-Version: 0.9.2
+Last Modified: 2026-10-01
+Version: 0.9.3
 Python Version: 3.12
 Dependencies: app.scheduler.jobs
 ================================================================================
@@ -24,7 +24,15 @@ from app.scheduler.jobs import (
 
 
 def main() -> None:
-    """Run the complete data collection pipeline."""
+    """
+    Run the complete data collection pipeline.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     db = SessionLocal()
 
     try:

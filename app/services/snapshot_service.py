@@ -4,8 +4,8 @@ Filename: snapshot_service.py
 Description: Service for creating and managing member data snapshots.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-09-30
-Version: 0.3.2
+Last Modified: 2026-10-01
+Version: 0.3.3
 Python Version: 3.11
 Dependencies: sqlalchemy, app.database.models
 ================================================================================
@@ -28,10 +28,13 @@ class SnapshotService:
 
     def __init__(self, db_session) -> None:
         """
-        Initialize the SnapshotService with a database session.
+        Initialize SnapshotService with its configured dependencies.
 
         Args:
             db_session: SQLAlchemy database session for interacting with the database.
+
+        Returns:
+            None.
         """
         self.db = db_session
 
@@ -41,6 +44,7 @@ class SnapshotService:
 
         Args:
             member: The Member object for which to create the snapshot.
+
         Returns:
             Snapshot: The created Snapshot object.
         """
@@ -58,7 +62,14 @@ class SnapshotService:
 
     def create_daily_snapshots(self, members: List[Member] | None) -> List[Snapshot]:
         """
-        Create snapshots for all members in the database.
+        Create and commit snapshots for the selected members.
+
+        With members=None, select current members without a snapshot today. An explicit
+        collection is used as supplied, including repeated observations.
+
+        Args:
+            members: Explicit members to snapshot; None selects current members not yet
+                observed today.
 
         Returns:
             List[Snapshot]: List of created Snapshot objects.
@@ -86,11 +97,12 @@ class SnapshotService:
         self, member_tag: str, limit: int | None = 10
     ) -> List[Snapshot]:
         """
-        Retrieve all snapshots for a specific member.
+        Retrieve a member's snapshots, newest first, up to the requested limit.
 
         Args:
             member_tag: The tag of the member to retrieve snapshots for.
-            limit: Optional limit on the number of snapshots to retrieve.
+            limit: Maximum snapshots to return, or None for all matching snapshots.
+
         Returns:
             List[Snapshot]: List of Snapshot objects for the member.
         """

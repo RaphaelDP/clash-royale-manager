@@ -5,8 +5,8 @@ Description: Creates a timestamped hot backup of the SQLite database and
     prunes old backups beyond the configured retention count.
 Author: Raphael Smilet
 Date Created: 2026-08-06
-Last Modified: 2026-08-06
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 Dependencies: sqlite3, app.core.config, app.core.constants
 ================================================================================
@@ -25,10 +25,15 @@ BACKUP_DIR = Path("backups")
 
 def _sqlite_path_from_url(database_url: str) -> Path | None:
     """
-    Extracts the filesystem path from a SQLite SQLAlchemy URL
-    (e.g. 'sqlite:///data/clan_manager.db' -> Path('data/clan_manager.db')).
-    Returns None for non-SQLite URLs (e.g. Postgres) - this script only
-    supports SQLite today.
+    Extracts the filesystem path from a SQLite SQLAlchemy URL (e.g.
+    'sqlite:///data/clan_manager.db' -> Path('data/clan_manager.db')). Returns None for
+    non-SQLite URLs (e.g. Postgres) - this script only supports SQLite today.
+
+    Args:
+        database_url: SQLAlchemy URL to interpret as a SQLite filesystem path.
+
+    Returns:
+        Path | None: SQLite path, or None when the URL does not use sqlite:///.
     """
     prefix = "sqlite:///"
     if not database_url.startswith(prefix):
@@ -38,10 +43,17 @@ def _sqlite_path_from_url(database_url: str) -> Path | None:
 
 def _prune_old_backups(backup_dir: Path, stem: str) -> None:
     """
-    Deletes backups beyond BACKUP_RETENTION_COUNT, oldest first. Sorted by
-    filename rather than mtime - the timestamp format (YYYYMMDD_HHMMSS) is
-    zero-padded, so lexicographic order already matches chronological
-    order, and it avoids filesystem mtime-resolution flakiness.
+    Deletes backups beyond BACKUP_RETENTION_COUNT, oldest first. Sorted by filename
+    rather than mtime - the timestamp format (YYYYMMDD_HHMMSS) is zero-padded, so
+    lexicographic order already matches chronological order, and it avoids filesystem
+    mtime-resolution flakiness.
+
+    Args:
+        backup_dir: Directory containing timestamped backup files.
+        stem: Source database filename stem used to select its backups.
+
+    Returns:
+        None.
     """
     backups = sorted(backup_dir.glob(f"{stem}_*.db"))
 
@@ -56,14 +68,16 @@ def _prune_old_backups(backup_dir: Path, stem: str) -> None:
 
 def backup_database() -> Path | None:
     """
-    Creates a timestamped hot backup of the SQLite database using
-    sqlite3's own backup API - safe even while the app is writing to the
-    DB, unlike a raw file copy which can capture a torn/inconsistent
-    snapshot.
+    Creates a timestamped hot backup of the SQLite database using sqlite3's own backup
+    API - safe even while the app is writing to the DB, unlike a raw file copy which can
+    capture a torn/inconsistent snapshot.
+
+    Args:
+        None.
 
     Returns:
-        Path to the created backup file, or None if skipped (non-SQLite
-        database, or the source file doesn't exist yet).
+        Path to the created backup file, or None if skipped (non-SQLite database, or the
+        source file doesn't exist yet).
     """
     db_path = _sqlite_path_from_url(settings.DATABASE_URL)
     if db_path is None:

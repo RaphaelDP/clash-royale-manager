@@ -4,8 +4,8 @@ Filename: utils.py
 Description: Utility functions for the Clan Manager Dashboard.
 Author: Raphael Smilet
 Date Created: 2026-06-09
-Last Modified: 2026-09-30
-Version: 1.0.1
+Last Modified: 2026-10-01
+Version: 1.0.2
 Python Version: 3.12
 Dependencies: datetime
 ================================================================================
@@ -19,13 +19,16 @@ from app.core.constants import ACTIVITY_HALF_LIFE, ACTIVITY_STEEPNESS
 
 def activity_score_from_days(days: float | None) -> int:
     """
-    Maps 'days since last seen' to a 0-100 activity score using a smooth
-    logistic decay curve. HALF_LIFE is the day count where the score
-    crosses 50; STEEPNESS controls how sharply it falls off around that
-    point.
+    Map elapsed inactive days to a rounded 0–100 activity score.
 
-    Shared by DashboardService.get_activity_ranking and ScoreService's
-    Activity component, so both use one implementation.
+    Unknown activity scores zero; negative elapsed days are clamped to zero. The
+    configured half-life and steepness control the decay curve.
+
+    Args:
+        days: Number of days since last seen, or None if unknown.
+
+    Returns:
+        int: Activity score between 0 and 100.
     """
     if days is None:
         return 0
@@ -36,8 +39,17 @@ def activity_score_from_days(days: float | None) -> int:
 
 def convert_timestamp_to_datetime(timestamp_str: str | None) -> datetime:
     """
-    Converts a UTC timestamp string (e.g., '20260609T112122.000Z')
-    into a datetime object localized to the SCHEDULER_TIMEZONE.
+    Parse a Clash Royale UTC timestamp into naive scheduler-local time.
+
+    Args:
+        timestamp_str: UTC API timestamp in YYYYMMDDTHHMMSS.ffffffZ form, or an
+            empty value.
+
+    Returns:
+        datetime | None: Naive scheduler-local datetime, or None for empty input.
+
+    Raises:
+        ValueError: The supplied nonempty timestamp does not match the API format.
     """
     if not timestamp_str:
         return None
@@ -61,8 +73,11 @@ def format_datetime(value: datetime | date | str | None) -> str:
     """
     Convert datetime/date values into a human-readable string for display.
 
-    Returns the original string if already formatted.
-    Returns "No data" for empty values.
+    Args:
+        value: Datetime, date, string, or None; None is displayed as "No data".
+
+    Returns:
+        str: Formatted string representation of the date/time.
     """
     if value is None:
         return "No data"
@@ -78,7 +93,13 @@ def format_datetime(value: datetime | date | str | None) -> str:
 
 def get_time() -> datetime:
     """
-    Returns the current time in the SCHEDULER_TIMEZONE as a naive datetime object.
+    Return the current scheduler-local wall time without timezone information.
+
+    Args:
+        None.
+
+    Returns:
+        datetime: Naive wall time in settings.SCHEDULER_TIMEZONE.
     """
     target_tz = ZoneInfo(settings.SCHEDULER_TIMEZONE)
     return datetime.now(target_tz).replace(tzinfo=None)
@@ -86,8 +107,14 @@ def get_time() -> datetime:
 
 def count(args) -> int:
     """
-    Returns the current return of func.count.
-    This is a placeholder function that suppress the pylint flase-positive warning "func.count is not callable".
+    Build a SQL COUNT expression without executing a database query.
+
+    Args:
+        args: SQLAlchemy column or expression whose non-null values should be
+            counted.
+
+    Returns:
+        sqlalchemy.sql.functions.count: Unevaluated SQL COUNT expression.
     """
     from sqlalchemy import func  # pylint: disable=import-outside-toplevel
 

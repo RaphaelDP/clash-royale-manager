@@ -4,8 +4,8 @@ Filename: config.py
 Description: Centralized configuration settings for the application, loaded from environment variables.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-09-30
-Version: 0.1.1
+Last Modified: 2026-10-01
+Version: 0.1.2
 Python Version: 3.11
 Dependencies: python-dotenv
 ================================================================================
@@ -68,13 +68,18 @@ settings = Settings()
 
 def validate_required_config() -> list[str]:
     """
-    Returns the names of required settings that are missing or blank.
-    Used by the dashboard to show a clear error message instead of a
-    confusing downstream failure (e.g. a 403 from the Clash Royale API)
-    when someone hasn't filled in their .env yet.
+    Returns the names of required settings that are missing or blank. Used by the
+    dashboard to show a clear error message instead of a confusing downstream failure
+    (e.g. a 403 from the Clash Royale API) when someone hasn't filled in their .env yet.
 
-    DISCORD_WEBHOOK_URL is deliberately excluded - it's optional by
-    design (Discord notifications are disabled when blank, not an error).
+    DISCORD_WEBHOOK_URL is deliberately excluded - it's optional by design (Discord
+    notifications are disabled when blank, not an error).
+
+    Args:
+        None.
+
+    Returns:
+        list[str]: Required setting names whose values are missing or blank.
     """
     required = {
         "CR_API_TOKEN": settings.CR_API_TOKEN,

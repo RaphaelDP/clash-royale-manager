@@ -4,8 +4,8 @@ Filename: restore_db.py
 Description: Validate and restore SQLite backups without changing the source backup.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-09-30
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -19,7 +19,25 @@ import tempfile
 
 
 def restore_database(source: Path, destination: Path, *, replace=False):
-    """Validate and copy a backup; call only while application processes are stopped."""
+    """
+    Validate and copy a backup; call only while application processes are stopped.
+
+    Args:
+        source: Path to the SQLite backup, opened read-only.
+        destination: Output path for the generated archive or restored database.
+        replace: Allow replacing an existing destination after all app processes
+            stop.
+
+    Returns:
+        Path: Destination containing the validated restored SQLite database.
+
+    Raises:
+        FileNotFoundError: The source backup is missing.
+        FileExistsError: The destination exists without replace=True.
+        ValueError: Source and destination match or backup integrity fails.
+        RuntimeError: Destination SQLite sidecar files are present.
+        sqlite3.DatabaseError: The source is not a readable SQLite database.
+    """
     source, destination = source.resolve(), destination.absolute()
     if source == destination:
         raise ValueError("Source and destination must differ.")
@@ -58,7 +76,15 @@ def restore_database(source: Path, destination: Path, *, replace=False):
 
 
 def main():
-    """Parse explicit source and destination paths and restore a stopped database."""
+    """
+    Parse explicit source and destination paths and restore a stopped database.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     parser = argparse.ArgumentParser(
         description="Restore a stopped SQLite application from backup."
     )

@@ -4,8 +4,8 @@ Filename: scheduler_config.py
 Description: Validate and atomically persist scheduler settings for cross-process reload.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-09-30
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -31,12 +31,32 @@ DEFAULT_SCHEDULE = {
 
 
 def config_path():
-    """Return the configured schedule file location."""
+    """
+    Return the configured schedule file location.
+
+    Args:
+        None.
+
+    Returns:
+        Path: Scheduler configuration location from the environment or default.
+    """
     return Path(os.getenv("SCHEDULER_CONFIG_FILE", "data/scheduler.json"))
 
 
 def validate_schedule(value):
-    """Validate job names, enabled state, intervals, and clock times."""
+    """
+    Validate job names, enabled state, intervals, and clock times.
+
+    Args:
+        value: Candidate enabled/intervals/daily mapping to validate without
+            mutating it.
+
+    Returns:
+        dict: Independently copied, validated scheduler configuration.
+
+    Raises:
+        ValueError: Keys, types, intervals, or daily clock times are invalid.
+    """
     if not isinstance(value, dict) or set(value) != set(DEFAULT_SCHEDULE):
         raise ValueError(
             "Schedule must contain enabled, intervals, and daily settings."
@@ -66,7 +86,19 @@ def validate_schedule(value):
 
 
 def load_schedule():
-    """Load validated settings, defaulting only when no file exists."""
+    """
+    Load validated settings, defaulting only when no file exists.
+
+    Args:
+        None.
+
+    Returns:
+        dict: Valid saved schedule, or a copy of defaults when no file exists.
+
+    Raises:
+        ValueError: The saved JSON or schedule is invalid.
+        OSError: The configuration file cannot be read.
+    """
     try:
         return validate_schedule(json.loads(config_path().read_text(encoding="utf-8")))
     except FileNotFoundError:
@@ -74,7 +106,19 @@ def load_schedule():
 
 
 def save_schedule(value):
-    """Validate and atomically replace the persisted schedule."""
+    """
+    Validate and atomically replace the persisted schedule.
+
+    Args:
+        value: Candidate schedule to validate and atomically persist.
+
+    Returns:
+        dict: Validated configuration written atomically to disk.
+
+    Raises:
+        ValueError: The supplied schedule is invalid.
+        OSError: The configuration cannot be written or replaced.
+    """
     value = validate_schedule(value)
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)

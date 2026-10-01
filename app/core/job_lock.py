@@ -4,8 +4,8 @@ Filename: job_lock.py
 Description: Serialize scheduler and dashboard jobs without leaving stale locks.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-09-30
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -22,7 +22,22 @@ else:
 
 @contextmanager
 def job_lock(name):
-    """Non-blocking process lock, released by the OS after a crash."""
+    """
+    Non-blocking process lock, released by the OS after a crash. If the lock is already
+    held, the context manager yields False. Otherwise, it yields True and holds the lock
+    until the context exits. Purpose: Prevent multiple instances of the same job from
+    running concurrently.
+
+    Args:
+        name: Internal lock identifier used as a filename under JOB_LOCK_DIR.
+
+    Returns:
+        AbstractContextManager[bool]: Context manager holding an acquired lock until
+        exit.
+
+    Yields:
+        bool: True when the process lock is held; False when another process holds it.
+    """
     directory = Path(os.getenv("JOB_LOCK_DIR", "data/locks"))
     directory.mkdir(parents=True, exist_ok=True)
     with (directory / (name + ".lock")).open("a+b") as file:

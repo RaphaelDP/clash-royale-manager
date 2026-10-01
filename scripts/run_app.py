@@ -4,8 +4,8 @@ Filename: run_app.py
 Description: Supervise dashboard and scheduler with safe startup and graceful shutdown.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-09-30
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -21,7 +21,15 @@ from app.core.logger import logger
 
 
 def main():
-    """Upgrade and collect data, then supervise the dashboard and scheduler."""
+    """
+    Upgrade and collect data, then supervise the dashboard and scheduler.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     init_db()  # Never launch against an incompatible schema.
     try:
         collect_data()

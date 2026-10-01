@@ -4,8 +4,8 @@ Filename: profile_queries.py
 Description: Measure dashboard and scoring queries against synthetic in-memory clan data.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-09-30
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -22,7 +22,15 @@ from app.services.score_service import ScoreService
 
 
 def main():
-    """Profile dashboard operations against a synthetic fifty-member clan."""
+    """
+    Profile dashboard operations against a synthetic fifty-member clan.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
@@ -59,6 +67,15 @@ def main():
         queries = [0]
 
         def count_query(*_args):
+            """
+            Increment the SQL statement counter for a profiling event.
+
+            Args:
+                *_args: Unused SQLAlchemy execution-event arguments.
+
+            Returns:
+                None.
+            """
             queries[0] += 1
 
         event.listen(engine, "before_cursor_execute", count_query)

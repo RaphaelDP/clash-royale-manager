@@ -4,8 +4,8 @@ Filename: member.py
 Description: SQLAlchemy model for clan members, including tags, roles, trophies, and activity data.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-16
-Version: 0.5.0
+Last Modified: 2026-10-01
+Version: 0.5.1
 Python Version: 3.12
 Dependencies: sqlalchemy
 ================================================================================
@@ -73,6 +73,15 @@ class Member(Base):
     )
 
     def __repr__(self) -> str:
+        """
+        Format the member identity and current stored metrics for debugging.
+
+        Args:
+            None.
+
+        Returns:
+            str: Member identity and current metric values.
+        """
         return (
             f"<Member(tag={self.tag} "
             f"name={self.name} "

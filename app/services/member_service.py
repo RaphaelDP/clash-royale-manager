@@ -4,8 +4,8 @@ Filename: member_service.py
 Description: Service for managing clan members, including creation, updates, and departures.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-09-30
-Version: 0.5.2
+Last Modified: 2026-10-01
+Version: 0.5.3
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils
 ================================================================================
@@ -31,11 +31,14 @@ class MemberService:
 
     def __init__(self, db_session: Session, api_client: ClashAPIClient = None) -> None:
         """
-        Initialize the MemberService with a database session and API client.
+        Initialize MemberService with its configured dependencies.
+
         Args:
             db_session: SQLAlchemy database session for interacting with the database.
-            api_client: Optional ClashAPIClient instance. If not provided, a new instance will be
+            api_client: Optional ClashAPIClient; a new client is created when omitted.
 
+        Returns:
+            None.
         """
         self.db: Session = db_session
         self.api_client: ClashAPIClient = api_client or ClashAPIClient()
@@ -52,8 +55,8 @@ class MemberService:
         commit: bool = True,
     ) -> Member:
         """
-        Create or update a member in the database.
-        Preserves war history even if the member leaves later.
+        Create or update a member in the database. Preserves war history even if the member
+        leaves later.
 
         Args:
             tag: Member's Clash Royale tag.
@@ -61,7 +64,8 @@ class MemberService:
             role: Member's role (leader, coLeader, elder, member, left, fired).
             trophies: Current trophy count.
             donations: Current donation count.
-            last_seen: Last seen datetime string from the API.
+            last_seen: UTC API timestamp string, or None to store unknown activity.
+            commit: Commit changes immediately when true; otherwise only flush them.
 
         Returns:
             Member: The created or updated Member object.
@@ -109,12 +113,16 @@ class MemberService:
         self, tag: str, reason: str = "left", *, commit: bool = True
     ) -> Member | None:
         """
-        Mark a member as left/fired but preserve their war history.
-        Sets role to 'left' or 'fired' and clears active fields.
+        Mark a member as left/fired but preserve their war history. Sets role to 'left' or
+        'fired' and clears active fields.
 
         Args:
             tag: Member's Clash Royale tag.
             reason: Reason for removal ('left' or 'fired').
+            commit: Commit changes immediately when true; otherwise only flush them.
+
+        Returns:
+            Member | None: Updated member, or None when the tag is unknown.
         """
         member: Member | None = self.db.query(Member).filter_by(tag=tag).first()
         if member:
@@ -142,8 +150,8 @@ class MemberService:
 
     def promote_member(self, tag: str, new_role: str) -> bool:
         """
-        Promote a member to a new role (e.g., member → elder, elder → coLeader).
-        Validates role transitions and clan rules.
+        Promote a member to a new role (e.g., member → elder, elder → coLeader). Validates
+        role transitions and clan rules.
 
         Args:
             tag: Member's Clash Royale tag.
@@ -188,10 +196,12 @@ class MemberService:
 
     def _inactive_members_query(self, days_threshold: int = 7):
         """
-        Get a query for members who have been inactive for more than the specified number of days.
+        Get a query for members who have been inactive for more than the specified number of
+        days.
 
         Args:
-            days_threshold (int, optional): Number of days of inactivity to consider a member inactive. Defaults to 7.
+            days_threshold: Number of days of inactivity to consider a member inactive.
+                Defaults to 7.
 
         Returns:
             Query: SQLAlchemy query for inactive members.
@@ -208,10 +218,12 @@ class MemberService:
 
     def get_inactive_members(self, days_threshold: int = 7):
         """
-        Get a list of members who have been inactive for more than the specified number of days.
+        Get a list of members who have been inactive for more than the specified number of
+        days.
 
         Args:
-            days_threshold (int, optional): Number of days of inactivity to consider a member inactive. Defaults to 7.
+            days_threshold: Number of days of inactivity to consider a member inactive.
+                Defaults to 7.
 
         Returns:
             List[Member]: List of inactive members.
@@ -220,10 +232,12 @@ class MemberService:
 
     def count_inactive_members(self, days_threshold: int = 7):
         """
-        Count the number of members who have been inactive for more than the specified number of days.
+        Count the number of members who have been inactive for more than the specified
+        number of days.
 
         Args:
-            days_threshold (int, optional): Number of days of inactivity to consider a member inactive. Defaults to 7.
+            days_threshold: Number of days of inactivity to consider a member inactive.
+                Defaults to 7.
 
         Returns:
             int: Count of inactive members.
@@ -234,6 +248,9 @@ class MemberService:
         """
         Get all active members (role != 'left' or 'fired').
 
+        Args:
+            None.
+
         Returns:
             List[Member]: List of active members.
         """
@@ -241,11 +258,13 @@ class MemberService:
 
     def increment_days_in_clan(self) -> int:
         """
-        Increment days_in_clan by 1 for every currently-active member
-        (role not in left/fired). Guarded by JobRunState so calling this
-        more than once on the same calendar day is a safe no-op -
-        intended to run once daily via the scheduler, but also safe to
-        call from collect_data.py for manual/on-demand runs.
+        Increment days_in_clan by 1 for every currently-active member (role not in
+        left/fired). Guarded by JobRunState so calling this more than once on the same
+        calendar day is a safe no-op - intended to run once daily via the scheduler, but
+        also safe to call from collect_data.py for manual/on-demand runs.
+
+        Args:
+            None.
 
         Returns:
             int: number of members incremented (0 if already run today).
@@ -305,12 +324,17 @@ class MemberService:
 
     def get_effective_join_date(self, member: Member) -> datetime | None:
         """
-        Best-known date this member has been in the clan, correcting for
-        clan_joined_at potentially being stamped later than reality (e.g. a
-        historical war-log backfill can create a Member row - and stamp
-        clan_joined_at "now" - well after their actual first appearance).
-        Uses whichever is earlier: clan_joined_at, or their first known
+        Best-known date this member has been in the clan, correcting for clan_joined_at
+        potentially being stamped later than reality (e.g. a historical war-log backfill can
+        create a Member row - and stamp clan_joined_at "now" - well after their actual first
+        appearance). Uses whichever is earlier: clan_joined_at, or their first known
         completed-race participation.
+
+        Args:
+            member: Member model whose stored metrics or relationships are used.
+
+        Returns:
+            datetime | None: Earliest known join/participation date, or None.
         """
         earliest_participation_date = (
             self.db.query(func.min(RiverRace.created_date))
@@ -368,6 +392,9 @@ class MemberService:
 
         Args:
             tag: Member's Clash Royale tag.
+
+        Returns:
+            None.
         """
         member: Member | None = self.db.query(Member).filter_by(tag=tag).first()
         if member:
@@ -386,11 +413,12 @@ class MemberService:
         Args:
             member_tag: Clash Royale player tag.
             all_stats: If True, also returns cached/live Clash Royale API data.
-            refresh: If True, forces a refresh of the Clash Royale API data, even if cached data exists.
+            refresh: If True, forces a refresh of the Clash Royale API data, even if
+                cached data exists.
 
         Returns:
-            Dictionary containing local database information merged with
-            Clash Royale API data.
+            Dictionary containing local database information merged with Clash Royale API
+            data.
         """
 
         member = self.db.query(Member).filter(Member.tag == member_tag).first()

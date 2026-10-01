@@ -3,13 +3,18 @@
 Revision ID: f117b96b7d59
 Revises: 6099e0c591ac
 Create Date: 2026-09-11 18:02:16.540225
+Filename: f117b96b7d59_track_job_execution_state.py
+Description: Track job execution state.
+Author: Raphael Smilet
+Date Created: 2026-09-11
+Last Modified: 2026-10-01
+Version: 0.1.0
 """
 
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-
 
 # revision identifiers, used by Alembic.
 revision: str = "f117b96b7d59"
@@ -19,7 +24,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Upgrade schema."""
+    """
+    Apply the job attempt, success, and error tracking columns in the active Alembic
+    context.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     op.add_column(
         "job_run_state",
         sa.Column("last_attempt_at", sa.DateTime(), nullable=True),
@@ -35,15 +49,11 @@ def upgrade() -> None:
 
     connection = op.get_bind()
 
-    connection.execute(
-        sa.text(
-            """
+    connection.execute(sa.text("""
             UPDATE job_run_state
             SET last_attempt_at = CURRENT_TIMESTAMP
             WHERE last_attempt_at IS NULL
-            """
-        )
-    )
+            """))
 
     with op.batch_alter_table("job_run_state") as batch_op:
         batch_op.alter_column(
@@ -59,7 +69,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Downgrade schema."""
+    """
+    Reverse the job attempt, success, and error tracking columns in the active Alembic
+    context.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     with op.batch_alter_table("job_run_state") as batch_op:
         batch_op.alter_column(
             "last_run_date",

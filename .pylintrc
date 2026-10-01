@@ -1,3 +1,10 @@
+# Filename: .pylintrc
+# Description: Project lint rules and documented-module size budget.
+# Author: Raphael Smilet
+# Date Created: 2026-06-06
+# Last Modified: 2026-10-01
+# Version: 0.1.0
+
 [MASTER]
 init-hook='import sys; sys.path.append(".")'
 ignore=venv,.venv,logs,data,secrets
@@ -19,7 +26,8 @@ max-positional-arguments=10
 max-attributes=15
 max-locals = 30 # 15 when v1.0.0 
 max-public-methods=30  # 15 when v1.0.0 
-max-module-lines=1050
+# Full function contracts increase module length without adding executable code.
+max-module-lines=1300
 
 [MAIN]
 max-line-length=120

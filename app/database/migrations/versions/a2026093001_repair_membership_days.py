@@ -4,8 +4,8 @@ Filename: a2026093001_repair_membership_days.py
 Description: Repair membership days on databases already past the historical migration.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-09-30
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -21,6 +21,15 @@ depends_on = None
 
 def upgrade():
     # Older installations may already be stamped beyond the faulty revision.
+    """
+    Apply the missing membership-day column repair in the active Alembic context.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     if "days_in_clan" not in {
         c["name"] for c in sa.inspect(op.get_bind()).get_columns("members")
     }:
@@ -33,4 +42,13 @@ def upgrade():
 
 def downgrade():
     # The repaired historical revision also owns this column. Preserve it here.
+    """
+    Leave membership days intact; the historical revision owns this column.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     pass

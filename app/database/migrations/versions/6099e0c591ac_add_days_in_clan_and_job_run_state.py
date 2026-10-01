@@ -4,6 +4,12 @@ Revision ID: 6099e0c591ac
 Revises: 67a87d4beb2d
 Create Date: 2026-08-04 17:09:20.623769
 
+Filename: 6099e0c591ac_add_days_in_clan_and_job_run_state.py
+Description: Add days_in_clan and job_run_state.
+Author: Raphael Smilet
+Date Created: 2026-08-04
+Last Modified: 2026-10-01
+Version: 0.1.0
 """
 
 from datetime import datetime, timezone
@@ -19,6 +25,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    """
+    Apply the membership-day and job-guard schema changes in the active Alembic context.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     missing_days = "days_in_clan" not in {
         column["name"] for column in sa.inspect(op.get_bind()).get_columns("members")
     }
@@ -68,5 +83,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """
+    Reverse the membership-day and job-guard schema changes in the active Alembic
+    context.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     op.drop_table("job_run_state")
     op.drop_column("members", "days_in_clan")

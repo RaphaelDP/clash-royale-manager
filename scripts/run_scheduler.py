@@ -4,8 +4,8 @@ Filename: run_scheduler.py
 Description: Run one scheduler process with signal handling and settings reload.
 Author: Raphael Smilet
 Date Created: 2026-07-12
-Last Modified: 2026-09-30
-Version: 0.1.1
+Last Modified: 2026-10-01
+Version: 0.1.2
 Python Version: 3.12
 ================================================================================
 """
@@ -17,7 +17,15 @@ from app.scheduler.scheduler import start_scheduler, reload_scheduler
 
 
 def main():
-    """Hold the process lock and reload settings until shutdown is requested."""
+    """
+    Hold the process lock and reload settings until shutdown is requested.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     stop = Event()
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, lambda *_: stop.set())

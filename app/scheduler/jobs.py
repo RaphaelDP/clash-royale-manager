@@ -4,8 +4,8 @@ Filename: jobs.py
 Description: Scheduled jobs for data collection, updates, and analytics.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-09-30
-Version: 0.9.2
+Last Modified: 2026-10-01
+Version: 0.9.3
 Python Version: 3.12
 Dependencies: app.services, app.integrations.discord, app.database.session
 ================================================================================
@@ -37,9 +37,9 @@ def _get_job_state(db: Session, job_name: str) -> JobRunState:
     Args:
         db: SQLAlchemy database session.
         job_name: Name of the job.
-    Returns:
-        JobRunState: The state record for the job.
 
+    Returns:
+        JobRunState: Existing or newly flushed state record; not committed here.
     """
     state = db.query(JobRunState).filter_by(job_name=job_name).first()
 
@@ -64,16 +64,17 @@ def _execute_job(
     """
     Execute a job and persist its execution state.
 
-    A session is created automatically when the job is called directly by the
-    scheduler. When a session is supplied, it is reused by collect_data.py.
+    A session is created automatically when the job is called directly by the scheduler.
+    When a session is supplied, it is reused by collect_data.py.
 
     Args:
         job_name: Name of the job.
         job_function: Function to execute, which accepts a SQLAlchemy session.
         db_session: Optional SQLAlchemy session. If None, a new session is created.
-    Returns:
-        bool: True if the job succeeded, False otherwise.
+        daily: Skip execution after a recorded success on the current local date.
 
+    Returns:
+        bool: True on success or an applicable daily skip; False on a caught failure.
     """
     own_session = db_session is None
     db = db_session or SessionLocal()
@@ -121,6 +122,19 @@ def _execute_job(
 
 
 def _run_job(job_name, job_function, db_session=None, *, daily=False):
+    """
+    Run a job with a non-blocking lock to prevent concurrent execution.
+
+    Args:
+        job_name: Name of the job.
+        job_function: Function to execute, which accepts a SQLAlchemy session.
+        db_session: Optional SQLAlchemy session. If None, a new session is created.
+        daily: Skip execution after a recorded success on the current local date.
+
+    Returns:
+        bool: True on success or an applicable daily skip; False on a caught failure or
+        lock contention.
+    """
     with job_lock(job_name) as acquired:
         if not acquired:
             logger.warning("Job %s is already running.", job_name)
@@ -132,9 +146,29 @@ def _run_job(job_name, job_function, db_session=None, *, daily=False):
 
 
 def update_clan_members(db_session: Session | None = None) -> bool:
-    """Fetch and update clan members from the Clash Royale API."""
+    """
+    Update clan members from the Clash Royale API. A session is created automatically
+    when the job is called directly by the scheduler. When a session is supplied, it is
+    reused by collect_data.py.
+
+    Args:
+        db_session: Optional SQLAlchemy session. If None, a new session is created.
+
+    Returns:
+        bool: True on success or an applicable daily skip; False on a caught failure or
+        lock contention.
+    """
 
     def job(db: Session) -> None:
+        """
+        Sync clan members from the Clash Royale API and update the database.
+
+        Args:
+            db: SQLAlchemy database session.
+
+        Returns:
+            None.
+        """
         clan_service = ClanService(db)
         clan_service.sync_clan_members(settings.CLAN_TAG)
         logger.info("Synced clan members.")
@@ -143,9 +177,29 @@ def update_clan_members(db_session: Session | None = None) -> bool:
 
 
 def update_war_data(db_session: Session | None = None) -> bool:
-    """Sync the river race log and current river race."""
+    """
+    Update war data from the Clash Royale API. A session is created automatically when
+    the job is called directly by the scheduler. When a session is supplied, it is
+    reused by collect_data.py.
+
+    Args:
+        db_session: Optional SQLAlchemy session. If None, a new session is created.
+
+    Returns:
+        bool: True on success or an applicable daily skip; False on a caught failure or
+        lock contention.
+    """
 
     def job(db: Session) -> None:
+        """
+        Sync war data from the Clash Royale API and update the database.
+
+        Args:
+            db: SQLAlchemy database session.
+
+        Returns:
+            None.
+        """
         war_service = WarService(db)
         war_service.sync_river_race_log(settings.CLAN_TAG)
         war_service.sync_current_river_race(settings.CLAN_TAG)
@@ -155,9 +209,29 @@ def update_war_data(db_session: Session | None = None) -> bool:
 
 
 def create_daily_snapshots(db_session: Session | None = None) -> bool:
-    """Create daily snapshots for all members."""
+    """
+    Create daily snapshots of member data. A session is created automatically when the
+    job is called directly by the scheduler. When a session is supplied, it is reused by
+    collect_data.py.
+
+    Args:
+        db_session: Optional SQLAlchemy session. If None, a new session is created.
+
+    Returns:
+        bool: True on success or an applicable daily skip; False on a caught failure or
+        lock contention.
+    """
 
     def job(db: Session) -> None:
+        """
+        Create daily snapshots of member data for historical tracking.
+
+        Args:
+            db: SQLAlchemy database session.
+
+        Returns:
+            None.
+        """
         snapshot_service = SnapshotService(db)
         snapshot_service.create_daily_snapshots(None)
         logger.info("Created daily snapshots.")
@@ -166,9 +240,27 @@ def create_daily_snapshots(db_session: Session | None = None) -> bool:
 
 
 def calculate_scores(db_session: Session | None = None) -> bool:
-    """Calculate contribution scores for all members."""
+    """
+    Calculate contribution scores for all members.
+
+    Args:
+        db_session: Optional SQLAlchemy session. If None, a new session is created.
+
+    Returns:
+        bool: True on success or an applicable daily skip; False on a caught failure or
+        lock contention.
+    """
 
     def job(db: Session) -> None:
+        """
+        Run the calculate scores callback with the supplied session.
+
+        Args:
+            db: SQLAlchemy session used for database operations.
+
+        Returns:
+            None.
+        """
         score_service = ScoreService(db)
         score_service.calculate_all_scores()
         logger.info("Calculated contribution scores.")
@@ -177,9 +269,27 @@ def calculate_scores(db_session: Session | None = None) -> bool:
 
 
 def increment_membership_days(db_session: Session | None = None) -> bool:
-    """Increment days in clan for active members."""
+    """
+    Increment days in clan for active members.
+
+    Args:
+        db_session: Optional SQLAlchemy session. If None, a new session is created.
+
+    Returns:
+        bool: True on success or an applicable daily skip; False on a caught failure or
+        lock contention.
+    """
 
     def job(db: Session) -> None:
+        """
+        Increment the 'days_in_clan' field for all active members.
+
+        Args:
+            db: SQLAlchemy database session.
+
+        Returns:
+            None.
+        """
         member_service = MemberService(db)
         member_service.increment_days_in_clan()
         logger.info("Incremented membership days.")
@@ -188,9 +298,27 @@ def increment_membership_days(db_session: Session | None = None) -> bool:
 
 
 def send_daily_report(db_session: Session | None = None) -> bool:
-    """Generate and send the daily clan activity report to Discord."""
+    """
+    Generate and send the daily clan activity report to Discord.
+
+    Args:
+        db_session: Optional SQLAlchemy session. If None, a new session is created.
+
+    Returns:
+        bool: True on success or an applicable daily skip; False on a caught failure or
+        lock contention.
+    """
 
     def job(db: Session) -> None:
+        """
+        Generate the daily clan activity report and send it to Discord.
+
+        Args:
+            db: SQLAlchemy database session.
+
+        Returns:
+            None.
+        """
         reporter = DiscordReporter(db)
         report = reporter.generate_activity_report()
 
@@ -206,9 +334,27 @@ def send_daily_report(db_session: Session | None = None) -> bool:
 
 
 def backup_database(db_session: Session | None = None) -> bool:
-    """Create a timestamped database backup."""
+    """
+    Create a timestamped database backup.
+
+    Args:
+        db_session: Optional SQLAlchemy session. If None, a new session is created.
+
+    Returns:
+        bool: True on success or an applicable daily skip; False on a caught failure or
+        lock contention.
+    """
 
     def job(_db: Session) -> None:
+        """
+        Create a timestamped backup of the database.
+
+        Args:
+            _db: SQLAlchemy database session (not used in this job).
+
+        Returns:
+            None.
+        """
         if run_database_backup() is None:
             raise RuntimeError("No database backup was created.")
         logger.info("Database backup completed.")

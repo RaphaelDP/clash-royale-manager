@@ -4,8 +4,8 @@ Filename: package_release.py
 Description: Build fresh distribution archives without runtime or private files.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-09-30
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -45,7 +45,18 @@ EXCLUDED_DIRS = {
 
 
 def source_files(root: Path):
-    """Allow only source roots; never follow links into runtime/private data."""
+    """
+    Allow only source roots; never follow links into runtime/private data.
+
+    Args:
+        root: Project root from which allowed source files are collected.
+
+    Returns:
+        Iterator[Path]: Iterator over allowed source files without following symlinks.
+
+    Yields:
+        Path: Source file eligible for inclusion in the distribution archive.
+    """
     for name in sorted(ROOT_FILES):
         path = root / name
         if path.is_file() and not path.is_symlink():
@@ -79,7 +90,16 @@ def source_files(root: Path):
 
 
 def build_archive(root: Path, destination: Path) -> Path:
-    """Build from scratch and replace the destination only after success."""
+    """
+    Build from scratch and replace the destination only after success.
+
+    Args:
+        root: Project root from which allowed source files are collected.
+        destination: Output path for the generated archive or restored database.
+
+    Returns:
+        Path: Destination of the completed, atomically installed source archive.
+    """
     root, destination = root.resolve(), destination.absolute()
     destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(
@@ -98,7 +118,15 @@ def build_archive(root: Path, destination: Path) -> Path:
 
 
 def main():
-    """Build the requested source-only distribution ZIP."""
+    """
+    Build the requested source-only distribution ZIP.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     parser = argparse.ArgumentParser(description="Build a source-only release archive.")
     parser.add_argument("--output", type=Path, default=Path("clash_royale_manager.zip"))
     args = parser.parse_args()

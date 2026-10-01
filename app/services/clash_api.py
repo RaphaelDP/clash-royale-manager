@@ -4,8 +4,8 @@ Filename: clash_api.py
 Description: Client for interacting with the Clash Royale API, including retries, caching, and logging.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-09-30
-Version: 0.4.2
+Last Modified: 2026-10-01
+Version: 0.4.3
 Python Version: 3.12
 Dependencies: requests, requests-cache, tenacity
 ================================================================================
@@ -38,10 +38,13 @@ class ClashAPIClient:
 
     def __init__(self) -> None:
         """
-        Initialize the ClashAPIClient with API token and base URL.
+        Initialize ClashAPIClient with its configured dependencies.
 
         Args:
-            None (uses settings.CR_API_TOKEN from config).
+            None.
+
+        Returns:
+            None.
         """
 
         self.base_url: str = CR_API_BASE_URL
@@ -134,6 +137,7 @@ class ClashAPIClient:
 
         Args:
             player_tag: The player tag (e.g., "#ABC123").
+            refresh: Disable HTTP response caching for this request when true.
 
         Returns:
             Dict[str, Any]: Player data, including trophies, cards, and stats.

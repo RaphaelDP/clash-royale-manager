@@ -3,8 +3,8 @@ Filename: dashboard_service.py
 Description: Service providing aggregated SQL statistics for the Streamlit dashboard.
 Author: Raphael Smilet
 Date Created: 2026-07-07
-Last Modified: 2026-09-30
-Version: 0.6.1
+Last Modified: 2026-10-01
+Version: 0.6.2
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models
 """
@@ -54,6 +54,16 @@ class DashboardService:
     """
 
     def __init__(self, db_session: Session, api_clash: ClashAPIClient = None) -> None:
+        """
+        Initialize DashboardService with its configured dependencies.
+
+        Args:
+            db_session: SQLAlchemy session used by the service or test.
+            api_clash: Optional ClashAPIClient shared by the dashboard services.
+
+        Returns:
+            None.
+        """
         self.db = db_session
         self.api_clash = api_clash or ClashAPIClient()
         self.member_service = MemberService(db_session, self.api_clash)
@@ -64,7 +74,15 @@ class DashboardService:
 
     def get_overview_stats(self) -> dict[str, Any]:
         """
-        Global clan KPIs.
+        Aggregated clan overview statistics for the dashboard.
+
+        Args:
+            None.
+
+        Returns:
+            dict[str, Any]: Dictionary containing overall members, actual members,
+                            active members, average trophies, total donations,
+                            and average promotion score.
         """
 
         overall_members_count = self.db.query(count(Member.id)).scalar() or 0
@@ -121,10 +139,16 @@ class DashboardService:
 
     def get_member_filter_options(self) -> dict[str, Any]:
         """
-        Filter bounds for the Members page sidebar: whether any members
-        exist, distinct roles, and max trophies/donations across all
-        members. Computed via SQL aggregates instead of loading every
-        member just to inspect these bounds.
+        Filter bounds for the Members page sidebar: whether any members exist, distinct
+        roles, and max trophies/donations across all members. Computed via SQL aggregates
+        instead of loading every member just to inspect these bounds.
+
+        Args:
+            None.
+
+        Returns:
+            dict[str, Any]: Dictionary containing whether members exist,
+                            distinct roles, maximum trophies, and maximum donations.
         """
         has_members = self.db.query(count(Member.id)).scalar() > 0
         roles = [r for (r,) in self.db.query(Member.role).distinct().all() if r]
@@ -146,8 +170,18 @@ class DashboardService:
         has_contribution_score: bool = False,
     ) -> list[Member]:
         """
-        Members matching the given filters, applied in SQL rather than
-        loading every member and filtering in Python.
+        Members matching the given filters, applied in SQL rather than loading every member
+        and filtering in Python.
+
+        Args:
+            roles: List of roles to filter by. If None, no role filtering is applied.
+            min_trophies: Minimum trophies to filter by.
+            min_donations: Minimum donations to filter by.
+            has_contribution_score: If True, only include members with a contribution
+                score.
+
+        Returns:
+            list[Member]: List of Member objects matching the filters.
         """
         query = self.db.query(Member).filter(
             Member.trophies >= min_trophies,
@@ -169,7 +203,14 @@ class DashboardService:
 
     def get_database_stats(self) -> dict[str, int]:
         """
-        Number of stored entities.
+        Aggregated database statistics for the dashboard.
+
+        Args:
+            None.
+
+        Returns:
+            dict[str, int]: Dictionary containing counts of members, snapshots,
+                            promotion scores, war seasons, river races, and participations.
         """
 
         return {
@@ -189,6 +230,12 @@ class DashboardService:
     def get_war_stats(self) -> dict[str, Any]:
         """
         Aggregated war statistics.
+
+        Args:
+            None.
+
+        Returns:
+            dict[str, Any]: Dictionary containing war statistics.
         """
 
         race_count = self.db.query(count(RiverRace.id)).scalar() or 0
@@ -233,6 +280,12 @@ class DashboardService:
     def get_snapshot_stats(self) -> dict[str, Any]:
         """
         Snapshot statistics.
+
+        Args:
+            None.
+
+        Returns:
+            dict[str, Any]: Dictionary containing snapshot statistics.
         """
 
         return {
@@ -254,6 +307,12 @@ class DashboardService:
     def get_contribution_stats(self) -> dict[str, Any]:
         """
         Promotion score statistics.
+
+        Args:
+            None.
+
+        Returns:
+            dict[str, Any]: Dictionary containing contribution statistics.
         """
 
         return {
@@ -273,8 +332,14 @@ class DashboardService:
 
     def get_contribution_dashboard(self) -> dict[str, Any]:
         """
-        Aggregated contribution dashboard: counts, extremes, and a ranking
-        built from each member's most recent ContributionScore.
+        Aggregated contribution dashboard: counts, extremes, and a ranking built from each
+        member's most recent ContributionScore.
+
+        Args:
+            None.
+
+        Returns:
+            dict[str, Any]: Dictionary containing contribution dashboard statistics.
         """
         latest_scores = (
             select(
@@ -337,9 +402,17 @@ class DashboardService:
 
     def get_inactive_members(self, days_threshold: int = 14) -> list[dict[str, Any]]:
         """
-        Members inactive for more than `days_threshold` days, as dashboard-ready
-        dicts. Delegates the inactivity rule to MemberService (single source of
-        truth for that logic).
+        Members inactive for more than `days_threshold` days, as dashboard-ready dicts.
+        Delegates the inactivity rule to MemberService (single source of truth for that
+        logic).
+
+        Args:
+            days_threshold: Number of days since last seen to consider a member
+                inactive.
+
+        Returns:
+            list[dict[str, Any]]: List of dictionaries containing inactive member
+            information.
         """
         inactive_members = self.member_service.get_inactive_members(days_threshold)
 
@@ -357,26 +430,47 @@ class DashboardService:
 
     def get_kick_candidates(self, _days_threshold: int = 14) -> list[dict[str, Any]]:
         """
-        Kick candidates from the rank-based recommendation system: members
-        flagged with action == "kick" (2 consecutive races under the fame
-        sanction threshold). _days_threshold is unused - kept for backward
-        signature compatibility with callers passing an inactivity slider
-        value; kicking is now driven by fame, not raw inactivity.
+        Kick candidates from the rank-based recommendation system: members flagged with
+        action == "kick" (2 consecutive races under the fame sanction threshold).
+        _days_threshold is unused - kept for backward signature compatibility with callers
+        passing an inactivity slider value; kicking is now driven by fame, not raw
+        inactivity.
+
+        Args:
+            _days_threshold: Unused compatibility argument; kick decisions are based on
+                war fame.
+
+        Returns:
+            list[dict[str, Any]]: Recommendation entries with action="kick".
         """
         recommendations = self.get_promotion_recommendations()
         return [r for r in recommendations if r["action"] == "kick"]
 
     def get_promotion_recommendations(self) -> list[dict[str, Any]]:
         """
-        Rank-based promotion/demotion/kick recommendations (v0.8.0).
-        Delegates to ScoreService, which owns the decision logic.
+        Rank-based promotion/demotion/kick recommendations (v0.8.0). Delegates to
+        ScoreService, which owns the decision logic.
+
+        Args:
+            None.
+
+        Returns:
+            list[dict[str, Any]]: Member actions, recommended roles, ranks, fame, and
+            reasons.
         """
         score_service = ScoreService(self.db)
         return score_service.get_promotion_recommendations()
 
     def get_last_completed_race(self) -> RiverRace | None:
         """
-        Returns the most recent completed RiverRace, or None if none exist."""
+        Returns the most recent completed RiverRace, or None if none exist.
+
+        Args:
+            None.
+
+        Returns:
+            RiverRace | None: Most recent completed race, or None if unavailable.
+        """
         score_service = ScoreService(self.db)
         return score_service.get_last_completed_race()
 
@@ -386,12 +480,18 @@ class DashboardService:
 
     def _get_average_trophy_gain(self, window_days: int) -> float:
         """
-        Average trophy gain per member over the last `window_days`, comparing
-        each member's earliest vs. latest snapshot within the window.
+        Average trophy gain per member over the last `window_days`, comparing each member's
+        earliest vs. latest snapshot within the window.
 
-        Computed in Python rather than a SQL self-join: finding first/last
-        snapshot per member that way is fragile, and clan-sized snapshot
-        volumes make this cheap enough to do safely in memory.
+        Computed in Python rather than a SQL self-join: finding first/last snapshot per
+        member that way is fragile, and clan-sized snapshot volumes make this cheap enough
+        to do safely in memory.
+
+        Args:
+            window_days: Number of days of snapshot history to include.
+
+        Returns:
+            float: Mean first-to-last trophy change for current members in the window.
         """
         window_start = get_time() - timedelta(days=window_days)
 
@@ -421,8 +521,14 @@ class DashboardService:
 
     def _inactivity_penalty_score(self, inactive_count: int) -> float:
         """
-        Step-function penalty based on inactive member count:
-        0->100, 5->80, 10->60, 15->40, 20+->0
+        Step-function penalty based on inactive member count: 0->100, 5->80, 10->60, 15->40,
+        20+->0
+
+        Args:
+            inactive_count: Number of inactive members to map to an activity penalty.
+
+        Returns:
+            int: Stepwise health component from 100 (none inactive) down to zero.
         """
         thresholds = [(0, 100), (5, 80), (10, 60), (15, 40), (20, 0)]
         score = 100
@@ -433,10 +539,15 @@ class DashboardService:
 
     def get_clan_health_score(self) -> dict[str, Any]:
         """
-        Composite Clan Health Score (0-100), weighted across 8 components.
-        Leadership Depth is a fixed placeholder (100) pending defined
-        thresholds. See v0.8.0 roadmap notes for the related Contribution
-        Score design.
+        Composite Clan Health Score (0-100), weighted across 8 components. Leadership Depth
+        is a fixed placeholder (100) pending defined thresholds. See v0.8.0 roadmap notes
+        for the related Contribution Score design.
+
+        Args:
+            None.
+
+        Returns:
+            dict[str, Any]: Rounded final_score and individual health components.
         """
         active_roster_count = (
             self.db.query(count(Member.id))
@@ -567,8 +678,14 @@ class DashboardService:
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Ranks active members by inactivity (days since last seen), most
-        inactive first.
+        Ranks active members by inactivity (days since last seen), most inactive first.
+
+        Args:
+            limit: Maximum ranking length; None or zero returns the entire ranking.
+
+        Returns:
+            list[dict[str, Any]]: Current members ordered by inactivity, including unknown
+            dates.
         """
         members = (
             self.db.query(Member.tag, Member.name, Member.last_seen)
@@ -603,10 +720,16 @@ class DashboardService:
 
     def get_race_comparison(self, season_id: str) -> list[dict[str, Any]]:
         """
-        Per-race totals/averages within a season, for side-by-side
-        comparison. Participation rate is approximated using the CURRENT
-        active member count, since historical roster size per race isn't
-        tracked.
+        Per-race totals/averages within a season, for side-by-side comparison. Participation
+        rate is approximated using the CURRENT active member count, since historical roster
+        size per race isn't tracked.
+
+        Args:
+            season_id: Identifier of the war season to query.
+
+        Returns:
+            list[dict[str, Any]]: Ordered race totals, averages, and approximate
+            participation rates.
         """
         active_member_count = (
             self.db.query(count(Member.id))
@@ -660,9 +783,15 @@ class DashboardService:
 
     def get_current_race_status(self) -> dict[str, Any] | None:
         """
-        Live view of the currently in-progress river race: who among active
-        members has attacked so far vs. who hasn't. Returns None if there's
-        no in-progress race.
+        Live view of the currently in-progress river race: who among active members has
+        attacked so far vs. who hasn't. Returns None if there's no in-progress race.
+
+        Args:
+            None.
+
+        Returns:
+            dict[str, Any] | None: Open-race identity and attack lists, or None without an
+            open race.
         """
         current_race = (
             self.db.query(RiverRace)
@@ -722,16 +851,25 @@ class DashboardService:
         number_of_races: int,
     ) -> float:
         """
-        Calculates war efficiency: fame performance relative to deck
-        attendance, independent of total volume. Capped at 100% to handle
-        small-sample anomalies (e.g. a single lucky duel win from very few
-        decks used) - same principle as WAR_PERFORMANCE_SUBMETRIC_CAP and
-        MIN_RACES_FOR_CONSISTENCY elsewhere in the scoring system.
+        Calculates war efficiency: fame performance relative to deck attendance, independent
+        of total volume. Capped at 100% to handle small-sample anomalies (e.g. a single
+        lucky duel win from very few decks used) - same principle as
+        WAR_PERFORMANCE_SUBMETRIC_CAP and MIN_RACES_FOR_CONSISTENCY elsewhere in the scoring
+        system.
 
         Formula:
             Fame Efficiency = fame / max possible fame
             Attendance = decks_used / max available decks
             Efficiency = min(100, (Fame Efficiency / Attendance) * 100)
+
+        Args:
+            fame: Total fame earned in the selected races.
+            decks_used: Total decks used in the selected races.
+            number_of_races: Number of races represented by the fame and deck totals.
+
+        Returns:
+            float: Deck-normalized fame efficiency, capped at 100; zero without usable
+            inputs.
         """
         max_fame = number_of_races * MAX_FAME_PER_RACE
         max_decks = number_of_races * MAX_DECKS_PER_RACE
@@ -750,9 +888,16 @@ class DashboardService:
         self, season_id: str, limit: int = 10
     ) -> list[dict[str, Any]]:
         """
-        Player performance ranking scoped to a single war season, by fame.
-        Includes a fame-per-deck 'efficiency' figure for comparing quality
-        of play independent of total participation volume.
+        Player performance ranking scoped to a single war season, by fame. Includes a
+        normalized fame-per-deck efficiency for comparing play independently of total
+        participation volume.
+
+        Args:
+            season_id: Identifier of the war season to query.
+            limit: Maximum number of results to return.
+
+        Returns:
+            list[dict[str, Any]]: Season player totals and efficiency, ordered by fame.
         """
         race_ids = select(RiverRace.id).where(RiverRace.season_id == season_id)
         number_of_races = (
@@ -796,6 +941,13 @@ class DashboardService:
     def get_river_races(self, season_id: str) -> list[dict[str, Any]]:
         """
         River races for a season with participant counts, ordered by section.
+
+        Args:
+            season_id: Identifier of the war season to query.
+
+        Returns:
+            list[dict[str, Any]]: Section index, creation date, and participant count per
+            race.
         """
         rows = (
             self.db.query(
@@ -823,9 +975,15 @@ class DashboardService:
         self, member_tag: str, season_id: str | None = None
     ) -> dict[str, Any]:
         """
-        Aggregated war stats for a single player.
-        If season_id is given, stats are scoped to that season; otherwise
-        stats are all-time across every season.
+        Aggregated war stats for a single player. If season_id is given, stats are scoped to
+        that season; otherwise stats are all-time across every season.
+
+        Args:
+            member_tag: Clash Royale player tag identifying the member.
+            season_id: Season identifier, or None to aggregate every season.
+
+        Returns:
+            dict[str, Any]: Fame, repairs, boat attacks, decks, and normalized efficiency.
         """
 
         number_of_races_query = self.db.query(count(RiverRace.id))
@@ -870,6 +1028,12 @@ class DashboardService:
     def get_daily_snapshot_history(self) -> list[dict]:
         """
         Daily averages for line charts.
+
+        Args:
+            None.
+
+        Returns:
+            list[dict]: Daily date, average trophies, and average donations.
         """
 
         rows = (
@@ -895,6 +1059,12 @@ class DashboardService:
     def get_role_distribution(self) -> list[dict]:
         """
         Number of members by role.
+
+        Args:
+            None.
+
+        Returns:
+            list[dict]: Role/count pairs, including departed roles stored in the database.
         """
 
         rows = (
@@ -918,6 +1088,12 @@ class DashboardService:
     def get_top_members_by_trophies(self, limit: int = 10) -> list[Member]:
         """
         Top members ordered by trophies.
+
+        Args:
+            limit: Maximum number of results to return.
+
+        Returns:
+            list[Member]: Current members ordered by descending trophies.
         """
 
         return (
@@ -931,6 +1107,12 @@ class DashboardService:
     def get_top_members_by_donations(self, limit: int = 10) -> list[Member]:
         """
         Top members ordered by donations.
+
+        Args:
+            limit: Maximum number of results to return.
+
+        Returns:
+            list[Member]: Current members ordered by descending donations.
         """
 
         return (
@@ -944,6 +1126,12 @@ class DashboardService:
     def get_top_members_by_contribution_score(self, limit: int = 10) -> list[Member]:
         """
         Top members ordered by contribution score.
+
+        Args:
+            limit: Maximum number of results to return.
+
+        Returns:
+            list[Member]: Current scored members ordered by descending contribution.
         """
         return (
             self.db.query(Member)
@@ -959,6 +1147,12 @@ class DashboardService:
     def get_top_war_players(self, limit: int = 10) -> list:
         """
         Total war performance aggregated by player.
+
+        Args:
+            limit: Maximum number of results to return.
+
+        Returns:
+            list[Row]: Player tag/name and aggregated fame, repair, boats, and decks.
         """
 
         return (
@@ -987,6 +1181,12 @@ class DashboardService:
     def get_available_seasons(self) -> list[WarSeason]:
         """
         Returns all seasons ordered by newest first.
+
+        Args:
+            None.
+
+        Returns:
+            list[WarSeason]: Seasons ordered by descending start date.
         """
 
         return self.db.query(WarSeason).order_by(WarSeason.start_date.desc()).all()
@@ -994,6 +1194,12 @@ class DashboardService:
     def get_season_summary(self, season_id: str) -> dict[str, Any]:
         """
         Aggregated statistics for one season.
+
+        Args:
+            season_id: Identifier of the war season to query.
+
+        Returns:
+            dict[str, Any]: Race count, distinct participants, and season war totals.
         """
 
         race_ids = select(RiverRace.id).where(RiverRace.season_id == season_id)
@@ -1035,13 +1241,30 @@ class DashboardService:
     # ==========================================================================
 
     def get_job_state(self, job_name: str) -> JobRunState | None:
-        """Return the execution state of a job."""
+        """
+        Return the execution state of a job.
+
+        Args:
+            job_name: Stable job identifier used for persisted execution state.
+
+        Returns:
+            JobRunState | None: Persisted state for the name, or None before its first
+            attempt.
+        """
         return (
             self.db.query(JobRunState).filter(JobRunState.job_name == job_name).first()
         )
 
     def get_failed_jobs(self) -> list[JobRunState]:
-        """Return jobs whose latest attempt failed."""
+        """
+        Return jobs whose latest attempt failed.
+
+        Args:
+            None.
+
+        Returns:
+            list[JobRunState]: States with recorded errors, most recent attempts first.
+        """
         return (
             self.db.query(JobRunState)
             .filter(JobRunState.last_error.isnot(None))

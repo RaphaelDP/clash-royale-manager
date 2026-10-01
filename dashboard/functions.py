@@ -4,8 +4,8 @@ Filename: functions.py
 Description: Data preparation and action helpers for the Streamlit dashboard.
 Author: Raphael Smilet
 Date Created: 2026-07-25
-Last Modified: 2026-09-30
-Version: 0.1.2
+Last Modified: 2026-10-01
+Version: 0.1.3
 Python Version: 3.12
 Dependencies: pandas, streamlit, app.database, app.services, app.scheduler.jobs
 ================================================================================
@@ -42,6 +42,12 @@ from app.scheduler.scheduler import JOB_NAMES
 def refresh_clan_members_data() -> bool:
     """
     Refresh clan members data by calling the update_clan_members job.
+
+    Args:
+        None.
+
+    Returns:
+        bool: Whether the member synchronization job completed successfully.
     """
     with get_session() as db_session:
         return update_clan_members(db_session=db_session)
@@ -50,6 +56,13 @@ def refresh_clan_members_data() -> bool:
 def refresh_war_data() -> bool:
     """
     Refresh war data by calling the update_war_data job.
+
+    Args:
+        None.
+
+    Returns:
+        bool: Whether historical and current race synchronization completed
+        successfully.
     """
     with get_session() as db_session:
         return update_war_data(db_session=db_session)
@@ -58,6 +71,12 @@ def refresh_war_data() -> bool:
 def recalculate_scores() -> bool:
     """
     Recalculate scores by calling the calculate_scores job.
+
+    Args:
+        None.
+
+    Returns:
+        bool: Whether the score calculation job completed successfully.
     """
     with get_session() as db_session:
         return calculate_scores(db_session=db_session)
@@ -65,11 +84,15 @@ def recalculate_scores() -> bool:
 
 def execute_dashboard_action(action: Callable[[], Any], label: str) -> None:
     """
-    Execute a dashboard action with a spinner and prevent multiple simultaneous executions.
+    Execute a dashboard action with a spinner and prevent multiple simultaneous
+    executions.
 
     Args:
-        action (callable): The function to execute.
-        label (str): The label to display in the spinner.
+        action: The function to execute.
+        label: The label to display in the spinner.
+
+    Returns:
+        None.
     """
 
     if st.session_state.get("dashboard_action_running", False):
@@ -92,6 +115,9 @@ def dashboard_action_running() -> bool:
     """
     Check if a dashboard action is currently running.
 
+    Args:
+        None.
+
     Returns:
         bool: True if an action is running, False otherwise.
     """
@@ -99,7 +125,15 @@ def dashboard_action_running() -> bool:
 
 
 def get_home_page_data() -> dict[str, Any]:
-    """Prepare configuration validation for the landing page."""
+    """
+    Prepare configuration validation for the landing page.
+
+    Args:
+        None.
+
+    Returns:
+        dict[str, list[str]]: Missing required configuration names for the landing page.
+    """
     return {"missing_config": validate_required_config()}
 
 
@@ -112,8 +146,12 @@ def get_overview_page_data() -> dict[str, Any]:
     """
     Collect and prepare all data displayed by the overview page.
 
+    Args:
+        None.
+
     Returns:
-        dict[str, Any]: A dictionary containing all the data needed for the overview page.
+        dict[str, Any]: A dictionary containing all the data needed for the overview
+        page.
     """
     with get_session() as db:
         dashboard = DashboardService(db, api_clash=None)
@@ -177,8 +215,9 @@ def _get_sync_warning(failed_jobs: list[Any], stale_since: Any) -> str | None:
     Generate a warning message if there are failed synchronization jobs.
 
     Args:
-        failed_jobs (list[Any]): List of failed job states.
-        stale_since (Any): The timestamp of the last successful synchronization.
+        failed_jobs: List of failed job states.
+        stale_since: The timestamp of the last successful synchronization.
+
     Returns:
         str | None: A warning message if there are failed jobs, otherwise None.
     """
@@ -200,7 +239,8 @@ def _snapshot_history_dataframe(history: list[dict[str, Any]]) -> pd.DataFrame:
     Convert snapshot history data into a pandas DataFrame.
 
     Args:
-        history (list[dict[str, Any]]): List of snapshot history records.
+        history: List of snapshot history records.
+
     Returns:
         pd.DataFrame: A DataFrame containing the snapshot history data.
     """
@@ -218,9 +258,9 @@ def _member_ranking_dataframe(
     Convert member ranking data into a pandas DataFrame.
 
     Args:
-        members (list[Any]): List of member objects.
-        value_name (str): The name of the column for the ranking values.
-        value_getter (callable): A function to extract the ranking value from each member.
+        members: List of member objects.
+        value_name: The name of the column for the ranking values.
+        value_getter: A function to extract the ranking value from each member.
 
     Returns:
         pd.DataFrame: A DataFrame containing the member ranking data.
@@ -242,7 +282,7 @@ def _war_players_dataframe(players: list[Any]) -> pd.DataFrame:
     Convert war player data into a pandas DataFrame.
 
     Args:
-        players (list[Any]): List of war player objects.
+        players: List of war player objects.
 
     Returns:
         pd.DataFrame: A DataFrame containing the war player data.
@@ -271,6 +311,9 @@ def get_member_filter_options() -> dict[str, Any]:
     """
     Retrieve available filter options for the members page.
 
+    Args:
+        None.
+
     Returns:
         dict[str, Any]: A dictionary containing available filter options.
     """
@@ -292,10 +335,10 @@ def get_members_page_data(
     Retrieve and prepare data for the members page based on the provided filters.
 
     Args:
-        roles (list[str]): List of roles to filter members by.
-        min_trophies (int): Minimum trophies to filter members by.
-        min_donations (int): Minimum donations to filter members by.
-        has_contribution_score (bool): Whether to filter members with a contribution score.
+        roles: List of roles to filter members by.
+        min_trophies: Minimum trophies to filter members by.
+        min_donations: Minimum donations to filter members by.
+        has_contribution_score: Whether to filter members with a contribution score.
 
     Returns:
         dict[str, Any]: A dictionary containing filtered members and related statistics.
@@ -378,7 +421,8 @@ def get_player_options(selected_role: str | None) -> dict[str, str]:
     Prepare player tags and display labels filtered by the selected role.
 
     Args:
-        selected_role (str | None): The role to filter players by. If None, all roles are included.
+        selected_role: The role to filter players by. If None, all roles are
+            included.
 
     Returns:
         dict[str, str]: Player tags mapped to display labels.
@@ -395,12 +439,12 @@ def get_player_page_data(tag: str, refresh: bool) -> dict[str, Any] | None:
     Retrieve and prepare data for the player profile page.
 
     Args:
-        tag (str): The player's tag.
-        refresh (bool): Whether to refresh the player's data from the API.
+        tag: The player's tag.
+        refresh: Whether to refresh the player's data from the API.
 
     Returns:
-        dict[str, Any] | None: A dictionary containing the player's profile and related data,
-        or None if the player does not exist.
+        dict[str, Any] | None: A dictionary containing the player's profile and related
+        data, or None if the player does not exist.
     """
     with get_session() as db:
         member_service = MemberService(db)
@@ -515,9 +559,11 @@ def _last_seen_display(last_seen: Any) -> str:
     Generate a human-readable string for the last seen timestamp.
 
     Args:
-        last_seen (Any): The last seen timestamp.
+        last_seen: The last seen timestamp.
+
     Returns:
-        str: A string representing how long ago the player was last seen, or "-" if unknown.
+        str: A string representing how long ago the player was last seen, or "-" if
+        unknown.
     """
     if not last_seen:
         return "-"
@@ -529,7 +575,7 @@ def _deck_dataframe(deck: list[dict[str, Any]]) -> pd.DataFrame:
     Convert deck data into a pandas DataFrame.
 
     Args:
-        deck (list[dict[str, Any]]): List of card dictionaries representing the player's deck.
+        deck: List of card dictionaries representing the player's deck.
 
     Returns:
         pd.DataFrame: A DataFrame containing the deck data.
@@ -551,7 +597,7 @@ def _badge_dataframe(badges: list[dict[str, Any]]) -> pd.DataFrame:
     Convert badge data into a pandas DataFrame.
 
     Args:
-        badges (list[dict[str, Any]]): List of badge dictionaries.
+        badges: List of badge dictionaries.
 
     Returns:
         pd.DataFrame: A DataFrame containing the badge data.
@@ -573,10 +619,11 @@ def _player_war_data(participations: list[Any]) -> dict[str, Any]:
     Process war participation data and return summary statistics and a DataFrame.
 
     Args:
-        participations (list[Any]): List of war participation objects.
+        participations: List of war participation objects.
 
     Returns:
-        dict[str, Any]: A dictionary containing summary statistics and a DataFrame of participations.
+        dict[str, Any]: A dictionary containing summary statistics and a DataFrame of
+        participations.
     """
     if not participations:
         return {
@@ -618,7 +665,7 @@ def _score_dataframe(scores: list[Any]) -> pd.DataFrame:
     Convert contribution score data into a pandas DataFrame.
 
     Args:
-        scores (list[Any]): List of contribution score objects.
+        scores: List of contribution score objects.
 
     Returns:
         pd.DataFrame: A DataFrame containing the contribution score data.
@@ -646,7 +693,8 @@ def _snapshot_dataframe(snapshots: list[Any]) -> pd.DataFrame:
     Convert snapshot data into a pandas DataFrame.
 
     Args:
-        snapshots (list[Any]): List of snapshot objects.
+        snapshots: List of snapshot objects.
+
     Returns:
         pd.DataFrame: A DataFrame containing the snapshot data.
     """
@@ -671,8 +719,12 @@ def get_promotions_page_data() -> dict[str, Any]:
     """
     Retrieve and prepare data for the promotions page.
 
+    Args:
+        None.
+
     Returns:
-        dict[str, Any]: A dictionary containing promotion recommendations and kick candidates.
+        dict[str, Any]: A dictionary containing promotion recommendations and kick
+        candidates.
     """
     with get_session() as db:
         dashboard = DashboardService(db)
@@ -707,7 +759,16 @@ def get_promotions_page_data() -> dict[str, Any]:
 
 
 def sort_contribution_ranking(ranking: pd.DataFrame, metric: str) -> pd.DataFrame:
-    """Prepare the selected contribution component ranking."""
+    """
+    Prepare the selected contribution component ranking.
+
+    Args:
+        ranking: Contribution-ranking DataFrame prepared for display.
+        metric: Ranking column to sort in descending order.
+
+    Returns:
+        pd.DataFrame: Ranking sorted by the metric, or the unchanged empty frame.
+    """
     return (
         ranking.sort_values(metric, ascending=False) if not ranking.empty else ranking
     )
@@ -715,10 +776,11 @@ def sort_contribution_ranking(ranking: pd.DataFrame, metric: str) -> pd.DataFram
 
 def get_inactive_members_data(threshold: int) -> pd.DataFrame:
     """
-    Retrieve a DataFrame of members who have been inactive for a specified number of days.
+    Retrieve a DataFrame of members who have been inactive for a specified number of
+    days.
 
     Args:
-        threshold (int): The number of days of inactivity to filter members by.
+        threshold: The number of days of inactivity to filter members by.
 
     Returns:
         pd.DataFrame: A DataFrame containing inactive members.
@@ -735,6 +797,9 @@ def get_inactive_members_data(threshold: int) -> pd.DataFrame:
 def get_war_overview_data() -> dict[str, Any]:
     """
     Retrieve and prepare data for the war overview page.
+
+    Args:
+        None.
 
     Returns:
         dict[str, Any]: A dictionary containing live race status and available seasons.
@@ -760,8 +825,8 @@ def get_war_season_data(season_id: Any, limit: int) -> dict[str, Any]:
     Retrieve and prepare data for a specific war season.
 
     Args:
-        season_id (Any): The ID of the war season.
-        limit (int): The maximum number of players to retrieve.
+        season_id: The ID of the war season.
+        limit: The maximum number of players to retrieve.
 
     Returns:
         dict[str, Any]: A dictionary containing the war season data.
@@ -792,12 +857,12 @@ def get_player_war_stats_data(
     Retrieve and prepare data for a specific player's war statistics.
 
     Args:
-        player_tag (str): The tag of the player.
-        season_id (Any): The ID of the war season.
-        all_time (bool): Whether to retrieve all-time statistics.
+        player_tag: The tag of the player.
+        season_id: The ID of the war season.
+        all_time: Whether to retrieve all-time statistics.
 
     Returns:
-        dict[str, Any] | None: A dictionary containing the player's war statistics or None if not found.
+        dict[str, Any]: Player war totals and efficiency for the chosen scope.
     """
     with get_session() as db:
         return DashboardService(db).get_player_war_stats(
@@ -812,7 +877,16 @@ def get_player_war_stats_data(
 
 
 def get_settings_page_data() -> dict[str, Any]:
-    """Prepare settings for display and export without exposing the API token."""
+    """
+    Prepare settings for display and export without exposing the API token.
+
+    Args:
+        None.
+
+    Returns:
+        dict[str, Any]: Database counts, configuration display/export, and a masked API
+        token.
+    """
     return {
         "database": get_database_counts(),
         "clan_tag": settings.CLAN_TAG or "",
@@ -833,6 +907,9 @@ def get_settings_page_data() -> dict[str, Any]:
 def get_database_counts() -> dict[str, int]:
     """
     Retrieve counts of various entities in the database.
+
+    Args:
+        None.
 
     Returns:
         dict[str, int]: A dictionary containing counts of members, snapshots, contribution scores,
@@ -857,10 +934,11 @@ def get_log_data(line_count: int) -> dict[str, Any] | None:
     Retrieve log data from the specified log file.
 
     Args:
-        line_count (int): The number of recent lines to retrieve.
+        line_count: The number of recent lines to retrieve.
 
     Returns:
-        dict[str, Any] | None: A dictionary containing the recent and full log data or None if no log file exists.
+        dict[str, Any] | None: A dictionary containing the recent and full log data or
+        None if no log file exists.
     """
     log_path = Path(settings.LOG_FILE)
     if not log_path.exists():
@@ -875,7 +953,15 @@ def get_log_data(line_count: int) -> dict[str, Any] | None:
 
 
 def get_job_health_data() -> pd.DataFrame:
-    """Display every expected job, including jobs that have never run."""
+    """
+    Prepare job health rows, including expected jobs that have never run.
+
+    Args:
+        None.
+
+    Returns:
+        pd.DataFrame: Job status, attempt/success times, age, and error display rows.
+    """
     with get_session() as db:
         states = {row.job_name: row for row in db.query(JobRunState).all()}
         rows = []
@@ -907,7 +993,15 @@ def get_job_health_data() -> pd.DataFrame:
 
 
 def get_scheduler_settings_data():
-    """Return the saved schedule or defaults with a readable validation error."""
+    """
+    Return the saved schedule or defaults with a readable validation error.
+
+    Args:
+        None.
+
+    Returns:
+        dict: Schedule under config and an optional readable validation error.
+    """
     try:
         return {"config": load_schedule(), "error": None}
     except (OSError, ValueError) as error:
@@ -915,5 +1009,15 @@ def get_scheduler_settings_data():
 
 
 def save_scheduler_settings(enabled, intervals, daily):
-    """Validate and persist scheduler controls from the Settings form."""
+    """
+    Validate and persist scheduler controls from the Settings form.
+
+    Args:
+        enabled: Whether scheduled jobs should be installed and executed.
+        intervals: Member and war job identifiers mapped to intervals in minutes.
+        daily: Daily job identifiers mapped to validated HH:MM execution times.
+
+    Returns:
+        None.
+    """
     save_schedule({"enabled": enabled, "intervals": intervals, "daily": daily})

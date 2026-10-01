@@ -4,8 +4,8 @@ Filename: clan_service.py
 Description: Service for managing clan data, including fetching and updating members.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-09-30
-Version: 0.2.4
+Last Modified: 2026-10-01
+Version: 0.2.5
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models
 ================================================================================
@@ -28,11 +28,14 @@ class ClanService:
 
     def __init__(self, db_session, api_client=None):
         """
-        Initialize the ClanService with a database session.
+        Initialize ClanService with its configured dependencies.
 
         Args:
             db_session: SQLAlchemy database session for interacting with the database.
-            api_client: Optional ClashAPIClient instance. If not provided, a new instance will be created.
+            api_client: Optional ClashAPIClient; a new client is created when omitted.
+
+        Returns:
+            None.
         """
         self.db: Session = db_session
         self.api_client: ClashAPIClient = api_client or ClashAPIClient()
@@ -97,10 +100,15 @@ class ClanService:
 
     def _remove_departed_members(self, current_tags: set[str]) -> None:
         """
-        Remove members from the database who are no longer in the clan.
+        Mark absent active members as left without deleting their history.
+
+        Changes are flushed into the caller-owned roster transaction.
 
         Args:
             current_tags: Set of member tags currently in the clan.
+
+        Returns:
+            None.
         """
         active_members = self.member_service.get_active_members()
         departed_tags = {m.tag for m in active_members if m.tag not in current_tags}
