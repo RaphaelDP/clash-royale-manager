@@ -4,8 +4,8 @@ Filename: test_clan_service.py
 Description: Unit tests for the ClanService class.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-09-30
-Version: 0.3.2
+Last Modified: 2026-10-01
+Version: 0.3.3
 Python Version: 3.12
 Dependencies: pytest, app.services.clan_service, app.database.session
 ================================================================================
@@ -18,7 +18,18 @@ from app.services.clan_service import ClanService
 
 
 def test_sync_clan_members(db_session, mocker, mock_clan_data):
-    """Test the sync_clan_members method of ClanService."""
+    """
+    Test the sync_clan_members method of ClanService.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        mock_clan_data: Synthetic clan payload fixture containing two current
+            members.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mock_client = mocker.MagicMock()
     mock_client.get_clan.return_value = mock_clan_data
@@ -47,7 +58,16 @@ def test_sync_clan_members(db_session, mocker, mock_clan_data):
 
 
 def test_sync_clan_members_rollback(db_session, mocker):
-    """Test that sync_clan_members rolls back on error."""
+    """
+    Test that sync_clan_members rolls back on error.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mock_client = mocker.MagicMock()
     mock_client.get_clan.side_effect = Exception("API Error")
@@ -70,7 +90,18 @@ def test_sync_clan_members_updates_existing_member(
     mocker,
     mock_clan_data,
 ):
-    """Test that sync_clan_members updates existing members."""
+    """
+    Test that sync_clan_members updates existing members.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        mock_clan_data: Synthetic clan payload fixture containing two current
+            members.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mock_client = mocker.MagicMock()
     mock_client.get_clan.return_value = mock_clan_data
@@ -112,7 +143,18 @@ def test_sync_clan_members_marks_departed_member(
     mocker,
     mock_clan_data,
 ):
-    """Test that sync_clan_members marks departed members as left."""
+    """
+    Test that sync_clan_members marks departed members as left.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        mock_clan_data: Synthetic clan payload fixture containing two current
+            members.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mock_client = mocker.MagicMock()
     mock_client.get_clan.return_value = mock_clan_data
@@ -147,7 +189,18 @@ def test_sync_clan_members_reactivates_returning_member(
     mocker,
     mock_clan_data,
 ):
-    """Test that a member who left is reactivated when they return."""
+    """
+    Test that a member who left is reactivated when they return.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        mock_clan_data: Synthetic clan payload fixture containing two current
+            members.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mock_client = mocker.MagicMock()
     mock_client.get_clan.return_value = mock_clan_data

@@ -4,8 +4,8 @@ Filename: test_reliability.py
 Description: Regression tests for packaging, migrations, synchronization, caching, and scheduling.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-09-30
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -59,7 +59,15 @@ from scripts.restore_db import restore_database
 
 
 def test_archive_rebuild_drops_old_secrets_and_preserves_migrations(tmp_path):
-    """Archive rebuild drops old secrets and preserves migrations."""
+    """
+    Archive rebuild drops old secrets and preserves migrations.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     root = tmp_path / "project"
     (root / "app/database/migrations/versions").mkdir(parents=True)
     (root / "app/database/migrations/versions/test.py").write_text("pass")
@@ -80,7 +88,15 @@ def test_archive_rebuild_drops_old_secrets_and_preserves_migrations(tmp_path):
 
 
 def test_fresh_schema_matches_models_and_repeated_init(tmp_path):
-    """Fresh schema matches models and repeated init."""
+    """
+    Fresh schema matches models and repeated init.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     engine = create_engine(f"sqlite:///{tmp_path / 'fresh.db'}")
     init_db(engine)
     init_db(engine)
@@ -93,7 +109,15 @@ def test_fresh_schema_matches_models_and_repeated_init(tmp_path):
 
 
 def test_repair_already_stamped_schema_preserves_members(tmp_path):
-    """Repair already stamped schema preserves members."""
+    """
+    Repair already stamped schema preserves members.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     engine = create_engine(f"sqlite:///{tmp_path / 'legacy.db'}")
     with engine.begin() as connection:
         command.upgrade(migration_config(connection), "f117b96b7d59")
@@ -113,7 +137,15 @@ def test_repair_already_stamped_schema_preserves_members(tmp_path):
 
 
 def test_unversioned_current_schema_adoption_preserves_history(tmp_path):
-    """Unversioned current schema adoption preserves history."""
+    """
+    Unversioned current schema adoption preserves history.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     engine = create_engine(f"sqlite:///{tmp_path / 'unversioned.db'}")
     Base.metadata.create_all(engine)
     with Session(engine) as db:
@@ -126,7 +158,15 @@ def test_unversioned_current_schema_adoption_preserves_history(tmp_path):
 
 
 def test_unknown_schema_is_not_stamped(tmp_path):
-    """Unknown schema is not stamped."""
+    """
+    Unknown schema is not stamped.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     engine = create_engine(f"sqlite:///{tmp_path / 'unknown.db'}")
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE unrelated (id INTEGER)"))
@@ -137,7 +177,15 @@ def test_unknown_schema_is_not_stamped(tmp_path):
 
 
 def test_upgrade_from_initial_schema_preserves_member_data(tmp_path):
-    """Upgrade from initial schema preserves member data."""
+    """
+    Upgrade from initial schema preserves member data.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     engine = create_engine(f"sqlite:///{tmp_path / 'old.db'}")
     with engine.begin() as connection:
         command.upgrade(migration_config(connection), "67a87d4beb2d")
@@ -154,7 +202,16 @@ def test_upgrade_from_initial_schema_preserves_member_data(tmp_path):
 
 
 def test_roster_failure_rolls_back_earlier_member_changes(db_session, member_factory):
-    """Roster failure rolls back earlier member changes."""
+    """
+    Roster failure rolls back earlier member changes.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#A", name="Original")
     db_session.add(member)
     db_session.commit()
@@ -183,7 +240,17 @@ def test_roster_failure_rolls_back_earlier_member_changes(db_session, member_fac
 def test_incomplete_roster_cannot_mark_members_departed(
     db_session, member_factory, payload
 ):
-    """Incomplete roster cannot mark members departed."""
+    """
+    Incomplete roster cannot mark members departed.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        payload: Malformed clan response used to verify roster validation.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(role="member")
     db_session.add(member)
     db_session.commit()
@@ -195,7 +262,18 @@ def test_incomplete_roster_cannot_mark_members_departed(
 
 
 def seed_race(db, season="200", section=3, completed=True):
-    """Seed race."""
+    """
+    Persist a synthetic member, season, race, and participation record.
+
+    Args:
+        db: SQLAlchemy session used for database operations.
+        season: Season identifier for the synthetic race.
+        section: Section index for the synthetic race.
+        completed: Whether the synthetic race is marked complete.
+
+    Returns:
+        RiverRace: Persisted synthetic race linked to a member and participation.
+    """
     member = Member(tag="#A", name="A", role="member")
     race = RiverRace(
         war_season=WarSeason(season_id=season, start_date=datetime(2026, 9, 1)),
@@ -209,7 +287,15 @@ def seed_race(db, season="200", section=3, completed=True):
 
 
 def test_live_season_uses_chronology_and_rollover(db_session):
-    """Live season uses chronology and rollover."""
+    """
+    Live season uses chronology and rollover.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     seed_race(db_session)
     db_session.add(WarSeason(season_id="199", start_date=datetime(2026, 8, 1)))
     db_session.commit()
@@ -226,7 +312,15 @@ def test_live_season_uses_chronology_and_rollover(db_session):
 
 
 def test_live_response_cannot_overwrite_completed_results(db_session):
-    """Live response cannot overwrite completed results."""
+    """
+    Live response cannot overwrite completed results.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     race = seed_race(db_session)
     api = MagicMock()
     api.get_current_river_race.return_value = {
@@ -238,7 +332,15 @@ def test_live_response_cannot_overwrite_completed_results(db_session):
 
 
 def test_failed_war_batch_rolls_back_all_races(db_session):
-    """Failed war batch rolls back all races."""
+    """
+    Failed war batch rolls back all races.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     api = MagicMock()
     api.get_river_race_log.return_value = [
         {
@@ -258,7 +360,15 @@ def test_failed_war_batch_rolls_back_all_races(db_session):
 
 
 def test_unknown_activity_and_zero_decks(db_session):
-    """Unknown activity and zero decks."""
+    """
+    Unknown activity and zero decks.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     seed_race(db_session, completed=False)
     participation = db_session.query(WarParticipation).one()
     participation.decks_used = 0
@@ -269,7 +379,16 @@ def test_unknown_activity_and_zero_decks(db_session):
 
 
 def test_automatic_snapshots_are_active_only_and_idempotent(db_session, member_factory):
-    """Automatic snapshots are active only and idempotent."""
+    """
+    Automatic snapshots are active only and idempotent.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     db_session.add_all([member_factory(role="member"), member_factory(role="left")])
     db_session.commit()
     service = SnapshotService(db_session)
@@ -281,7 +400,19 @@ def test_automatic_snapshots_are_active_only_and_idempotent(db_session, member_f
 def test_corrupt_profile_cache_recovers_and_refresh_bypasses_http_cache(
     tmp_path, monkeypatch, db_session, member_factory
 ):
-    """Corrupt profile cache recovers and refresh bypasses http cache."""
+    """
+    Corrupt profile cache recovers and refresh bypasses http cache.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+        monkeypatch: Pytest fixture that restores patched attributes, environment,
+            and paths.
+        db_session: SQLAlchemy session used by the service or test.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     monkeypatch.chdir(tmp_path)
     member = member_factory(tag="#ABC")
     db_session.add(member)
@@ -308,7 +439,19 @@ def test_corrupt_profile_cache_recovers_and_refresh_bypasses_http_cache(
 def test_corrupt_cache_and_failed_api_returns_empty_fallback(
     tmp_path, monkeypatch, db_session, member_factory
 ):
-    """Corrupt cache and failed api returns empty fallback."""
+    """
+    Corrupt cache and failed api returns empty fallback.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+        monkeypatch: Pytest fixture that restores patched attributes, environment,
+            and paths.
+        db_session: SQLAlchemy session used by the service or test.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     monkeypatch.chdir(tmp_path)
     db_session.add(member_factory(tag="#ABC"))
     db_session.commit()
@@ -323,7 +466,17 @@ def test_corrupt_cache_and_failed_api_returns_empty_fallback(
 
 
 def test_schedule_validation_and_atomic_persistence(tmp_path, monkeypatch):
-    """Schedule validation and atomic persistence."""
+    """
+    Schedule validation and atomic persistence.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+        monkeypatch: Pytest fixture that restores patched attributes, environment,
+            and paths.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     path = tmp_path / "scheduler.json"
     monkeypatch.setenv("SCHEDULER_CONFIG_FILE", str(path))
     schedule = load_schedule()
@@ -339,7 +492,15 @@ def test_schedule_validation_and_atomic_persistence(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("value", [0, -1, True, 1441, 1.5])
 def test_reject_invalid_intervals(value):
-    """Reject invalid intervals."""
+    """
+    Reject invalid intervals.
+
+    Args:
+        value: Invalid interval value supplied by pytest parametrization.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     schedule = copy.deepcopy(DEFAULT_SCHEDULE)
     schedule["intervals"]["update_war_data"] = value
     with pytest.raises(ValueError):
@@ -347,7 +508,18 @@ def test_reject_invalid_intervals(value):
 
 
 def test_daily_job_repeated_success_runs_once(db_session, tmp_path, monkeypatch):
-    """Daily job repeated success runs once."""
+    """
+    Daily job repeated success runs once.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+        monkeypatch: Pytest fixture that restores patched attributes, environment,
+            and paths.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     monkeypatch.setenv("JOB_LOCK_DIR", str(tmp_path))
     calls = []
     for _ in range(2):
@@ -358,10 +530,30 @@ def test_daily_job_repeated_success_runs_once(db_session, tmp_path, monkeypatch)
 
 
 def test_failed_daily_job_can_retry(db_session, tmp_path, monkeypatch):
-    """Failed daily job can retry."""
+    """
+    Failed daily job can retry.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+        monkeypatch: Pytest fixture that restores patched attributes, environment,
+            and paths.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     monkeypatch.setenv("JOB_LOCK_DIR", str(tmp_path))
 
     def fail(db):
+        """
+        Raise an intentional error to exercise daily-job retry handling.
+
+        Args:
+            db: SQLAlchemy session used for database operations.
+
+        Returns:
+            NoReturn: Always raises the intentional test exception.
+        """
         raise ValueError("failed")
 
     assert not jobs._run_job("daily_test", fail, db_session, daily=True)
@@ -370,7 +562,17 @@ def test_failed_daily_job_can_retry(db_session, tmp_path, monkeypatch):
 
 
 def test_job_lock_prevents_overlap(tmp_path, monkeypatch):
-    """Job lock prevents overlap."""
+    """
+    Job lock prevents overlap.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+        monkeypatch: Pytest fixture that restores patched attributes, environment,
+            and paths.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     monkeypatch.setenv("JOB_LOCK_DIR", str(tmp_path))
     with job_lock("test") as first:
         with job_lock("test") as second:
@@ -380,14 +582,32 @@ def test_job_lock_prevents_overlap(tmp_path, monkeypatch):
 
 
 def test_backup_job_reports_missing_backup(db_session, monkeypatch):
-    """Backup job reports missing backup."""
+    """
+    Backup job reports missing backup.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        monkeypatch: Pytest fixture that restores patched attributes, environment,
+            and paths.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     monkeypatch.setattr(jobs, "run_database_backup", lambda: None)
     assert not jobs.backup_database(db_session)
     assert "No database backup" in db_session.query(JobRunState).one().last_error
 
 
 def test_restore_roundtrip_and_existing_destination(tmp_path):
-    """Restore roundtrip and existing destination."""
+    """
+    Restore roundtrip and existing destination.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     source, destination = tmp_path / "backup.db", tmp_path / "restored.db"
     with closing(sqlite3.connect(source)) as db:
         db.execute("CREATE TABLE example (value INTEGER)")
@@ -403,7 +623,15 @@ def test_restore_roundtrip_and_existing_destination(tmp_path):
 
 
 def test_invalid_restore_preserves_destination(tmp_path):
-    """Invalid restore preserves destination."""
+    """
+    Invalid restore preserves destination.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     source, destination = tmp_path / "invalid.db", tmp_path / "existing.db"
     source.write_bytes(b"not sqlite")
     destination.write_bytes(b"preserve this")
@@ -413,7 +641,18 @@ def test_invalid_restore_preserves_destination(tmp_path):
 
 
 def test_scheduler_runtime_reload_and_invalid_config(db_session, tmp_path, monkeypatch):
-    """Scheduler runtime reload and invalid config."""
+    """
+    Scheduler runtime reload and invalid config.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+        monkeypatch: Pytest fixture that restores patched attributes, environment,
+            and paths.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     path = tmp_path / "scheduler.json"
     monkeypatch.setenv("SCHEDULER_CONFIG_FILE", str(path))
     monkeypatch.setattr(module, "SessionLocal", lambda: nullcontext(db_session))
@@ -443,7 +682,15 @@ def test_scheduler_runtime_reload_and_invalid_config(db_session, tmp_path, monke
 
 
 def test_api_forbidden_is_not_retried():
-    """Api forbidden is not retried."""
+    """
+    Api forbidden is not retried.
+
+    Args:
+        None.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     client = ClashAPIClient.__new__(ClashAPIClient)
     client.base_url, client.headers, client.session = (
         "https://example.invalid",
@@ -459,7 +706,15 @@ def test_api_forbidden_is_not_retried():
 
 
 def test_api_connection_failure_is_retried():
-    """Api connection failure is retried."""
+    """
+    Api connection failure is retried.
+
+    Args:
+        None.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     client = ClashAPIClient.__new__(ClashAPIClient)
     client.base_url, client.headers, client.session = (
         "https://example.invalid",
@@ -476,7 +731,15 @@ def test_api_connection_failure_is_retried():
 
 
 def test_player_refresh_disables_http_cache():
-    """Player refresh disables http cache."""
+    """
+    Player refresh disables http cache.
+
+    Args:
+        None.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     client = ClashAPIClient.__new__(ClashAPIClient)
     client.session, client._request = MagicMock(), MagicMock()
     client.get_player("#ABC", refresh=True)

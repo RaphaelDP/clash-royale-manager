@@ -5,8 +5,8 @@ Description: Unit tests for the ScoreService class (Contribution Score
     calculation and promotion recommendations).
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-16
-Version: 0.3.0
+Last Modified: 2026-10-01
+Version: 0.3.1
 Python Version: 3.12
 Dependencies: pytest, app.services.score_service
 ================================================================================
@@ -23,15 +23,33 @@ from app.database.models import ContributionScore
 
 
 def test_calculate_contribution_score_unknown_member(score_service):
-    """If the member tag doesn't exist, return None."""
+    """
+    If the member tag doesn't exist, return None.
+
+    Args:
+        score_service: ScoreService fixture bound to the isolated database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert score_service.calculate_contribution_score("#UNKNOWN") is None
 
 
 def test_calculate_contribution_score_no_data(
     db_session, score_service, member_factory
 ):
-    """A brand new member with no war/donation/snapshot history scores 0 on
-    every component except whatever floor values apply."""
+    """
+    A brand new member with no war/donation/snapshot history scores 0 on every component
+    except whatever floor values apply.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#NEW", trophies=1000, donations=0, days_in_clan=0)
     db_session.add(member)
     db_session.commit()
@@ -52,8 +70,24 @@ def test_calculate_contribution_score_war_activity(
     river_race_factory,
     war_participation_factory,
 ):
-    """War Activity = attacked races / races with a participation record
-    at all (row presence signals clan membership for that race)."""
+    """
+    War Activity = attacked races / races with a participation record at all (row
+    presence signals clan membership for that race).
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#ACTIVE")
     db_session.add(member)
     db_session.flush()
@@ -85,9 +119,25 @@ def test_calculate_contribution_score_war_activity_excludes_races_not_present_fo
     river_race_factory,
     war_participation_factory,
 ):
-    """A race with no participation record at all doesn't count against
-    War Activity - only races where the member has a record (even 0-fame)
-    do, since that's what distinguishes 'skipped' from 'wasn't here yet'."""
+    """
+    A race with no participation record at all doesn't count against War Activity - only
+    races where the member has a record (even 0-fame) do, since that's what
+    distinguishes 'skipped' from 'wasn't here yet'.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#LATECOMER")
     other = member_factory(tag="#OTHER")
     db_session.add_all([member, other])
@@ -121,7 +171,23 @@ def test_calculate_contribution_score_excludes_incomplete_races(
     river_race_factory,
     war_participation_factory,
 ):
-    """War Activity/Performance ignore in-progress races."""
+    """
+    War Activity/Performance ignore in-progress races.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#LIVE")
     db_session.add(member)
     db_session.flush()
@@ -157,7 +223,18 @@ def test_calculate_contribution_score_excludes_incomplete_races(
 def test_calculate_contribution_score_donations_uses_snapshot_average(
     db_session, score_service, member_factory, snapshot_factory
 ):
-    """Donations = 30-day snapshot average, not the raw current value."""
+    """
+    Donations = 30-day snapshot average, not the raw current value.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        snapshot_factory: Fixture callable that builds unsaved Snapshot instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(
         tag="#DONOR", donations=999
     )  # current value should be ignored
@@ -184,7 +261,17 @@ def test_calculate_contribution_score_donations_uses_snapshot_average(
 def test_calculate_contribution_score_donations_falls_back_without_snapshots(
     db_session, score_service, member_factory
 ):
-    """With no snapshots in the window, fall back to the member's current donations."""
+    """
+    With no snapshots in the window, fall back to the member's current donations.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#NOSNAP", donations=75)
     db_session.add(member)
     db_session.commit()
@@ -197,7 +284,17 @@ def test_calculate_contribution_score_donations_falls_back_without_snapshots(
 def test_calculate_contribution_score_trophy_percentile(
     db_session, score_service, member_factory
 ):
-    """Trophy Level normalizes against the clan's 95th percentile, not the raw max."""
+    """
+    Trophy Level normalizes against the clan's 95th percentile, not the raw max.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     members = [member_factory(tag=f"#T{i}", trophies=1000 * (i + 1)) for i in range(10)]
     db_session.add_all(members)
     db_session.commit()
@@ -214,7 +311,17 @@ def test_calculate_contribution_score_trophy_percentile(
 def test_calculate_contribution_score_seniority(
     db_session, score_service, member_factory
 ):
-    """Seniority = days_in_clan / SENIORITY_DAYS_CAP x 100."""
+    """
+    Seniority = days_in_clan / SENIORITY_DAYS_CAP x 100.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     no_days = member_factory(tag="#NODAYS", days_in_clan=0)
     half_cap = member_factory(tag="#HALFCAP", days_in_clan=182)
     over_cap = member_factory(tag="#OVERCAP", days_in_clan=400)
@@ -230,8 +337,18 @@ def test_calculate_contribution_score_seniority(
 def test_calculate_contribution_score_preserves_history(
     db_session, score_service, member_factory
 ):
-    """Each call to calculate_contribution_score creates
-    a new row in the contribution_scores table, preserving history."""
+    """
+    Each call to calculate_contribution_score creates a new row in the
+    contribution_scores table, preserving history.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#HIST")
     db_session.add(member)
     db_session.commit()
@@ -246,7 +363,17 @@ def test_calculate_contribution_score_preserves_history(
 def test_calculate_all_scores_skips_left_members(
     db_session, score_service, member_factory
 ):
-    """Members with role 'left' are skipped when calculating all scores."""
+    """
+    Members with role 'left' are skipped when calculating all scores.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     active = member_factory(tag="#ACTIVE2", role="member")
     left = member_factory(tag="#LEFT2", role="left")
     db_session.add_all([active, left])
@@ -263,14 +390,30 @@ def test_calculate_all_scores_skips_left_members(
 
 
 def test_role_for_rank_band_top(score_service):
-    """Top 1-15 ranks are promoted to coLeader, regardless of current role."""
+    """
+    Top 1-15 ranks are promoted to coLeader, regardless of current role.
+
+    Args:
+        score_service: ScoreService fixture bound to the isolated database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert score_service._role_for_rank_band("member", 1) == "elder"
     assert score_service._role_for_rank_band("elder", 15) == "coLeader"
     assert score_service._role_for_rank_band("coLeader", 10) == "coLeader"
 
 
 def test_role_for_rank_band_elder_range(score_service):
-    """Ranks 16-25 are promoted to elder, unless already coLeader."""
+    """
+    Ranks 16-25 are promoted to elder, unless already coLeader.
+
+    Args:
+        score_service: ScoreService fixture bound to the isolated database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert score_service._role_for_rank_band("member", 16) == "elder"
     assert score_service._role_for_rank_band("member", 25) == "elder"
     assert score_service._role_for_rank_band("elder", 20) == "elder"
@@ -278,7 +421,15 @@ def test_role_for_rank_band_elder_range(score_service):
 
 
 def test_role_for_rank_band_demote_coleader(score_service):
-    """Ranks 26-35 demote coLeaders to elder, but don't affect elders or members."""
+    """
+    Ranks 26-35 demote coLeaders to elder, but don't affect elders or members.
+
+    Args:
+        score_service: ScoreService fixture bound to the isolated database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert score_service._role_for_rank_band("coLeader", 26) == "elder"
     assert score_service._role_for_rank_band("coLeader", 35) == "elder"
     assert score_service._role_for_rank_band("elder", 30) == "elder"
@@ -286,7 +437,15 @@ def test_role_for_rank_band_demote_coleader(score_service):
 
 
 def test_role_for_rank_band_demote_to_member(score_service):
-    """Ranks 36-50 demote coLeaders and elders to member, but don't affect members."""
+    """
+    Ranks 36-50 demote coLeaders and elders to member, but don't affect members.
+
+    Args:
+        score_service: ScoreService fixture bound to the isolated database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert score_service._role_for_rank_band("coLeader", 36) == "member"
     assert score_service._role_for_rank_band("elder", 50) == "member"
     assert score_service._role_for_rank_band("member", 40) == "member"
@@ -298,7 +457,16 @@ def test_role_for_rank_band_demote_to_member(score_service):
 
 
 def test_promotion_recommendations_no_completed_race(score_service):
-    """If there are no completed races, the promotion recommendations list is empty (no data to rank)."""
+    """
+    If there are no completed races, the promotion recommendations list is empty (no
+    data to rank).
+
+    Args:
+        score_service: ScoreService fixture bound to the isolated database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert score_service.get_promotion_recommendations() == []
 
 
@@ -310,7 +478,24 @@ def test_promotion_recommendations_ranks_by_fame(
     river_race_factory,
     war_participation_factory,
 ):
-    """Members are ranked by their fame in the last completed race, and the rank determines the recommended role."""
+    """
+    Members are ranked by their fame in the last completed race, and the rank determines
+    the recommended role.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     top = member_factory(tag="#TOP", role="member")
     bottom = member_factory(tag="#BOTTOM", role="member")
     db_session.add_all([top, bottom])
@@ -344,7 +529,23 @@ def test_promotion_recommendations_leader_exempt(
     river_race_factory,
     war_participation_factory,
 ):
-    """Leaders are exempt from promotion/demotion recommendations."""
+    """
+    Leaders are exempt from promotion/demotion recommendations.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     leader = member_factory(tag="#LEADER", role="leader")
     db_session.add(leader)
     db_session.flush()
@@ -370,7 +571,23 @@ def test_promotion_recommendations_first_sanction_demotes(
     river_race_factory,
     war_participation_factory,
 ):
-    """First time under the fame threshold -> demoted one step, not kicked."""
+    """
+    First time under the fame threshold -> demoted one step, not kicked.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#ONCE", role="elder")
     db_session.add(member)
     db_session.flush()
@@ -397,7 +614,23 @@ def test_promotion_recommendations_second_consecutive_sanction_kicks(
     river_race_factory,
     war_participation_factory,
 ):
-    """Two consecutive races under threshold -> kick, not demote."""
+    """
+    Two consecutive races under threshold -> kick, not demote.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#TWICE", role="elder")
     db_session.add(member)
     db_session.flush()
@@ -430,8 +663,24 @@ def test_promotion_recommendations_no_kick_on_first_ever_race(
     river_race_factory,
     war_participation_factory,
 ):
-    """A member's very first race being under threshold must not kick them
-    (there's no second_last_race to compare against)."""
+    """
+    A member's very first race being under threshold must not kick them (there's no
+    second_last_race to compare against).
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#FIRSTRACE", role="member")
     db_session.add(member)
     db_session.flush()
@@ -457,8 +706,24 @@ def test_consistency_below_threshold_uses_clan_average(
     river_race_factory,
     war_participation_factory,
 ):
-    """Members below MIN_RACES_FOR_CONSISTENCY get the clan average (of
-    qualifying members), not their own trivial (insufficient-data) score."""
+    """
+    Members below MIN_RACES_FOR_CONSISTENCY get the clan average (of qualifying
+    members), not their own trivial (insufficient-data) score.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     qualifying_a = member_factory(tag="#QUALA", role="member")
     qualifying_b = member_factory(tag="#QUALB", role="member")
@@ -510,8 +775,24 @@ def test_promotion_recommendations_excludes_members_who_joined_after_last_race(
     river_race_factory,
     war_participation_factory,
 ):
-    """A member who joined after the last completed race isn't ranked or
-    sanctioned - 0 fame isn't a real signal for someone who wasn't there."""
+    """
+    A member who joined after the last completed race isn't ranked or sanctioned - 0
+    fame isn't a real signal for someone who wasn't there.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     veteran = member_factory(tag="#VETERAN", role="member")
     db_session.add(veteran)
@@ -549,8 +830,24 @@ def test_promotion_recommendations_previous_race_sanction_respects_join_date(
     river_race_factory,
     war_participation_factory,
 ):
-    """A member who joined between the two most recent races can't be
-    flagged for a 2-consecutive-race kick using a race they missed."""
+    """
+    A member who joined between the two most recent races can't be flagged for a
+    2-consecutive-race kick using a race they missed.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        score_service: ScoreService fixture bound to the isolated database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     member = member_factory(tag="#MIDJOIN", role="elder")
     db_session.add(member)

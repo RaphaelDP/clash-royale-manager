@@ -4,8 +4,8 @@ Filename: test_war_service.py
 Description: Unit tests for the WarService class.
 Author: Raphael Smilet
 Date Created: 2026-06-17
-Last Modified: 2026-09-30
-Version: 0.4.1
+Last Modified: 2026-10-01
+Version: 0.4.2
 Python Version: 3.12
 Dependencies: pytest, app.services.war_service
 ================================================================================
@@ -24,7 +24,17 @@ from app.database.models import (
 
 
 def test_create_or_update_season(db_session, war_service):
-    """Verify a season is created only once."""
+    """
+    Verify a season is created only once.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     season = war_service._create_or_update_season(
         "132",
@@ -49,7 +59,17 @@ def test_create_or_update_season(db_session, war_service):
 
 
 def test_create_or_update_river_race(db_session, war_service):
-    """Verify a river race is created only once."""
+    """
+    Verify a river race is created only once.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     season = war_service._create_or_update_season(
         "132",
@@ -85,7 +105,18 @@ def test_create_or_update_participation(
     war_service,
     member_factory,
 ):
-    """Verify participation is created then updated."""
+    """
+    Verify participation is created then updated.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     member = member_factory(
         tag="#PLAYER1",
@@ -157,7 +188,21 @@ def test_sync_river_race_log(
     mock_river_race_log_with_standings,
     test_members,
 ):
-    """Verify river race history is synchronized."""
+    """
+    Verify river race history is synchronized.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        mock_river_race_log_with_standings: Synthetic race-log fixture with clan
+            standings and participants.
+        test_members: Seeded member fixture used by the test scenario.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mocker.patch.object(
         war_service.api_client,
@@ -215,7 +260,21 @@ def test_sync_river_race_log(
 def test_sync_river_race_log_twice_no_duplicates(
     db_session, war_service, mocker, mock_river_race_log_with_standings, test_members
 ):
-    """Verify running sync twice does not create duplicates."""
+    """
+    Verify running sync twice does not create duplicates.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        mock_river_race_log_with_standings: Synthetic race-log fixture with clan
+            standings and participants.
+        test_members: Seeded member fixture used by the test scenario.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mocker.patch.object(
         war_service.api_client,
@@ -254,7 +313,20 @@ def test_sync_river_race_log_clan_not_found(
     mock_river_race_log_with_standings,
     mocker,
 ):
-    """Verify no data is stored if the clan is absent from standings."""
+    """
+    Verify no data is stored if the clan is absent from standings.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+        mock_river_race_log_with_standings: Synthetic race-log fixture with clan
+            standings and participants.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mocker.patch.object(
         war_service.api_client,
@@ -274,7 +346,18 @@ def test_sync_river_race_log_rollback(
     war_service,
     mocker,
 ):
-    """Verify database rollback occurs on API failure."""
+    """
+    Verify database rollback occurs on API failure.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mocker.patch.object(
         war_service.api_client,
@@ -293,7 +376,20 @@ def test_sync_river_race_log_rollback(
 def test_sync_current_river_race(
     db_session, war_service, mocker, mock_current_river_race, test_members
 ):
-    """Verify current river race data is synchronized."""
+    """
+    Verify current river race data is synchronized.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        mock_current_river_race: Synthetic current-race API response fixture.
+        test_members: Seeded member fixture used by the test scenario.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     war_service._create_or_update_season(
         "132",
@@ -358,7 +454,19 @@ def test_sync_current_river_race_no_season(
     mocker,
     mock_current_river_race,
 ):
-    """Verify current race sync is skipped if no season exists."""
+    """
+    Verify current race sync is skipped if no season exists.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        mock_current_river_race: Synthetic current-race API response fixture.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mocker.patch.object(
         war_service.api_client,
@@ -374,7 +482,16 @@ def test_sync_current_river_race_no_season(
 
 
 def test_create_or_update_river_race_defaults_incomplete(war_service):
-    """New races default to is_completed=False unless explicitly marked complete."""
+    """
+    New races default to is_completed=False unless explicitly marked complete.
+
+    Args:
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     season = war_service._create_or_update_season("200", datetime(2026, 7, 1))
 
@@ -388,7 +505,17 @@ def test_create_or_update_river_race_defaults_incomplete(war_service):
 
 
 def test_create_or_update_river_race_flips_to_completed(db_session, war_service):
-    """A race first synced as live later flips to completed once the log confirms it."""
+    """
+    A race first synced as live later flips to completed once the log confirms it.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     season = war_service._create_or_update_season("201", datetime(2026, 7, 1))
 
@@ -415,7 +542,16 @@ def test_create_or_update_river_race_flips_to_completed(db_session, war_service)
 
 
 def test_create_or_update_river_race_never_flips_back(war_service):
-    """Once completed, a race is never reverted to incomplete."""
+    """
+    Once completed, a race is never reverted to incomplete.
+
+    Args:
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     season = war_service._create_or_update_season("202", datetime(2026, 7, 1))
 
@@ -439,7 +575,21 @@ def test_create_or_update_river_race_never_flips_back(war_service):
 def test_sync_river_race_log_marks_races_completed(
     db_session, war_service, mocker, mock_river_race_log_with_standings, test_members
 ):
-    """Business rule: races synced from the log are always marked completed."""
+    """
+    Business rule: races synced from the log are always marked completed.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        mock_river_race_log_with_standings: Synthetic race-log fixture with clan
+            standings and participants.
+        test_members: Seeded member fixture used by the test scenario.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mocker.patch.object(
         war_service.api_client,
@@ -458,7 +608,20 @@ def test_sync_river_race_log_marks_races_completed(
 def test_sync_current_river_race_marks_race_incomplete(
     db_session, war_service, mocker, mock_current_river_race, test_members
 ):
-    """Business rule: the live-synced race is marked incomplete."""
+    """
+    Business rule: the live-synced race is marked incomplete.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        mock_current_river_race: Synthetic current-race API response fixture.
+        test_members: Seeded member fixture used by the test scenario.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     war_service._create_or_update_season("132", datetime(2026, 6, 1))
 
@@ -481,10 +644,19 @@ def test_sync_river_race_log_mixed_new_and_existing_participations(
     db_session, war_service, mocker, test_members
 ):
     """
-    Correctness check for the batched lookup path: a race with one
-    participant that already has a WarParticipation (should update) and
-    one brand-new participant (should create) - verifies the pre-fetched
-    dicts are keyed and consumed correctly.
+    Correctness check for the batched lookup path: a race with one participant that
+    already has a WarParticipation (should update) and one brand-new participant (should
+    create) - verifies the pre-fetched dicts are keyed and consumed correctly.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        war_service: WarService fixture using the isolated database and a mocked
+            API.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        test_members: Seeded member fixture used by the test scenario.
+
+    Returns:
+        None. Assertions verify the expected behavior.
     """
     log_data = [
         {

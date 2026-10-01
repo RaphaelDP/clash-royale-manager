@@ -4,8 +4,8 @@ Filename: conftest.py
 Description: Pytest fixtures for testing the Clash Royale Manager application.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-07-10
-Version: 0.5.0
+Last Modified: 2026-10-01
+Version: 0.5.1
 Python Version: 3.12
 Dependencies: pytest, pytest-mock, sqlalchemy
 ================================================================================
@@ -42,6 +42,15 @@ from app.services.score_service import ScoreService
 def db_session():
     """
     Create an isolated in-memory SQLite database for each test.
+
+    Args:
+        None.
+
+    Returns:
+        Iterator[Session]: Fixture generator that closes the session after use.
+
+    Yields:
+        Session: Isolated database session for the duration of the test.
     """
     engine = create_engine("sqlite:///:memory:")
 
@@ -70,10 +79,25 @@ def db_session():
 def member_factory():
     """
     Factory creating Member instances.
+
+    Args:
+        None.
+
+    Returns:
+        Callable: Factory building unsaved Member instances.
     """
     counter = 0
 
     def _create(**kwargs):
+        """
+        Build an unsaved Member using defaults overridden by keyword arguments.
+
+        Args:
+            **kwargs: Model attribute overrides applied to the factory defaults.
+
+        Returns:
+            Member: New unsaved model instance with the requested attributes.
+        """
         nonlocal counter
         counter += 1
 
@@ -98,10 +122,25 @@ def member_factory():
 def war_season_factory():
     """
     Factory creating WarSeason instances.
+
+    Args:
+        None.
+
+    Returns:
+        Callable: Factory building unsaved WarSeason instances.
     """
     counter = 0
 
     def _create(**kwargs):
+        """
+        Build an unsaved WarSeason using defaults overridden by keyword arguments.
+
+        Args:
+            **kwargs: Model attribute overrides applied to the factory defaults.
+
+        Returns:
+            WarSeason: New unsaved model instance with the requested attributes.
+        """
         nonlocal counter
         counter += 1
 
@@ -122,10 +161,26 @@ def war_season_factory():
 def river_race_factory(war_season_factory):
     """
     Factory creating RiverRace instances.
+
+    Args:
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+
+    Returns:
+        Callable: Factory building unsaved RiverRace instances.
     """
 
     def _create(war_season=None, **kwargs):
+        """
+        Build an unsaved RiverRace using defaults overridden by keyword arguments.
 
+        Args:
+            war_season: Associated WarSeason; the fixture creates one when omitted.
+            **kwargs: Model attribute overrides applied to the factory defaults.
+
+        Returns:
+            RiverRace: New unsaved model instance with the requested attributes.
+        """
         if war_season is None:
             war_season = war_season_factory()
 
@@ -150,6 +205,14 @@ def war_participation_factory(
 ):
     """
     Factory creating WarParticipation instances.
+
+    Args:
+        member_factory: Fixture callable that builds unsaved Member instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+
+    Returns:
+        Callable: Factory building unsaved WarParticipation instances.
     """
 
     def _create(
@@ -157,6 +220,17 @@ def war_participation_factory(
         river_race=None,
         **kwargs,
     ):
+        """
+        Build an unsaved WarParticipation using defaults overridden by keyword arguments.
+
+        Args:
+            member: Associated Member; a default member is created when omitted.
+            river_race: Associated RiverRace; the fixture creates one when omitted.
+            **kwargs: Model attribute overrides applied to the factory defaults.
+
+        Returns:
+            WarParticipation: New unsaved model instance with the requested attributes.
+        """
         if member is None:
             member = member_factory()
 
@@ -184,10 +258,25 @@ def war_participation_factory(
 def snapshot_factory(member_factory):
     """
     Factory creating Snapshot instances.
+
+    Args:
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        Callable: Factory building unsaved Snapshot instances.
     """
 
     def _create(member=None, **kwargs):
+        """
+        Build an unsaved Snapshot using defaults overridden by keyword arguments.
 
+        Args:
+            member: Associated Member; a default member is created when omitted.
+            **kwargs: Model attribute overrides applied to the factory defaults.
+
+        Returns:
+            Snapshot: New unsaved model instance with the requested attributes.
+        """
         if member is None:
             member = member_factory()
 
@@ -209,10 +298,25 @@ def snapshot_factory(member_factory):
 def contribution_score_factory(member_factory):
     """
     Factory creating Contribution Score instances.
+
+    Args:
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        Callable: Factory building unsaved ContributionScore instances.
     """
 
     def _create(member=None, **kwargs):
+        """
+        Build an unsaved ContributionScore using defaults overridden by keyword arguments.
 
+        Args:
+            member: Associated Member; a default member is created when omitted.
+            **kwargs: Model attribute overrides applied to the factory defaults.
+
+        Returns:
+            ContributionScore: New unsaved model instance with the requested attributes.
+        """
         if member is None:
             member = member_factory()
 
@@ -245,6 +349,13 @@ def contribution_score_factory(member_factory):
 def test_members(db_session, member_factory):
     """
     Create a set of test members in the database.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
     """
     members = [
         member_factory(
@@ -283,6 +394,23 @@ def populated_member_graph(
 ):
     """
     Create a member with related snapshots, war participations, and contribution scores.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        snapshot_factory: Fixture callable that builds unsaved Snapshot instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+        contribution_score_factory: Fixture callable that builds unsaved
+            ContributionScore instances.
+
+    Returns:
+        dict: Persisted member, season, race, snapshot, participation, and score
+        objects.
     """
 
     member = member_factory(
@@ -354,6 +482,13 @@ def populated_member_graph(
 def war_service(db_session, mocker):
     """
     Create a WarService instance with a mocked API client.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        WarService: Service backed by an isolated session and mocked API.
     """
     mocker.patch(
         "app.services.war_service.ClashAPIClient",
@@ -367,6 +502,13 @@ def war_service(db_session, mocker):
 def member_service(db_session, mocker):
     """
     Create a MemberService instance with a mocked API client.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        MemberService: Service backed by an isolated session and mocked API.
     """
     mocker.patch(
         "app.services.member_service.ClashAPIClient",
@@ -381,6 +523,13 @@ def dashboard_service(db_session, mocker):
     """
     Create a DashboardService instance with a mocked API client, so no real
     network/cache setup happens during dashboard-related tests.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        DashboardService: Service backed by an isolated session and mocked API.
     """
     return DashboardService(db_session, api_clash=mocker.MagicMock())
 
@@ -389,6 +538,12 @@ def dashboard_service(db_session, mocker):
 def score_service(db_session):
     """
     Create a ScoreService instance (no external API dependency).
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+
+    Returns:
+        ScoreService: Scoring service backed by the isolated test session.
     """
     return ScoreService(db_session)
 
@@ -401,7 +556,13 @@ def score_service(db_session):
 @pytest.fixture
 def mock_clan_data():
     """
-    Mock partial Clash Royale API response to https://api.clashroyale.com/v1/clans/%TEST123
+    Provide a synthetic clan response with two current members.
+
+    Args:
+        None.
+
+    Returns:
+        dict: Synthetic clan metadata and two member payloads.
     """
     return {
         "tag": "#TEST123",
@@ -430,7 +591,13 @@ def mock_clan_data():
 @pytest.fixture
 def mock_river_race_log_with_standings():
     """
-    Mock partial Clash Royale API response to https://api.clashroyale.com/v1/clans/%TEST123/riverracelog
+    Provide a synthetic completed race log with clan standings.
+
+    Args:
+        None.
+
+    Returns:
+        list[dict]: One synthetic completed race with clan standings.
     """
     return [
         {
@@ -473,7 +640,13 @@ def mock_river_race_log_with_standings():
 @pytest.fixture
 def mock_current_river_race():
     """
-    Mock partial Clash Royale API response to https://api.clashroyale.com/v1/clans/%TEST123/riverracelog
+    Provide a synthetic current river race response with two participants.
+
+    Args:
+        None.
+
+    Returns:
+        dict: Synthetic current race, clan participants, and period metadata.
     """
     return {
         "state": "full",

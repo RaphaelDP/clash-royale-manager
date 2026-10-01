@@ -4,8 +4,8 @@ Filename: test_db.py
 Description: Unit tests for database models and relationships.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-18
-Version: 0.4.0
+Last Modified: 2026-10-01
+Version: 0.4.1
 Python Version: 3.12
 Dependencies: pytest, app.database.models
 ================================================================================
@@ -17,6 +17,13 @@ from app.database.models import Member
 def test_create_member(db_session, test_members):
     """
     Verify a Member can be persisted and retrieved.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        test_members: Seeded member fixture used by the test scenario.
+
+    Returns:
+        None. Assertions verify the expected behavior.
     """
 
     member = test_members[0]
@@ -40,10 +47,14 @@ def test_create_member(db_session, test_members):
 
 def test_member_relationships(populated_member_graph):
     """
-    Verify Member relationships:
-    - snapshots
-    - war participations
-    - contribution scores
+    Verify Member relationships: - snapshots - war participations - contribution scores
+
+    Args:
+        populated_member_graph: Fixture mapping containing a persisted member and
+            related history.
+
+    Returns:
+        None. Assertions verify the expected behavior.
     """
 
     member = populated_member_graph["member"]

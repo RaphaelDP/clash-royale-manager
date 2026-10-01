@@ -4,8 +4,8 @@ Filename: test_backup_db.py
 Description: Unit tests for the SQLite backup script.
 Author: Raphael Smilet
 Date Created: 2026-08-06
-Last Modified: 2026-08-06
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 Dependencies: pytest, pytest-mock, sqlite3, scripts.backup_db
 ================================================================================
@@ -18,19 +18,44 @@ from scripts.backup_db import backup_database, _sqlite_path_from_url, _prune_old
 
 
 def test_sqlite_path_from_url_parses_sqlite_url():
-    """Test that _sqlite_path_from_url correctly extracts the path from a SQLite URL."""
+    """
+    Test that _sqlite_path_from_url correctly extracts the path from a SQLite URL.
+
+    Args:
+        None.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert _sqlite_path_from_url("sqlite:///data/clan_manager.db") == Path(
         "data/clan_manager.db"
     )
 
 
 def test_sqlite_path_from_url_returns_none_for_non_sqlite():
-    """Test that _sqlite_path_from_url returns None for non-SQLite URLs."""
+    """
+    Test that _sqlite_path_from_url returns None for non-SQLite URLs.
+
+    Args:
+        None.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert _sqlite_path_from_url("postgresql://user:pass@host/db") is None
 
 
 def test_backup_database_creates_backup_file(tmp_path, mocker):
-    """Test that backup_database creates a backup file in the expected location."""
+    """
+    Test that backup_database creates a backup file in the expected location.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     db_path = tmp_path / "data" / "test.db"
     db_path.parent.mkdir()
     conn = sqlite3.connect(db_path)
@@ -51,7 +76,16 @@ def test_backup_database_creates_backup_file(tmp_path, mocker):
 
 
 def test_backup_database_returns_none_for_missing_source(mocker, tmp_path):
-    """Test that backup_database returns None when the source database does not exist."""
+    """
+    Test that backup_database returns None when the source database does not exist.
+
+    Args:
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     missing_path = tmp_path / "data" / "does_not_exist.db"
     mocker.patch("scripts.backup_db.settings.DATABASE_URL", f"sqlite:///{missing_path}")
 
@@ -59,7 +93,15 @@ def test_backup_database_returns_none_for_missing_source(mocker, tmp_path):
 
 
 def test_backup_database_returns_none_for_non_sqlite_url(mocker):
-    """Test that backup_database returns None for non-SQLite database URLs."""
+    """
+    Test that backup_database returns None for non-SQLite database URLs.
+
+    Args:
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     mocker.patch(
         "scripts.backup_db.settings.DATABASE_URL", "postgresql://user:pass@host/db"
     )
@@ -68,7 +110,16 @@ def test_backup_database_returns_none_for_non_sqlite_url(mocker):
 
 
 def test_prune_old_backups_keeps_only_retention_count(tmp_path, mocker):
-    """Test that _prune_old_backups keeps only the specified number of backups."""
+    """
+    Test that _prune_old_backups keeps only the specified number of backups.
+
+    Args:
+        tmp_path: Pytest-provided temporary directory isolated from runtime data.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     mocker.patch("scripts.backup_db.BACKUP_RETENTION_COUNT", 2)
 
     for i in range(5):

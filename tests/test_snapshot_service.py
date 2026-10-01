@@ -4,8 +4,8 @@ Filename: test_snapshot_service.py
 Description: Unit tests for the SnapshotService class.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-08
-Version: 0.3.1
+Last Modified: 2026-10-01
+Version: 0.3.2
 Python Version: 3.12
 Dependencies: pytest, app.services.snapshot_service, app.database.session
 ================================================================================
@@ -18,7 +18,16 @@ def test_create_daily_snapshots(
     db_session,
     test_members,
 ):
-    """Test the create_daily_snapshots method of SnapshotService."""
+    """
+    Test the create_daily_snapshots method of SnapshotService.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        test_members: Seeded member fixture used by the test scenario.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     snapshot_service = SnapshotService(db_session)
 
@@ -50,7 +59,16 @@ def test_get_last_snapshots_for_member(
     db_session,
     test_members,
 ):
-    """Verify snapshots can be retrieved for a member."""
+    """
+    Verify snapshots can be retrieved for a member.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        test_members: Seeded member fixture used by the test scenario.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     snapshot_service = SnapshotService(db_session)
 

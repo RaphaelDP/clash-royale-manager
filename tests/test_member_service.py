@@ -4,8 +4,8 @@ Filename: test_member_service.py
 Description: Unit tests for the MemberService class.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-07-07
-Version: 0.5.0
+Last Modified: 2026-10-01
+Version: 0.5.1
 Python Version: 3.12
 Dependencies: pytest, app.services.member_service, app.database.models
 ================================================================================
@@ -18,7 +18,19 @@ from app.core.utils import convert_timestamp_to_datetime, get_time
 
 
 def test_create_or_update_member(db_session, member_service, mock_clan_data):
-    """Test the create_or_update_member method of MemberService."""
+    """
+    Test the create_or_update_member method of MemberService.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        mock_clan_data: Synthetic clan payload fixture containing two current
+            members.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     new_member = member_service.create_or_update_member(
         tag=mock_clan_data["memberList"][0].get("tag", ""),
@@ -65,7 +77,19 @@ def test_create_or_update_member(db_session, member_service, mock_clan_data):
 def test_create_or_update_member_does_not_duplicate(
     db_session, member_service, mock_clan_data
 ):
-    """Business rule: Synchronizing the same player twice must never create duplicates."""
+    """
+    Business rule: Synchronizing the same player twice must never create duplicates.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        mock_clan_data: Synthetic clan payload fixture containing two current
+            members.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     # Sync the same player twice
     member_service.create_or_update_member(
@@ -91,7 +115,18 @@ def test_create_or_update_member_does_not_duplicate(
 
 
 def test_remove_unknown_member_fetches_from_api(db_session, member_service, mocker):
-    """Business rule: If a member already left before synchronization, recover from API."""
+    """
+    Business rule: If a member already left before synchronization, recover from API.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     # Mock API response for a left member
     mock_player_data = {
         "tag": "#LEFT_MEMBER",
@@ -118,7 +153,18 @@ def test_remove_unknown_member_fetches_from_api(db_session, member_service, mock
 
 
 def test_remove_unknown_member_api_failure(db_session, member_service, mocker):
-    """Business rule: If API fails, no member should be created."""
+    """
+    Business rule: If API fails, no member should be created.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     mocker.patch.object(
         member_service.api_client,
         "get_player",
@@ -132,7 +178,17 @@ def test_remove_unknown_member_api_failure(db_session, member_service, mocker):
 
 
 def test_promote_unknown_member(db_session, member_service):
-    """Business rule: Promoting an unknown member should fail silently."""
+    """
+    Business rule: Promoting an unknown member should fail silently.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert member_service.promote_member("#UNKNOWN", "elder") is False
     # Verify no database modification
     members = db_session.query(Member).all()
@@ -140,7 +196,18 @@ def test_promote_unknown_member(db_session, member_service):
 
 
 def test_invalid_role_transitions(db_session, member_service, member_factory):
-    """Business rule: Test all impossible role transitions."""
+    """
+    Business rule: Test all impossible role transitions.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     # Create a member
     member = member_factory(role="member")
     db_session.add(member)
@@ -161,7 +228,18 @@ def test_invalid_role_transitions(db_session, member_service, member_factory):
 
 
 def test_single_leader_rule(db_session, member_service, member_factory):
-    """Business rule: Only one leader allowed per clan."""
+    """
+    Business rule: Only one leader allowed per clan.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     # Create a leader
     leader = member_factory(role="leader")
     db_session.add(leader)
@@ -180,7 +258,18 @@ def test_single_leader_rule(db_session, member_service, member_factory):
 
 
 def test_get_member_history(member_service, populated_member_graph):
-    """Business rule: get_member_history returns all related data."""
+    """
+    Business rule: get_member_history returns all related data.
+
+    Args:
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        populated_member_graph: Fixture mapping containing a persisted member and
+            related history.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = populated_member_graph["member"]
     history = member_service.get_member_history(member.tag)
     assert history["member"] == member
@@ -190,12 +279,32 @@ def test_get_member_history(member_service, populated_member_graph):
 
 
 def test_get_member_history_unknown(member_service):
-    """Business rule: get_member_history returns empty dict for unknown members."""
+    """
+    Business rule: get_member_history returns empty dict for unknown members.
+
+    Args:
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert member_service.get_member_history("#UNKNOWN") == {}
 
 
 def test_add_ex_member(db_session, member_service, member_factory):
-    """Business rule: add_ex_member marks a member as left."""
+    """
+    Business rule: add_ex_member marks a member as left.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory()
     db_session.add(member)
     db_session.commit()
@@ -206,7 +315,17 @@ def test_add_ex_member(db_session, member_service, member_factory):
 
 
 def test_add_ex_member_unknown(db_session, member_service):
-    """Business rule: add_ex_member should not raise for unknown members."""
+    """
+    Business rule: add_ex_member should not raise for unknown members.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member_service.add_ex_member("#UNKNOWN")
     # Verify no database modification
     members = db_session.query(Member).all()
@@ -214,7 +333,17 @@ def test_add_ex_member_unknown(db_session, member_service):
 
 
 def test_get_active_members(member_service, test_members):
-    """Business rule: get_active_members excludes left/fired members."""
+    """
+    Business rule: get_active_members excludes left/fired members.
+
+    Args:
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        test_members: Seeded member fixture used by the test scenario.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member_service.remove_member_from_clan(tag=test_members[0].tag, reason="left")
     active_members = member_service.get_active_members()
     assert all(m.role not in ["left", "fired"] for m in active_members)
@@ -223,7 +352,19 @@ def test_get_active_members(member_service, test_members):
 
 
 def test_count_inactive_members(db_session, member_service, member_factory):
-    """Business rule: count_inactive_members counts members inactive for more than the threshold."""
+    """
+    Business rule: count_inactive_members counts members inactive for more than the
+    threshold.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     active = member_factory(tag="#ACTIVE4", last_seen=get_time())
     inactive = member_factory(
         tag="#INACTIVE4", last_seen=get_time() - timedelta(days=20)
@@ -237,7 +378,18 @@ def test_count_inactive_members(db_session, member_service, member_factory):
 def test_get_inactive_members_ignores_left_members(
     db_session, member_service, member_factory
 ):
-    """Business rule: get_inactive_members ignores left/fired members."""
+    """
+    Business rule: get_inactive_members ignores left/fired members.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     # Create a left member with very old last_seen
     left_member = member_factory(
         role="left", last_seen=convert_timestamp_to_datetime("20160601T120000.000Z")
@@ -251,7 +403,18 @@ def test_get_inactive_members_ignores_left_members(
 
 
 def test_get_inactive_members_threshold(db_session, member_service, member_factory):
-    """Business rule: get_inactive_members respects the threshold."""
+    """
+    Business rule: get_inactive_members respects the threshold.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     # Create members with different last_seen dates
     recent_member = member_factory(last_seen=get_time() - timedelta(days=6))
     old_member = member_factory(last_seen=get_time() - timedelta(days=8))
@@ -265,7 +428,18 @@ def test_get_inactive_members_threshold(db_session, member_service, member_facto
 
 
 def test_remove_member_from_clan(db_session, member_service, member_factory):
-    """Test marking a member as left/fired."""
+    """
+    Test marking a member as left/fired.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory()
     db_session.add(member)
     db_session.flush()
@@ -277,7 +451,18 @@ def test_remove_member_from_clan(db_session, member_service, member_factory):
 
 
 def test_promote_member(db_session, member_service, member_factory):
-    """Test promoting a member."""
+    """
+    Test promoting a member.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     member = member_factory(role="member")
     db_session.add(member)
@@ -298,7 +483,18 @@ def test_promote_member(db_session, member_service, member_factory):
 
 
 def test_get_inactive_members(db_session, member_service, member_factory):
-    """Test filtering inactive members."""
+    """
+    Test filtering inactive members.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     active_member = member_factory()  # Recent
     inactive_member = member_factory(
         last_seen=convert_timestamp_to_datetime("20160601T120000.000Z")
@@ -321,9 +517,24 @@ def test_get_effective_join_date_uses_earliest_participation_when_earlier(
     war_participation_factory,
 ):
     """
-    Business rule: clan_joined_at can be stamped later than reality (e.g.
-    a historical backfill created the Member row late) - the effective
-    join date falls back to the earliest known participation instead.
+    Business rule: clan_joined_at can be stamped later than reality (e.g. a historical
+    backfill created the Member row late) - the effective join date falls back to the
+    earliest known participation instead.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
     """
     now = get_time()
 
@@ -353,7 +564,18 @@ def test_get_effective_join_date_uses_earliest_participation_when_earlier(
 
 
 def test_increment_days_in_clan(db_session, member_service, member_factory):
-    """Active members get +1 day; left/fired members are skipped."""
+    """
+    Active members get +1 day; left/fired members are skipped.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     active = member_factory(tag="#ACTIVE", role="member", days_in_clan=5)
     left = member_factory(tag="#LEFT", role="left", days_in_clan=10)
     db_session.add_all([active, left])
@@ -372,7 +594,18 @@ def test_increment_days_in_clan(db_session, member_service, member_factory):
 def test_increment_days_in_clan_guards_against_same_day_double_call(
     db_session, member_service, member_factory
 ):
-    """Business rule: calling twice on the same day only increments once."""
+    """
+    Business rule: calling twice on the same day only increments once.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_service: MemberService fixture using the isolated database and a
+            mocked API.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#GUARDED", role="member", days_in_clan=0)
     db_session.add(member)
     db_session.commit()

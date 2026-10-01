@@ -4,8 +4,8 @@ Filename: test_jobs.py
 Description: Unit tests for scheduled jobs and job execution state.
 Author: Raphael Smilet
 Date Created: 2026-09-11
-Last Modified: 2026-09-30
-Version: 0.9.3
+Last Modified: 2026-10-01
+Version: 0.9.4
 Python Version: 3.12
 Dependencies: pytest, app.scheduler.jobs, app.database.models
 =============================================================
@@ -25,7 +25,15 @@ from app.scheduler import jobs
 
 
 def test_get_job_state_creates_state(db_session):
-    """Test that _get_job_state creates a state for a new job."""
+    """
+    Test that _get_job_state creates a state for a new job.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     state = jobs._get_job_state(db_session, "test_job")
 
@@ -40,7 +48,15 @@ def test_get_job_state_creates_state(db_session):
 
 
 def test_get_job_state_returns_existing_state(db_session):
-    """Test that _get_job_state returns an existing state."""
+    """
+    Test that _get_job_state returns an existing state.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     existing_state = JobRunState(
         job_name="test_job",
@@ -56,9 +72,26 @@ def test_get_job_state_returns_existing_state(db_session):
 
 
 def test_run_job_success(db_session):
-    """Test that a successful job records its execution state."""
+    """
+    Test that a successful job records its execution state.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     def job(_db):
+        """
+        Simulate a successful job callback without changing the database.
+
+        Args:
+            _db: Session supplied by the job wrapper; unused by this callback.
+
+        Returns:
+            None.
+        """
         return None
 
     result = jobs._run_job(
@@ -78,9 +111,26 @@ def test_run_job_success(db_session):
 
 
 def test_run_job_failure(db_session):
-    """Test that a failed job records its error."""
+    """
+    Test that a failed job records its error.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     def job(_db):
+        """
+        Simulate a failing job callback.
+
+        Args:
+            _db: Session supplied by the job wrapper; unused by this callback.
+
+        Returns:
+            NoReturn: Always raises the intentional test exception.
+        """
         raise RuntimeError("Test job failure")
 
     result = jobs._run_job(
@@ -100,7 +150,15 @@ def test_run_job_failure(db_session):
 
 
 def test_run_job_clears_previous_error(db_session):
-    """Test that a successful execution clears a previous error."""
+    """
+    Test that a successful execution clears a previous error.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     state = JobRunState(
         job_name="test_job",
@@ -111,6 +169,15 @@ def test_run_job_clears_previous_error(db_session):
     db_session.commit()
 
     def job(_db):
+        """
+        Simulate a successful job callback without changing the database.
+
+        Args:
+            _db: Session supplied by the job wrapper; unused by this callback.
+
+        Returns:
+            None.
+        """
         return None
 
     result = jobs._run_job(
@@ -135,7 +202,16 @@ def test_run_job_clears_previous_error(db_session):
 
 
 def test_update_clan_members(db_session, mocker):
-    """Test the clan member synchronization job."""
+    """
+    Test the clan member synchronization job.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     clan_service = mocker.patch("app.scheduler.jobs.ClanService")
 
@@ -156,7 +232,16 @@ def test_update_clan_members(db_session, mocker):
 
 
 def test_update_clan_members_failure(db_session, mocker):
-    """Test that clan synchronization failures are recorded."""
+    """
+    Test that clan synchronization failures are recorded.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     clan_service = mocker.patch("app.scheduler.jobs.ClanService")
     clan_service.return_value.sync_clan_members.side_effect = RuntimeError("API Error")
@@ -181,7 +266,16 @@ def test_update_clan_members_failure(db_session, mocker):
 
 
 def test_update_war_data(db_session, mocker):
-    """Test the war synchronization job."""
+    """
+    Test the war synchronization job.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     war_service = mocker.patch("app.scheduler.jobs.WarService")
 
@@ -201,7 +295,16 @@ def test_update_war_data(db_session, mocker):
 
 
 def test_update_war_data_failure(db_session, mocker):
-    """Test that war synchronization failures are recorded."""
+    """
+    Test that war synchronization failures are recorded.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     war_service = mocker.patch("app.scheduler.jobs.WarService")
     war_service.return_value.sync_river_race_log.side_effect = RuntimeError(
@@ -226,7 +329,16 @@ def test_update_war_data_failure(db_session, mocker):
 
 
 def test_create_daily_snapshots(db_session, mocker):
-    """Test the daily snapshot job."""
+    """
+    Test the daily snapshot job.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     snapshot_service = mocker.patch("app.scheduler.jobs.SnapshotService")
 
@@ -254,7 +366,16 @@ def test_create_daily_snapshots(db_session, mocker):
 
 
 def test_calculate_scores(db_session, mocker):
-    """Test the contribution score calculation job."""
+    """
+    Test the contribution score calculation job.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     score_service = mocker.patch("app.scheduler.jobs.ScoreService")
 
@@ -278,7 +399,16 @@ def test_calculate_scores(db_session, mocker):
 
 
 def test_increment_membership_days(db_session, mocker):
-    """Test the membership days increment job."""
+    """
+    Test the membership days increment job.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     member_service = mocker.patch("app.scheduler.jobs.MemberService")
 
@@ -306,7 +436,16 @@ def test_increment_membership_days(db_session, mocker):
 
 
 def test_send_daily_report(db_session, mocker):
-    """Test the daily Discord report job."""
+    """
+    Test the daily Discord report job.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     reporter = mocker.patch("app.scheduler.jobs.DiscordReporter")
     bot = mocker.patch("app.scheduler.jobs.DiscordBot")
@@ -330,7 +469,16 @@ def test_send_daily_report(db_session, mocker):
 
 
 def test_send_daily_report_failure(db_session, mocker):
-    """Test that a failed Discord report is recorded."""
+    """
+    Test that a failed Discord report is recorded.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     reporter = mocker.patch("app.scheduler.jobs.DiscordReporter")
     bot = mocker.patch("app.scheduler.jobs.DiscordBot")
@@ -358,7 +506,16 @@ def test_send_daily_report_failure(db_session, mocker):
 
 
 def test_backup_database(db_session, mocker):
-    """Test the database backup job."""
+    """
+    Test the database backup job.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     backup = mocker.patch("app.scheduler.jobs.run_database_backup")
 
@@ -369,7 +526,16 @@ def test_backup_database(db_session, mocker):
 
 
 def test_backup_database_failure(db_session, mocker):
-    """Test that database backup failures are handled."""
+    """
+    Test that database backup failures are handled.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     mocker.patch(
         "app.scheduler.jobs.run_database_backup",

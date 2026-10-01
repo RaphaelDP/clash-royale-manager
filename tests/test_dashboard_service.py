@@ -4,8 +4,8 @@ Filename: test_dashboard_service.py
 Description: Unit tests for the DashboardService class (v0.5.2 / v0.6.0 methods).
 Author: Raphael Smilet
 Date Created: 2026-07-10
-Last Modified: 2026-07-10
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 Dependencies: pytest, app.services.dashboard_service
 ================================================================================
@@ -21,7 +21,16 @@ from app.core.utils import get_time
 
 
 def test_get_overview_stats_with_no_members(dashboard_service):
-    """Regression test: previously crashed with TypeError on an empty DB."""
+    """
+    Regression test: previously crashed with TypeError on an empty DB.
+
+    Args:
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     result = dashboard_service.get_overview_stats()
 
     assert result["overall_members"] == 0
@@ -41,8 +50,19 @@ def test_get_overview_stats_with_no_members(dashboard_service):
 def test_get_overview_stats_member_count_includes_left_members(
     db_session, dashboard_service, member_factory
 ):
-    """member_count is the total roster (including left/fired), distinct
-    from active_members."""
+    """
+    member_count is the total roster (including left/fired), distinct from
+    active_members.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     active = member_factory(tag="#ACTIVE3", role="member")
     inactive = member_factory(
         tag="#INACTIVE3", role="member", last_seen=get_time() - timedelta(days=30)
@@ -59,7 +79,16 @@ def test_get_overview_stats_member_count_includes_left_members(
 
 
 def test_get_member_filter_options_empty_db(dashboard_service):
-    """Business rule: returns has_members=False and empty roles list when no members exist."""
+    """
+    Business rule: returns has_members=False and empty roles list when no members exist.
+
+    Args:
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     result = dashboard_service.get_member_filter_options()
 
     assert result["has_members"] is False
@@ -67,7 +96,19 @@ def test_get_member_filter_options_empty_db(dashboard_service):
 
 
 def test_get_filtered_members(db_session, dashboard_service, member_factory):
-    """Verify filtering by role and trophies works, and that left/fired members are excluded."""
+    """
+    Verify filtering by role and trophies works, and that left/fired members are
+    excluded.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member_factory(tag="#F1", role="elder", trophies=5000, donations=100)
     member_factory(tag="#F2", role="member", trophies=1000, donations=10)
     db_session.add_all(
@@ -92,8 +133,21 @@ def test_get_filtered_members(db_session, dashboard_service, member_factory):
 def test_get_contribution_dashboard(
     db_session, dashboard_service, member_factory, contribution_score_factory
 ):
-    """Verify contribution scores are aggregated and ranked correctly,
-    and that only the latest score per member is used."""
+    """
+    Verify contribution scores are aggregated and ranked correctly, and that only the
+    latest score per member is used.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        contribution_score_factory: Fixture callable that builds unsaved
+            ContributionScore instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     top_member = member_factory(name="Ada", tag="#ADA")
     low_member = member_factory(name="Bob", tag="#BOB")
     db_session.add_all([top_member, low_member])
@@ -130,7 +184,17 @@ def test_get_contribution_dashboard(
 
 
 def test_get_contribution_dashboard_empty(dashboard_service):
-    """Verify the dashboard returns correct values when no contribution scores are available."""
+    """
+    Verify the dashboard returns correct values when no contribution scores are
+    available.
+
+    Args:
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     result = dashboard_service.get_contribution_dashboard()
 
     assert result == {
@@ -147,7 +211,18 @@ def test_get_contribution_dashboard_empty(dashboard_service):
 
 
 def test_get_inactive_members(db_session, dashboard_service, member_factory):
-    """Verify inactive members are reshaped into dicts, excluding left/fired members."""
+    """
+    Verify inactive members are reshaped into dicts, excluding left/fired members.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     active_member = member_factory(name="Active", last_seen=get_time())
     inactive_member = member_factory(
@@ -174,9 +249,26 @@ def test_get_kick_candidates_delegates_to_score_service(
     river_race_factory,
     war_participation_factory,
 ):
-    """Verify that get_kick_candidates returns members
-    who scored under the fame sanction threshold in 2 consecutive completed races,
-    and that left/fired members are excluded."""
+    """
+    Verify that get_kick_candidates returns members who scored under the fame sanction
+    threshold in 2 consecutive completed races, and that left/fired members are
+    excluded.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     member = member_factory(tag="#KICKME", role="member")
     db_session.add(member)
     db_session.flush()
@@ -202,7 +294,16 @@ def test_get_kick_candidates_delegates_to_score_service(
 
 
 def test_get_promotion_recommendations_no_data(dashboard_service):
-    """Business rule: returns an empty list when no members have contribution scores."""
+    """
+    Business rule: returns an empty list when no members have contribution scores.
+
+    Args:
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     assert dashboard_service.get_promotion_recommendations() == []
 
 
@@ -219,7 +320,24 @@ def test_get_war_player_ranking(
     river_race_factory,
     war_participation_factory,
 ):
-    """Verify ranking is scoped to one season and ordered by fame descending."""
+    """
+    Verify ranking is scoped to one season and ordered by fame descending.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     season = war_season_factory(season_id="2026-05")
     other_season = war_season_factory(season_id="2026-06")
@@ -263,7 +381,24 @@ def test_get_river_races(
     river_race_factory,
     war_participation_factory,
 ):
-    """Verify per-race participant counts and section_index ordering."""
+    """
+    Verify per-race participant counts and section_index ordering.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     season = war_season_factory(season_id="2026-07")
     race1 = river_race_factory(war_season=season, section_index=0)
@@ -298,7 +433,24 @@ def test_get_player_war_stats_season_scoped_and_all_time(
     river_race_factory,
     war_participation_factory,
 ):
-    """Verify season_id scopes the aggregation, and None returns all-time totals."""
+    """
+    Verify season_id scopes the aggregation, and None returns all-time totals.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     member = member_factory(tag="#PLAYER")
     db_session.add(member)
@@ -371,7 +523,24 @@ def test_get_race_comparison(
     river_race_factory,
     war_participation_factory,
 ):
-    """Verify per-race totals/averages and the participation_rate approximation."""
+    """
+    Verify per-race totals/averages and the participation_rate approximation.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     season = war_season_factory(season_id="2026-10")
     race1 = river_race_factory(war_season=season, section_index=0)
@@ -421,7 +590,18 @@ def test_get_race_comparison(
 
 
 def test_get_inactivity_ranking(db_session, dashboard_service, member_factory):
-    """Verify ranking order, bucketed scores, interpolation, and left-member exclusion."""
+    """
+    Verify ranking order, bucketed scores, interpolation, and left-member exclusion.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     fresh = member_factory(name="Fresh", last_seen=get_time())
     two_weeks = member_factory(
@@ -472,10 +652,16 @@ def test_get_inactivity_ranking(db_session, dashboard_service, member_factory):
 
 def test_get_clan_health_score_no_data(dashboard_service):
     """
-    With no members/data at all, the score should not crash and should fall
-    back to well-defined defaults: 100% retention when there's no history to
-    measure churn against, full leadership placeholder, no inactive members
-    to penalize.
+    With no members/data at all, the score should not crash and should fall back to
+    well-defined defaults: 100% retention when there's no history to measure churn
+    against, full leadership placeholder, no inactive members to penalize.
+
+    Args:
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
     """
     result = dashboard_service.get_clan_health_score()
 
@@ -503,8 +689,24 @@ def test_get_clan_health_score_with_data(
     snapshot_factory,
 ):
     """
-    Build a small clan with enough data to exercise every non-placeholder
-    component, and check the weighted final score.
+    Build a small clan with enough data to exercise every non-placeholder component, and
+    check the weighted final score.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+        snapshot_factory: Fixture callable that builds unsaved Snapshot instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
     """
     now = get_time()
 
@@ -572,7 +774,16 @@ def test_get_clan_health_score_with_data(
 
 
 def test_get_current_race_status_no_live_race(dashboard_service):
-    """Business rule: returns None when no race is currently in progress."""
+    """
+    Business rule: returns None when no race is currently in progress.
+
+    Args:
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     assert dashboard_service.get_current_race_status() is None
 
@@ -585,7 +796,24 @@ def test_get_current_race_status_with_live_race(
     river_race_factory,
     war_participation_factory,
 ):
-    """Verify participated/not-participated split for the live race, active members only."""
+    """
+    Verify participated/not-participated split for the live race, active members only.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        dashboard_service: DashboardService fixture with a mocked API and isolated
+            database.
+        member_factory: Fixture callable that builds unsaved Member instances.
+        war_season_factory: Fixture callable that builds unsaved WarSeason
+            instances.
+        river_race_factory: Fixture callable that builds unsaved RiverRace
+            instances.
+        war_participation_factory: Fixture callable that builds unsaved
+            WarParticipation instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
 
     attacked = member_factory(tag="#ATTACKED", name="Attacker")
     not_attacked = member_factory(tag="#WAITING", name="Waiter")

@@ -4,8 +4,8 @@ Filename: test_discord.py
 Description: Unit tests for Discord integration (bot + reports).
 Author: Raphael Smilet
 Date Created: 2026-07-12
-Last Modified: 2026-07-12
-Version: 0.1.0
+Last Modified: 2026-10-01
+Version: 0.1.1
 Python Version: 3.12
 Dependencies: pytest, pytest-mock, app.integrations.discord
 ================================================================================
@@ -25,7 +25,15 @@ from app.integrations.discord.reports import DiscordReporter
 
 
 def test_send_notification_success(mocker):
-    """Test that send_notification returns True on successful post."""
+    """
+    Test that send_notification returns True on successful post.
+
+    Args:
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     mock_response = mocker.MagicMock()
     mock_response.raise_for_status.return_value = None
     mock_post = mocker.patch("requests.post", return_value=mock_response)
@@ -39,14 +47,30 @@ def test_send_notification_success(mocker):
 
 
 def test_send_notification_no_webhook_configured():
-    """Test that send_notification returns False if no webhook URL is configured."""
+    """
+    Test that send_notification returns False if no webhook URL is configured.
+
+    Args:
+        None.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     bot = DiscordBot(webhook_url=None)
 
     assert bot.send_notification("hello") is False
 
 
 def test_send_notification_network_failure(mocker):
-    """Test that send_notification returns False on network failure."""
+    """
+    Test that send_notification returns False on network failure.
+
+    Args:
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     mocker.patch(
         "requests.post", side_effect=requests.exceptions.ConnectionError("down")
     )
@@ -57,7 +81,15 @@ def test_send_notification_network_failure(mocker):
 
 
 def test_send_notification_truncates_long_messages(mocker):
-    """Test that send_notification truncates messages longer than 2000 characters."""
+    """
+    Test that send_notification truncates messages longer than 2000 characters.
+
+    Args:
+        mocker: pytest-mock fixture for mocks, spies, and automatic patch cleanup.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     mock_response = mocker.MagicMock()
     mock_response.raise_for_status.return_value = None
     mock_post = mocker.patch("requests.post", return_value=mock_response)
@@ -76,7 +108,16 @@ def test_send_notification_truncates_long_messages(mocker):
 
 
 def test_generate_activity_report_includes_counts(db_session, member_factory):
-    """Test that generate_activity_report includes counts of active and inactive members."""
+    """
+    Test that generate_activity_report includes counts of active and inactive members.
+
+    Args:
+        db_session: SQLAlchemy session used by the service or test.
+        member_factory: Fixture callable that builds unsaved Member instances.
+
+    Returns:
+        None. Assertions verify the expected behavior.
+    """
     active = member_factory(name="Active", last_seen=get_time())
     inactive = member_factory(name="Ghost", last_seen=get_time() - timedelta(days=10))
     long_inactive = member_factory(
