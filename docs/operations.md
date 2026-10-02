@@ -1,6 +1,6 @@
 # Operations guide
 
-Updated: 2026-10-02 · Document version: 0.1.3
+Updated: 2026-10-02 · Document version: 0.1.5
 
 ## Configuration
 
@@ -144,5 +144,60 @@ and backup restore checks passed on 2026-10-01 after clearing the pip download c
 An authorized live API cycle also passed using temporary data and disabled Discord.
 The live check collected 49 current members and 11 races; repeated daily jobs
 were idempotent, and restored table counts matched the temporary source database.
-The existing production database was not inspected or upgraded; season-boundary
-behavior and optional Discord delivery still need acceptance testing.
+The earlier isolated checks did not inspect or upgrade the active production
+database. The subsequent authorized deployment checks are recorded below.
+
+### Backup-copy upgrade and restore rehearsal — 2026-10-02
+
+With operator authorization, the oldest and newest available backups were opened
+read-only and restored into temporary directories. Credentials were not loaded;
+API requests were forced offline and Discord was disabled. Temporary copies,
+logs, and caches were removed after each run. Source backup SHA-256 checks before
+and after the rehearsal matched.
+
+| Backup | Starting revision | Final revision | Members | Races | Snapshots | Participations |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `clan_manager_20260911_172712.db` | `6099e0c591ac` | `a2026093001` | 139 | 18 | 3,523 | 1,187 |
+| `clan_manager_20261002_082628.db` | `a2026093001` | `a2026093001` | 155 | 22 | 5,553 | 1,436 |
+
+Both copies passed SQLite integrity and foreign-key checks. Upgrade preserved all
+original non-Alembic column values, including scores and job records. A second
+initialization changed no table contents. The application backup and restore
+functions produced identical table contents to the upgraded copy.
+
+Streamlit AppTest rendered Home and all six pages against each upgraded copy with
+zero exceptions while API requests failed locally. Rendering did not change the
+database contents. This verifies automated rendering and offline fallback, not
+visual operator acceptance or successful live refresh on the target deployment.
+
+
+### Host deployment and Discord acceptance — 2026-10-02
+
+The deployment runs directly on the host, with the project supervisor, scheduler,
+and Streamlit processes active. No Docker containers were running. Both the
+Streamlit health endpoint and homepage returned HTTP 200. Read-only inspection
+of production job state found all seven jobs successful with no recorded errors;
+member and war synchronization last succeeded at 13:26 Europe/Paris. The database
+revision is `a2026093001`. No production database writes, process restarts, or
+scheduler-setting changes were performed by these acceptance checks.
+
+The scheduler uses its enabled default schedule, including the Discord report at
+01:00 Europe/Paris. A webhook was already configured, so enabling or replacing it
+was unnecessary. Today's production report job had already recorded success.
+
+One explicitly labeled diagnostic message was sent through the real daily-report
+job using a temporary database and substituted diagnostic report text. Discord
+returned HTTP 200 with a message ID and matching content (`wait=true`). Repeating
+the job produced no second HTTP request. Production report state was unchanged;
+credentials and webhook values were never printed.
+
+Separate subprocesses with mocked delivery verified failure-state persistence,
+OS lock release after an abrupt process exit, successful retry after restart, and
+same-day suppression in another process after success. These recovery tests sent
+no external messages. They do not establish exactly-once delivery: a crash after
+Discord accepts a message but before the success marker commits can still produce
+a duplicate on retry, as documented above.
+
+Technical deployment and delivery checks passed. The earlier backup-copy tests
+cover offline page rendering; human visual acceptance on this deployment remains
+separate. Actual season-boundary behavior still requires field observation.

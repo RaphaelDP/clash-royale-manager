@@ -1,6 +1,6 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-02 · Document version: 0.2.4
+Updated: 2026-10-02 · Document version: 0.2.6
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
@@ -65,7 +65,9 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
 - ✅ Attacks require positive deck usage; rows with zero decks are not attacks.
 - ✅ Profile refresh bypasses both caches; invalid JSON and API failure retain a
   usable fallback. Successful loads also show cache freshness.
-- ✅ Existing historical data is preserved; no private database was inspected or rewritten.
+- ✅ Existing historical data is preserved; backup inspection was limited to the
+  authorized disposable-copy rehearsal. Later deployment checks read job state
+  and schema revision only; they did not modify the active database.
 
 ### Automation and operations
 
@@ -107,8 +109,12 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
   gaps, missing history, malformed IDs, repeated rollover, and job failure reporting.
 - The isolated live cycle also passed with the identity guard: 49 active members,
   11 races, same-day idempotency, and matching backup/restored table counts.
-- Existing runtime data: not read or modified. Credentials were loaded only for
-  the explicitly authorized isolated live check, without displaying their values.
+- The active production database was not modified; authorized deployment checks
+  read job status and schema revision. Two existing backups were
+  read with operator authorization for the isolated rehearsal documented in
+  [Operations](operations.md#backup-copy-upgrade-and-restore-rehearsal--2026-10-02);
+  original backup hashes were unchanged. Credentials were loaded privately for
+  authorized live API and Discord checks, never for the offline backup rehearsal.
 
 ## Required gates before v1.0
 
@@ -116,15 +122,27 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
   health, both children, clean shutdown, container replacement, and backup/restore.
   Compose configuration also validates. Tests used synthetic bind-mounted data,
   disabled networking, and no published host ports; production rollout remains separate.
-- ⬜ Rehearse upgrade and restore against an operator-provided disposable database
-  copy; compare member/history counts and inspect the resulting dashboard.
+- ✅ Rehearsed upgrade and restore on disposable copies of the oldest and newest
+  authorized backups (2026-09-11 and 2026-10-02). Original column values survived,
+  repeated initialization was unchanged, restored contents matched, and SQLite
+  integrity/foreign-key checks passed. Home and all six pages rendered without
+  exceptions offline. Visual operator acceptance remains part of the deployment
+  acceptance gate below.
 - ✅ Live synchronization passed using authorized credentials, temporary data,
   and disabled Discord: members, history/current race, daily jobs, scoring, restore.
 - ⬜ Verify actual season boundaries and prolonged stale/incomplete history; one
   successful live cycle does not establish those behaviors.
-- ⬜ Verify optional Discord delivery and documented crash/retry behavior if enabled.
-- ⬜ Complete an operator acceptance pass for stale/partially unavailable data on
-  the intended deployment. Local automated page tests do not replace this check.
+- ✅ Discord delivery verified on 2026-10-02: one labeled diagnostic message was
+  acknowledged by Discord; a repeated daily-job call sent no duplicate. Separate
+  mocked subprocess checks passed for failed delivery, crash lock release, retry,
+  and repeat suppression after restart. The post-delivery/pre-commit duplicate
+  window remains documented; exactly-once delivery is not guaranteed.
+- ✅ Host deployment technical checks passed: supervisor, scheduler, and Streamlit
+  active; homepage and health HTTP 200; all seven jobs successful with no recorded
+  errors; enabled scheduler and configured Discord confirmed. Production data and
+  job state were not changed by these checks.
+- 🟡 Human visual acceptance for stale/partially unavailable data remains. Offline
+  backup-copy page checks and host health checks pass, but do not replace this.
 - ✅ Review the changes and record focused local commits.
 - ✅ The four reviewed implementation commits are published on `origin/main`.
 - ⬜ Publish the tag cleanup and create a release only after its acceptance gates pass.
