@@ -1,6 +1,6 @@
 # Operations guide
 
-Updated: 2026-10-02 · Document version: 0.1.5
+Updated: 2026-10-02 · Document version: 0.1.6
 
 ## Configuration
 
@@ -199,5 +199,13 @@ Discord accepts a message but before the success marker commits can still produc
 a duplicate on retry, as documented above.
 
 Technical deployment and delivery checks passed. The earlier backup-copy tests
-cover offline page rendering; human visual acceptance on this deployment remains
-separate. Actual season-boundary behavior still requires field observation.
+cover offline page rendering. On 2026-10-02, an agent browser review of the actual
+host deployment inspected Home and all six pages at 1440 × 1100, including lower
+page sections. Navigation, metrics, tables, charts, profile-cache age, live-race
+status, and Settings rendered without Streamlit exceptions or page-wide horizontal
+overflow. No refresh, report, or settings-save actions were clicked. This is an
+agent visual check, not a claim of human acceptance or exhaustive device coverage.
+
+The operator accepted the unobserved real season-rollover limitation for v0.9.7.
+Actual boundary observation remains required before v1.0; simulated transitions
+and one successful live cycle cannot establish that field behavior.

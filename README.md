@@ -1,7 +1,8 @@
 # Clash Royale Clan Manager
 
 A Streamlit dashboard for clan membership, war history, activity, contribution
-scores, and leadership recommendations. Current development version: **0.9.7.dev0**.
+scores, and leadership recommendations. Current version: **0.9.7**.
+See the [release notes](docs/release-0.9.7.md) for verification and known limitations.
 
 ## Get started
 

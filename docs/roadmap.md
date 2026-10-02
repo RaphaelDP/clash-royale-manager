@@ -1,12 +1,14 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-02 · Document version: 0.2.6
+Updated: 2026-10-02 · Document version: 0.2.7
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
-Application version: **0.9.7.dev0**. The four implementation commits are now on
+Application version: **0.9.7**. The four implementation commits are now on
 `origin/main`. The [history and tag audit](git-history-audit.md) records the original
-refs and the exact archive mapping for tag cleanup.
+refs and the exact archive mapping for tag cleanup. Remote cleanup was verified
+on 2026-10-02. [v0.9.7 release notes](release-0.9.7.md) record the accepted scope
+and limitations; v1.0 qualification remains separate.
 
 Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ pending.
 
@@ -141,11 +143,17 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
   active; homepage and health HTTP 200; all seven jobs successful with no recorded
   errors; enabled scheduler and configured Discord confirmed. Production data and
   job state were not changed by these checks.
-- 🟡 Human visual acceptance for stale/partially unavailable data remains. Offline
-  backup-copy page checks and host health checks pass, but do not replace this.
+- ✅ Agent visual review of the deployed Home and six pages passed on 2026-10-02
+  at desktop size, including charts, tables, cache freshness, and job health.
+  Offline fallback is covered by backup-copy rendering and automated tests.
+  The operator delegated this review; no human or exhaustive device test is claimed.
 - ✅ Review the changes and record focused local commits.
 - ✅ The four reviewed implementation commits are published on `origin/main`.
-- ⬜ Publish the tag cleanup and create a release only after its acceptance gates pass.
+- ✅ Remote tag cleanup verified: all 15 archived names exist under `legacy/`,
+  original aliases are absent, and the 19 primary tags remain unchanged.
+- ✅ Operator approved v0.9.7 as a pre-1.0 release with the real-rollover limitation
+  explicitly accepted. Release commit/tag are prepared locally; publication is a
+  separate Git push. No v1.0 tag is authorized by this qualification.
 
 ## Optional enhancements after reliability gates
 

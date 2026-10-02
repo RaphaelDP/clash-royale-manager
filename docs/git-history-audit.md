@@ -1,6 +1,6 @@
 # Git history and tag audit
 
-Updated: 2026-09-30 · Document version: 0.1.0
+Updated: 2026-10-02 · Document version: 0.1.1
 
 ## Findings
 
@@ -23,11 +23,14 @@ Retain 19 primary `v*` tags with distinct commits ordered by version and ancestr
 Archive the 15 conflicting aliases under `legacy/<original-name>`, preserving each
 exact original object ID. No surviving version tag moves and no commit is rewritten.
 Missing version numbers are intentional; no unverified release is invented.
-Annotated tags retained their annotation objects. This is a local cleanup; remote
-tag deletion/archival was not published under the user's cleanup-and-commit branch.
+Annotated tags retained their annotation objects. On 2026-10-02, `git ls-remote`
+confirmed all 15 archive refs on origin, absence of their original aliases, and
+retention of the 19 primary tags. The cleanup is now published.
 
 The pending application version was incorrectly `0.9.2.dev0`, behind `v0.9.6`.
-It is now `0.9.7.dev0`; no new release tag is created while release gates remain.
+It was corrected to `0.9.7.dev0`. The operator subsequently approved `0.9.7`
+with the documented real-rollover limitation accepted for this pre-1.0 release.
+The new annotated `v0.9.7` tag targets its release commit, not an earlier revision.
 Per-file header versions are independent and are not release tag candidates.
 
 ## Archived names
@@ -96,8 +99,9 @@ Do not use `git push --tags` as a cleanup command: it does not delete old names.
 
 ## Validation and remaining release work
 
-The implementation passed 175 isolated tests, repository-wide Black, Pylint
-(10.00/10), shell syntax, and diff whitespace checks before this audit. The source
-Docker image built, but disk capacity blocked runtime/persistence testing. Live API
-and deployment acceptance checks remain in the roadmap. Git ref correctness does
-not replace those release gates.
+The release check uses 198 isolated tests, repository-wide Black and Pylint,
+and diff whitespace checks. Docker isolation, live API synchronization, real-backup
+upgrade/restore, host deployment health, Discord delivery/recovery, and deployed
+browser review are recorded in the operations guide and v0.9.7 release notes.
+Actual season-boundary field verification remains open for v1.0 and was explicitly
+accepted as a v0.9.7 limitation. Git ref correctness does not prove runtime behavior.
