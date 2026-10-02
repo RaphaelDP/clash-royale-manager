@@ -5,7 +5,7 @@ Description: Service for managing war data, including river races and participat
 Author: Raphael Smilet
 Date Created: 2026-06-09
 Last Modified: 2026-10-01
-Version: 0.4.4
+Version: 0.4.5
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils, app.services.clash_api
 ================================================================================
@@ -13,9 +13,10 @@ Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils, 
 """
 
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from app.core.logger import logger
+from app.core.constants import MAX_LIVE_HISTORY_AGE_DAYS
 from app.core.utils import convert_timestamp_to_datetime, get_time
 from app.database.models import WarSeason, RiverRace, Member, WarParticipation
 from app.services.clash_api import ClashAPIClient
@@ -144,37 +145,12 @@ class WarService:
         try:
             data = self.api_client.get_current_river_race(clan_tag)
             clan = data.get("clan")
-            if not isinstance(clan, dict) or clan.get("tag", clan_tag) != clan_tag:
+            if not isinstance(clan, dict) or clan.get("tag") != clan_tag:
                 raise ValueError("Missing or mismatched live race clan.")
             section = data.get("sectionIndex")
-            if not isinstance(section, int) or section < 0:
+            if isinstance(section, bool) or not isinstance(section, int) or section < 0:
                 raise ValueError("Missing live race section index.")
-            latest = (
-                self.db.query(RiverRace)
-                .filter(RiverRace.is_completed.is_(True))
-                .order_by(RiverRace.created_date.desc())
-                .first()
-            )
-            season = (
-                self.db.query(WarSeason).order_by(WarSeason.start_date.desc()).first()
-            )
-            if data.get("seasonId") is not None:
-                season_id = str(data["seasonId"])
-            elif latest is not None:
-                season_id = latest.season_id
-                if section < latest.section_index:
-                    # A reset to section zero identifies the next numeric season.
-                    if section != 0 or not season_id.isdigit():
-                        raise ValueError(
-                            "Ambiguous live season; completed results were preserved."
-                        )
-                    season_id = str(int(season_id) + 1)
-            elif season is not None:
-                season_id = season.season_id
-            else:
-                raise ValueError(
-                    "No historical season available to identify the live race."
-                )
+            season_id = self._resolve_live_season(data, section)
             race = (
                 self.db.query(RiverRace)
                 .filter_by(season_id=season_id, section_index=section)
@@ -193,6 +169,63 @@ class WarService:
         except Exception:
             self.db.rollback()
             raise
+
+    def _resolve_live_season(self, data: dict[str, Any], section: int) -> str:
+        """Resolve a live season only from an explicit ID or recent adjacent history.
+
+        A bare season row is insufficient evidence. Inferred identity requires a
+        completed race no more than MAX_LIVE_HISTORY_AGE_DAYS old and no future
+        timestamp. An adjacent section or numeric season reset remains a heuristic;
+        an actual season-boundary response still needs acceptance testing.
+
+        Args:
+            data: Live API response, optionally containing an explicit seasonId.
+            section: Validated nonnegative live section index.
+
+        Returns:
+            str: Explicit or conservatively inferred season identifier.
+
+        Raises:
+            ValueError: Identity is malformed, historical evidence is unavailable
+                or stale, or the section transition is ambiguous.
+        """
+        explicit = data.get("seasonId")
+        if explicit is not None:
+            if (
+                isinstance(explicit, bool)
+                or not isinstance(explicit, (str, int))
+                or not str(explicit).strip()
+                or isinstance(explicit, int)
+                and explicit < 0
+            ):
+                raise ValueError("Invalid explicit live season ID.")
+            return str(explicit).strip()
+
+        latest = (
+            self.db.query(RiverRace)
+            .filter(RiverRace.is_completed.is_(True))
+            .order_by(RiverRace.created_date.desc(), RiverRace.id.desc())
+            .first()
+        )
+        if latest is None or latest.created_date is None:
+            raise ValueError(
+                "No historical season with completed race data is available; "
+                "refresh war history before syncing the live race."
+            )
+        age = get_time() - latest.created_date
+        if not timedelta(0) <= age <= timedelta(days=MAX_LIVE_HISTORY_AGE_DAYS):
+            raise ValueError(
+                "Stale or future-dated war history cannot identify the live season; "
+                "refresh war history. Existing race results were preserved."
+            )
+        if section in (latest.section_index, latest.section_index + 1):
+            return latest.season_id
+        if section == 0 and latest.section_index > 0 and latest.season_id.isdigit():
+            return str(int(latest.season_id) + 1)
+        raise ValueError(
+            "Ambiguous live season: non-adjacent race sections; "
+            "refresh war history. Existing race results were preserved."
+        )
 
     def _find_clan_data(
         self, standings: List[Dict[str, Any]], clan_tag: str

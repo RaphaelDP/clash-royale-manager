@@ -4,8 +4,8 @@ Filename: constants.py
 Description: Global constants for the application, including API endpoints, thresholds, and weights.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-06-08
-Version: 0.2.3
+Last Modified: 2026-10-01
+Version: 0.2.4
 Python Version: 3.11
 Dependencies: None
 ================================================================================
@@ -19,6 +19,9 @@ CACHE_EXPIRATION = 300  # Cache expiration time in seconds
 MAX_RETRIES = 3
 
 CACHE_NAME = "cr_cache"
+
+# Conservative application policy for inferred live-race identity, not an API guarantee.
+MAX_LIVE_HISTORY_AGE_DAYS = 8
 
 # Backup Constants (v0.9.0)
 BACKUP_RETENTION_COUNT = 14  # number of daily backups to keep

@@ -4,18 +4,18 @@ Filename: test_war_service.py
 Description: Unit tests for the WarService class.
 Author: Raphael Smilet
 Date Created: 2026-06-17
-Last Modified: 2026-10-01
-Version: 0.4.2
+Last Modified: 2026-10-02
+Version: 0.4.3
 Python Version: 3.12
 Dependencies: pytest, app.services.war_service
 ================================================================================
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
-from app.core.utils import convert_timestamp_to_datetime
+from app.core.utils import convert_timestamp_to_datetime, get_time
 from app.database.models import (
     WarSeason,
     RiverRace,
@@ -396,6 +396,10 @@ def test_sync_current_river_race(
         datetime(2026, 6, 1),
     )
 
+    war_service._create_or_update_river_race(
+        "132", 1, get_time() - timedelta(days=3), is_completed=True
+    )
+
     mock_get_current_river_race = mocker.patch.object(
         war_service.api_client,
         "get_current_river_race",
@@ -404,7 +408,7 @@ def test_sync_current_river_race(
 
     war_service.sync_current_river_race("#TEST123")
 
-    races = db_session.query(RiverRace).all()
+    races = db_session.query(RiverRace).filter_by(is_completed=False).all()
 
     assert len(races) == 1
     assert races[0].section_index == 2
@@ -442,9 +446,9 @@ def test_sync_current_river_race(
     mock_get_current_river_race.assert_called_once_with("#TEST123")
 
     season = db_session.query(WarSeason).one()
-    assert len(season.river_races) == 1
+    assert len(season.river_races) == 2
 
-    race = season.river_races[0]
+    race = next(race for race in season.river_races if not race.is_completed)
     assert len(race.war_participations) == 2
 
 
@@ -625,6 +629,10 @@ def test_sync_current_river_race_marks_race_incomplete(
 
     war_service._create_or_update_season("132", datetime(2026, 6, 1))
 
+    war_service._create_or_update_river_race(
+        "132", 1, get_time() - timedelta(days=3), is_completed=True
+    )
+
     mocker.patch.object(
         war_service.api_client,
         "get_current_river_race",
@@ -633,7 +641,7 @@ def test_sync_current_river_race_marks_race_incomplete(
 
     war_service.sync_current_river_race("#TEST123")
 
-    race = db_session.query(RiverRace).one()
+    race = db_session.query(RiverRace).filter_by(is_completed=False).one()
     assert test_members[0].tag in {p.member_tag for p in race.war_participations}
     assert test_members[1].tag in {p.member_tag for p in race.war_participations}
     assert race.section_index == 2

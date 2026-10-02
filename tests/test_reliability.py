@@ -5,7 +5,7 @@ Description: Regression tests for packaging, migrations, synchronization, cachin
 Author: Raphael Smilet
 Date Created: 2026-09-30
 Last Modified: 2026-10-01
-Version: 0.1.1
+Version: 0.1.2
 Python Version: 3.12
 ================================================================================
 """
@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 from tenacity import wait_none
 
 from app.core.job_lock import job_lock
+from app.core.utils import get_time
 from app.database.base import Base
 from app.database.models import (
     Member,
@@ -278,7 +279,7 @@ def seed_race(db, season="200", section=3, completed=True):
     race = RiverRace(
         war_season=WarSeason(season_id=season, start_date=datetime(2026, 9, 1)),
         section_index=section,
-        created_date=datetime(2026, 9, 28),
+        created_date=get_time() - timedelta(days=3),
         is_completed=completed,
     )
     db.add(WarParticipation(member=member, river_race=race, fame=2500, decks_used=16))
