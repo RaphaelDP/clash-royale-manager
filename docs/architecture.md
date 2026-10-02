@@ -1,6 +1,6 @@
 # Architecture and data semantics
 
-Updated: 2026-09-30 · Document version: 0.1.0
+Updated: 2026-10-02 · Document version: 0.1.1
 
 ## Responsibilities
 
@@ -30,13 +30,19 @@ Historical participants absent from the current roster remain stored as departed
 members without extra live-player requests. Completed results cannot be overwritten
 by a lagging live response.
 
-Current races use an explicit season ID when provided. Otherwise the service uses
-chronologically latest completed history, with a numeric next-season inference on
-a section reset to zero. This inference assumes sufficiently recent history; it
-cannot prove season identity after arbitrary gaps or stale API responses. Nonzero
-section regressions are rejected. Live timestamps record observation time until
-completed history supplies the API's official creation timestamp. Live boundary
-behavior still needs verification before a stable release.
+Current races use a validated explicit season ID when provided. Otherwise identity
+requires the chronologically latest completed race to be no more than eight days
+old and not future-dated. A bare season row is insufficient. The same or next
+section retains the season; a reset to zero permits numeric next-season inference.
+Other section gaps or regressions fail visibly, preserving existing results and
+recording failure in job health.
+
+The eight-day limit (`MAX_LIVE_HISTORY_AGE_DAYS`) is a conservative application
+policy, not an API guarantee. Even recent history cannot prove identity when API
+responses are stale; an explicit ID does not prove response freshness either.
+Live timestamps record observation time until completed history supplies the API's
+official creation timestamp. Actual season-boundary behavior still needs field
+verification before a stable release.
 
 Automatic snapshots include current members only, once per member per local day.
 Snapshots contain trophies and donations, not historical last-seen activity.

@@ -1,6 +1,6 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-01 · Document version: 0.2.3
+Updated: 2026-10-02 · Document version: 0.2.4
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
@@ -49,8 +49,11 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
 - ✅ Race-log failures roll back the batch; historical participants need no live lookup.
 - ✅ Current-race selection uses chronological history and handles tested rollover
   cases while preserving completed results. Missing/ambiguous identity fails visibly.
-- 🟡 Season inference without an explicit API season ID assumes recent history;
-  prolonged gaps and live season-boundary responses still need verification.
+- ✅ Inferred live identity requires completed history aged zero to eight days and
+  a supported section transition. Missing evidence, stale/future history, malformed
+  IDs, and unexplained section gaps fail visibly without overwriting results.
+- 🟡 The eight-day limit is an application policy; real season-boundary and stale
+  API response behavior still need field verification.
 
 ### Dashboard and collection
 
@@ -92,14 +95,18 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
 
 ## Local verification
 
-- Full isolated test suite: **175 passed**.
-- Repository Black check: **65 files unchanged**.
+- Full isolated test suite: **198 passed**.
+- Repository Black check: **66 files unchanged**.
 - Repository Pylint check: **10.00/10**; shell syntax and diff whitespace checks pass.
 - Synthetic query profile, Docker build/smoke test, and isolated live cycle: completed.
-- Current working tree: `make ci` passes Black, Pylint (10.00/10), and all 175 tests.
-- All 374 named functions across 48 Python files have descriptions, Args, and
-  Returns. Signatures and documented arguments match; executable syntax trees
-  are unchanged. The module-length budget is 1,300 lines for complete contracts.
+- Current working tree: `make ci` passes Black, Pylint (10.00/10), and all 198 tests.
+- The previous documentation pass covered 374 named functions across 48 Python
+  files without changing executable syntax trees. New functions follow the same
+  description, Args, and Returns convention. The module-length budget is 1,300 lines.
+- Live-identity regression tests cover the age boundary, future timestamps, section
+  gaps, missing history, malformed IDs, repeated rollover, and job failure reporting.
+- The isolated live cycle also passed with the identity guard: 49 active members,
+  11 races, same-day idempotency, and matching backup/restored table counts.
 - Existing runtime data: not read or modified. Credentials were loaded only for
   the explicitly authorized isolated live check, without displaying their values.
 

@@ -1,6 +1,6 @@
 # Operations guide
 
-Updated: 2026-10-01 · Document version: 0.1.2
+Updated: 2026-10-02 · Document version: 0.1.3
 
 ## Configuration
 
@@ -126,8 +126,11 @@ restored database in production. Never delete WAL files from a running database.
   Historical race-log synchronization can succeed before current-race sync fails;
   the overall job records failure, with historical results retained.
 - **Ambiguous live season:** synchronize race history first. A live response without
-  season identity needs usable history; unresolved cases fail visibly. See metric
-  limitations in the architecture guide.
+  an explicit season ID requires completed history no more than eight days old,
+  with no future timestamp and a supported section transition. The limit is the
+  application policy `MAX_LIVE_HISTORY_AGE_DAYS`, not an API guarantee. If refreshed
+  history still cannot identify the season, the live sync stays failed and retains
+  existing results. See limitations in the architecture guide.
 - **Unknown schema:** initialization refuses unrecognized legacy tables or
   constraints. Preserve a backup and review a copy instead of stamping it blindly.
 - **Permission denied:** verify bind-directory ownership and UID/GID settings.
