@@ -1,6 +1,6 @@
 # v1.0 qualification
 
-Updated: 2026-10-05 · Document version: 0.1.2
+Updated: 2026-10-05 · Document version: 0.1.3
 
 The v1.0 scope is the existing clan-management product with reliable collection,
 dashboard, scheduling, and recovery. Player comparison, forecasting, configurable
@@ -94,3 +94,24 @@ Next action: collect another sample after the new race completes and look for
 `season: "137", section: 0, completed: true`. If history instead reports a different
 identity, investigate and fix inference before tagging v1.0.0. No background
 observer or automatic release has been installed.
+
+
+### Explicit final-gate check
+
+```bash
+.venv/bin/python -m scripts.observe_war_identity --confirm-season 137 --confirm-section 0
+```
+
+The service checks the fresh completed API log for this exact identity; an inferred
+live race or an older row in the disposable database cannot satisfy the check.
+The JSON `confirmation.status` is `confirmed` or `pending` when collection succeeds.
+Exit codes are 0 for successful requested confirmation, 1 for collection failure,
+2 for invalid command arguments, and 3 for a successful observation whose target
+is still pending. Without confirmation options, ordinary successful observation
+still returns 0. A failed observation is not confirmation, even if partial history
+was available before live synchronization failed.
+
+The live check at 2026-10-05 13:27:27 UTC returned `ok: true`, confirmation
+`pending`, and exit code 3. No production data or Discord state was modified.
+A confirmed result closes only this identity check; final code review, Makefile
+checks, version metadata, and release tagging still follow the checklist above.

@@ -4,8 +4,8 @@ Filename: war_service.py
 Description: Service for managing war data, including river races and participation.
 Author: Raphael Smilet
 Date Created: 2026-06-09
-Last Modified: 2026-10-02
-Version: 0.4.7
+Last Modified: 2026-10-05
+Version: 0.4.8
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils, app.services.clash_api
 ================================================================================
@@ -63,7 +63,12 @@ class WarService:
             "total_decks": sum(record.decks_used for record in participations),
         }
 
-    def observe_identity(self, clan_tag: str) -> dict[str, Any]:
+    def observe_identity(
+        self,
+        clan_tag: str,
+        confirm_season: str | None = None,
+        confirm_section: int | None = None,
+    ) -> dict[str, Any]:
         """Synchronize a fresh API sample and project identity-only evidence.
 
         Use a disposable database: this method commits historical and live race
@@ -72,15 +77,30 @@ class WarService:
 
         Args:
             clan_tag: Requested clan tag, excluded from the returned evidence.
+            confirm_season: Optional expected season, supplied together with section.
+            confirm_section: Expected nonnegative section to confirm in fresh history.
 
         Returns:
             dict[str, Any]: UTC observation time, explicit-ID presence, live
-            section, and race identities with scheduler-local timestamps.
+            section, and race identities with scheduler-local timestamps. When a target
+            is supplied, confirmation is confirmed or pending; live inference alone
+            never confirms a target.
 
         Raises:
             Exception: API or synchronization failure; callers must avoid exposing
                 raw request errors that may contain private response details.
         """
+        if confirm_season is not None or confirm_section is not None:
+            if (
+                not isinstance(confirm_season, str)
+                or not confirm_season.strip()
+                or not isinstance(confirm_section, int)
+                or isinstance(confirm_section, bool)
+                or confirm_section < 0
+            ):
+                raise ValueError(
+                    "Confirmation requires a season and nonnegative section."
+                )
         with self.api_client.session.cache_disabled():
             history = self.api_client.get_river_race_log(clan_tag)
             current = self.api_client.get_current_river_race(clan_tag)
@@ -97,7 +117,7 @@ class WarService:
             .order_by(RiverRace.created_date, RiverRace.id)
             .all()
         )
-        return {
+        result = {
             "observed_at": datetime.now(timezone.utc).isoformat(),
             "ok": True,
             "explicit_live_season": current.get("seasonId") is not None,
@@ -112,6 +132,19 @@ class WarService:
                 for race in races
             ],
         }
+        if confirm_season is not None:
+            # Require this API log to contain the target, not a pre-existing DB row.
+            confirmed = any(
+                str(race.get("seasonId")) == confirm_season
+                and race.get("sectionIndex") == confirm_section
+                for race in history
+            )
+            result["confirmation"] = {
+                "season": confirm_season,
+                "section": confirm_section,
+                "status": "confirmed" if confirmed else "pending",
+            }
+        return result
 
     def _sync_participants(self, race, participants):
         """

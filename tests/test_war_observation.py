@@ -4,8 +4,8 @@ Filename: test_war_observation.py
 Description: Verify qualification evidence and recovery across live-war transitions.
 Author: Raphael Smilet
 Date Created: 2026-10-02
-Last Modified: 2026-10-02
-Version: 0.1.1
+Last Modified: 2026-10-05
+Version: 0.1.2
 Python Version: 3.12
 ================================================================================
 """
@@ -141,3 +141,82 @@ def test_worker_refuses_production_configuration(monkeypatch):
     """
     monkeypatch.setenv("DATABASE_URL", "sqlite:///production.db")
     assert run_worker() == {"ok": False, "error_type": "IsolationRequired"}
+
+
+@pytest.mark.parametrize(
+    "season, section, status",
+    [("200", 3, "confirmed"), ("201", 0, "pending"), ("200", 0, "pending")],
+)
+def test_confirmation_requires_completed_api_history(
+    db_session, season, section, status
+):
+    """Distinguish authoritative history from inference and mismatched identities.
+
+    Args:
+        db_session: Disposable database session.
+        season: Requested season identifier.
+        section: Requested race section.
+        status: Expected confirmation status.
+
+    Returns:
+        None. Assertions verify both identity fields and completed-history evidence.
+    """
+    result = WarService(db_session, responses()).observe_identity(
+        "#PRIVATE", season, section
+    )
+    assert result["confirmation"] == {
+        "season": season,
+        "section": section,
+        "status": status,
+    }
+
+
+def test_stored_history_is_not_fresh_confirmation(db_session):
+    """Refuse to confirm a target only present in the pre-existing database.
+
+    Args:
+        db_session: Disposable database session.
+
+    Returns:
+        None. Assertions verify confirmation requires the current API response.
+    """
+    client = responses()
+    service = WarService(db_session, client)
+    service.sync_river_race_log("#PRIVATE")
+    client.get_river_race_log.return_value = responses(
+        201, 3, 1
+    ).get_river_race_log.return_value
+    result = service.observe_identity("#PRIVATE", "200", 3)
+    assert result["confirmation"]["status"] == "pending"
+
+
+@pytest.mark.parametrize(
+    "status, ok, expected",
+    [("pending", True, 3), ("confirmed", True, 0), ("confirmed", False, 1)],
+)
+def test_confirmation_cli_exit_status(monkeypatch, capsys, status, ok, expected):
+    """Keep pending evidence distinct from successful confirmation and API failure.
+
+    Args:
+        monkeypatch: Fixture patching the internal worker without network access.
+        capsys: Fixture capturing JSON output.
+        status: Synthetic confirmation status.
+        ok: Whether collection succeeded.
+        expected: Expected CLI exit code.
+
+    Returns:
+        None. Assertions verify machine-readable output and exit status.
+    """
+    from scripts import observe_war_identity  # pylint: disable=import-outside-toplevel
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["observe", "--worker", "--confirm-season", "137", "--confirm-section", "0"],
+    )
+    monkeypatch.setattr(
+        observe_war_identity,
+        "run_worker",
+        lambda *_: {"ok": ok, "confirmation": {"status": status}},
+    )
+    assert observe_war_identity.main() == expected
+    assert json.loads(capsys.readouterr().out)["ok"] == ok

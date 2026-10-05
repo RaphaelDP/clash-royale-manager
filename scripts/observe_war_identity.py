@@ -4,8 +4,8 @@ Filename: observe_war_identity.py
 Description: Collect sanitized live-war qualification evidence in an isolated process.
 Author: Raphael Smilet
 Date Created: 2026-10-02
-Last Modified: 2026-10-02
-Version: 0.1.1
+Last Modified: 2026-10-05
+Version: 0.1.2
 Python Version: 3.12
 ================================================================================
 """
@@ -25,11 +25,12 @@ from dotenv import dotenv_values
 # pylint: disable=import-outside-toplevel,duplicate-code
 
 
-def run_worker():
+def run_worker(confirm_season=None, confirm_section=None):
     """Collect one fresh sample using credentials and temporary runtime settings.
 
     Args:
-        None.
+        confirm_season: Optional expected season to confirm using fresh API history.
+        confirm_section: Expected section, supplied together with confirm_season.
 
     Returns:
         dict: Sanitized observation or failure type; no credentials or player data.
@@ -57,7 +58,9 @@ def run_worker():
         Base.metadata.create_all(engine)
         client = ClashAPIClient()
         with Session(engine) as db:
-            return WarService(db, client).observe_identity(settings.CLAN_TAG)
+            return WarService(db, client).observe_identity(
+                settings.CLAN_TAG, confirm_season, confirm_section
+            )
     except Exception as error:  # Do not expose request URLs or response contents.
         return {"ok": False, "error_type": type(error).__name__}
     finally:
@@ -73,15 +76,32 @@ def main():
         None. The internal --worker flag is reserved for the isolated subprocess.
 
     Returns:
-        int: Zero for a successful sample, one for configuration or collection failure.
+        int: Zero for success (and requested confirmation), one for collection failure,
+        or three while confirmation is pending. Invalid CLI arguments exit with two.
     """
     parser = argparse.ArgumentParser(
         description="Print sanitized live-war identity evidence without changing runtime data."
     )
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--confirm-season", help="Season to confirm in completed API history."
+    )
+    parser.add_argument(
+        "--confirm-section", type=int, help="Section to confirm with the season."
+    )
     args = parser.parse_args()
+    if args.confirm_season is not None or args.confirm_section is not None:
+        if (
+            not args.confirm_season
+            or not args.confirm_season.strip()
+            or args.confirm_section is None
+            or args.confirm_section < 0
+        ):
+            parser.error(
+                "Supply both a nonempty --confirm-season and nonnegative --confirm-section."
+            )
     if args.worker:
-        result = run_worker()
+        result = run_worker(args.confirm_season, args.confirm_section)
     else:
         root = Path(__file__).resolve().parents[1]
         configured = dotenv_values(root / ".env")
@@ -100,9 +120,19 @@ def main():
                 SCHEDULER_CONFIG_FILE=str(Path(directory) / "scheduler.json"),
                 JOB_LOCK_DIR=str(Path(directory) / "locks"),
             )
+            command = [sys.executable, "-m", "scripts.observe_war_identity", "--worker"]
+            if args.confirm_season is not None:
+                command.extend(
+                    [
+                        "--confirm-season",
+                        args.confirm_season,
+                        "--confirm-section",
+                        str(args.confirm_section),
+                    ]
+                )
             try:
                 child = subprocess.run(
-                    [sys.executable, "-m", "scripts.observe_war_identity", "--worker"],
+                    command,
                     cwd=directory,
                     env=env,
                     capture_output=True,
@@ -114,7 +144,9 @@ def main():
             except (subprocess.TimeoutExpired, ValueError):
                 result = {"ok": False, "error_type": "ObservationProcessFailed"}
     print(json.dumps(result, sort_keys=True))
-    return 0 if result.get("ok") else 1
+    if not result.get("ok"):
+        return 1
+    return 3 if result.get("confirmation", {}).get("status") == "pending" else 0
 
 
 if __name__ == "__main__":
