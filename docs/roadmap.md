@@ -1,6 +1,6 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-05 · Document version: 0.2.12
+Updated: 2026-10-06 · Document version: 0.2.13
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
@@ -11,6 +11,17 @@ on 2026-10-02. [v0.9.7 release notes](release-0.9.7.md) record the accepted scop
 and limitations; v1.0 qualification remains separate.
 
 Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ pending.
+
+## Desktop distribution and navigation follow-up
+
+- ✅ Graphical Docker launcher and locally smoke-tested Linux AppImage.
+- ✅ Docker page-content bleeding reproduced and corrected by disabling telemetry
+  writes to an unwritable home; explicit navigation isolates page rendering.
+- 🟡 Windows/macOS launcher builds await the new GitHub Actions workflow run.
+- 🟡 Rebuild the installed Docker image to receive the navigation fix.
+- See [launcher instructions](../launch/README.md) and
+  [verification evidence](qualification/navigation-launchers-2026-10-06.md).
+  These changes are after v0.9.7 and do not close the remaining v1.0 war gate.
 
 ## Capability baseline
 

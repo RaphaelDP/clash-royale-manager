@@ -4,7 +4,14 @@ A Streamlit dashboard for clan membership, war history, activity, contribution
 scores, and leadership recommendations. Current version: **0.9.7**.
 See the [release notes](docs/release-0.9.7.md) for verification and known limitations.
 
-## Get started
+## Desktop installation (no coding)
+
+Use the [graphical Docker launcher](launch/README.md) for Start, Open dashboard
+and Stop all buttons. Install Docker once, then download the project and the
+launcher for your system from a successful GitHub Actions build. Native builds
+are being introduced after v0.9.7; that existing tag does not contain them.
+
+## Get started with Python
 
 Use Python 3.12 or newer. Run these commands from the repository root:
 

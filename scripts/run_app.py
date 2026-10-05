@@ -4,8 +4,8 @@ Filename: run_app.py
 Description: Supervise dashboard and scheduler with safe startup and graceful shutdown.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-10-05
-Version: 0.1.2
+Last Modified: 2026-10-06
+Version: 0.1.4
 Python Version: 3.12
 ================================================================================
 """
@@ -54,21 +54,33 @@ def main():
             processes["scheduler"] = subprocess.Popen(
                 [sys.executable, "-m", "scripts.run_scheduler"], env=env
             )
-            processes["dashboard"] = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-m",
-                    "streamlit",
-                    "run",
-                    "dashboard/home.py",
-                    "--server.port=8501",
-                    "--server.address=0.0.0.0",
-                ],
-                env=env,
-            )
+            processes["dashboard"] = start_dashboard(control)
             supervise_processes(processes, stop, control)
         finally:
             stop_processes(processes.values())
+
+
+def start_dashboard(control):
+    """Start only the web process with its supervisor's private control channel.
+
+    Args:
+        control: Live supervisor directory inherited by the dashboard.
+
+    Returns:
+        subprocess.Popen: Owned dashboard child requiring eventual cleanup.
+    """
+    return subprocess.Popen(  # pylint: disable=consider-using-with
+        [
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
+            "dashboard/navigation.py",
+            "--server.port=8501",
+            "--server.address=0.0.0.0",
+        ],
+        env=dict(os.environ, **{CONTROL_ENV: str(control)}),
+    )
 
 
 def stop_processes(processes):
@@ -114,6 +126,11 @@ def supervise_processes(processes, stop, control):
         if mode == "dashboard" and "dashboard" in processes:
             stop_processes([processes["dashboard"]])
             del processes["dashboard"]
+        resume = control / "resume-dashboard"
+        if resume.exists():
+            resume.unlink(missing_ok=True)
+            if "dashboard" not in processes:
+                processes["dashboard"] = start_dashboard(control)
         if any(process.poll() is not None for process in processes.values()):
             raise RuntimeError("An application process exited unexpectedly.")
 

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Run the bundled launcher; APPDIR is supplied by the AppImage runtime.
+exec "$APPDIR/usr/linux_launcher/linux_launcher" "$@"

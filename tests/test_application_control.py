@@ -4,11 +4,13 @@ Filename: test_application_control.py
 Description: Verify confirmed shutdown, owned-process cleanup, and released web ports.
 Author: Raphael Smilet
 Date Created: 2026-10-05
-Last Modified: 2026-10-05
-Version: 0.1.0
+Last Modified: 2026-10-06
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
+
+from unittest.mock import MagicMock
 
 import socket
 import subprocess
@@ -180,3 +182,38 @@ def test_cancel_close_leaves_processes_running(monkeypatch):
     app.button(key="cancel_close").click().run()
     assert not app.exception
     assert not calls
+
+
+def test_dashboard_resume_preserves_scheduler(tmp_path, monkeypatch):
+    """Reopen a stopped web process once while retaining the existing scheduler.
+
+    Args:
+        tmp_path: Isolated supervisor directory.
+        monkeypatch: Fixture replacing process creation and control discovery.
+
+    Returns:
+        None. Assertions verify one dashboard start and no scheduler replacement.
+    """
+    directory = tmp_path / "clan-control-test"
+    directory.mkdir()
+    (directory / "heartbeat").touch()
+    monkeypatch.setattr(control.tempfile, "gettempdir", lambda: str(tmp_path))
+    control.request_dashboard_start()
+    assert (directory / "resume-dashboard").exists()
+    scheduler = MagicMock()
+    scheduler.poll.return_value = None
+    dashboard = MagicMock()
+    dashboard.poll.return_value = None
+    start = MagicMock(return_value=dashboard)
+    monkeypatch.setattr("scripts.run_app.start_dashboard", start)
+    stop = MagicMock()
+    stop.wait.side_effect = [False, True]
+    processes = {"scheduler": scheduler}
+    supervise_processes(processes, stop, directory)
+    assert processes == {"scheduler": scheduler, "dashboard": dashboard}
+    start.assert_called_once_with(directory)
+    control.request_dashboard_start()
+    stop.wait.side_effect = [False, True]
+    supervise_processes(processes, stop, directory)
+    start.assert_called_once()
+    scheduler.terminate.assert_not_called()

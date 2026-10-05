@@ -4,8 +4,8 @@ Filename: package_release.py
 Description: Build fresh distribution archives without runtime or private files.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-10-01
-Version: 0.1.1
+Last Modified: 2026-10-06
+Version: 0.1.2
 Python Version: 3.12
 ================================================================================
 """
@@ -32,6 +32,7 @@ ROOT_FILES = {
     ".pylintrc",
 }
 EXCLUDED_DIRS = {
+    "macos_launcher",
     "__pycache__",
     ".pytest_cache",
     "cache",
@@ -69,13 +70,19 @@ def source_files(root: Path):
             dirs[:] = sorted(
                 d
                 for d in dirs
-                if d not in EXCLUDED_DIRS and not (Path(directory) / d).is_symlink()
+                if d not in EXCLUDED_DIRS
+                and not d.endswith(".app")
+                and not (Path(directory) / d).is_symlink()
             )
             for filename in sorted(files):
                 path = Path(directory) / filename
                 if path.is_symlink() or filename.startswith(".env"):
                     continue
                 if path.suffix.lower() in {
+                    ".exe",
+                    ".appimage",
+                    ".spec",
+                    ".gz",
                     ".pyc",
                     ".db",
                     ".sqlite",

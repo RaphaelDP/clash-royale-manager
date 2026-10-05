@@ -13,7 +13,7 @@ BLACK := black
 PYLINT := pylint
 
 # Project paths
-SRC := dashboard app scripts tests
+SRC := dashboard app scripts tests launch
 
 # Files and directories to ignore
 IGNORE := venv,.venv,logs,data,secrets,app/database/migrations/

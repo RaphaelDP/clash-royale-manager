@@ -1,6 +1,6 @@
 # Operations guide
 
-Updated: 2026-10-05 · Document version: 0.2.0
+Updated: 2026-10-06 · Document version: 0.2.2
 
 ## Configuration
 
@@ -238,7 +238,7 @@ must be supplied together. No automatic polling or release publication occurs.
 
 ### Closing the application
 
-Home and Settings provide a **Close** button with an explicit confirmation dialog.
+The shared navigation sidebar provides a **Close** button with an explicit confirmation dialog.
 Cancel leaves both services running. The two confirmed choices are:
 
 - **Dashboard only:** terminate and reap Streamlit, releasing its listening socket;
@@ -271,3 +271,8 @@ Deploy the updated Compose configuration for the intentional-stop behavior to ap
 Isolated tests exercise confirmation and cancellation, real child-process shutdown,
 socket rebinding after closure, and scheduler survival for dashboard-only mode.
 The production application was not stopped during implementation verification.
+
+The desktop launcher now resumes a dashboard-only shutdown through the running
+supervisor without restarting the scheduler. Normal Start reuses the installed
+image; **Update application** explicitly rebuilds and restarts after source
+changes. Existing images must be updated once to add the resume protocol.

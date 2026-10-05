@@ -4,8 +4,8 @@ Filename: test_dashboard_pages.py
 Description: Integration tests for dashboard pages, data preparation, and actions.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-10-01
-Version: 0.1.2
+Last Modified: 2026-10-06
+Version: 0.1.3
 Python Version: 3.12
 Dependencies: pytest, sqlalchemy, streamlit.testing, dashboard.functions
 ================================================================================
@@ -322,3 +322,24 @@ def test_member_filters_and_exports(populated_dashboard):
     settings = functions.get_settings_page_data()
     assert "test-token" not in settings["configuration_export"]
     assert settings["api_token_mask"] == "*" * 32
+
+
+def test_navigation_clears_previous_page(populated_dashboard):
+    """Switch long Settings and Members pages back to Home in one session.
+
+    Args:
+        populated_dashboard: Isolated populated database and mocked API fixture.
+
+    Returns:
+        None. Assertions verify Settings content and member filters leave Home.
+    """
+    app = AppTest.from_file(str(ROOT / "dashboard/navigation.py")).run()
+    for page in ("pages/_06_settings.py", "pages/_02_members.py"):
+        app.switch_page(page).run()
+        assert not app.exception
+        app.switch_page("home.py").run()
+        assert not app.exception
+        assert not app.metric
+        assert not app.text_input
+        assert not app.multiselect
+        assert not app.dataframe

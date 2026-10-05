@@ -4,14 +4,13 @@ Filename: _06_settings.py
 Description: Streamlit settings page.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-10-05
-Version: 0.5.3
+Last Modified: 2026-10-06
+Version: 0.5.4
 ================================================================================
 """
 
 import streamlit as st
 
-from dashboard.controls import render_close_button
 
 from dashboard.functions import (
     get_settings_page_data,
@@ -23,7 +22,6 @@ from dashboard.functions import (
 
 st.set_page_config(page_title="Settings", layout="wide")
 st.title("⚙️ Settings")
-render_close_button()
 data = get_settings_page_data()
 
 st.header("Database")

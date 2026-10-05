@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Clash Royale Clan Manager
+Exec=linux_launcher
+Icon=clan-manager
+Categories=Utility;
+Terminal=false

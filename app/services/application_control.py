@@ -4,8 +4,8 @@ Filename: application_control.py
 Description: Exchange shutdown requests with the application's owning supervisor.
 Author: Raphael Smilet
 Date Created: 2026-10-05
-Last Modified: 2026-10-05
-Version: 0.1.0
+Last Modified: 2026-10-06
+Version: 0.1.1
 Python Version: 3.12
 ================================================================================
 """
@@ -94,3 +94,21 @@ def pending_shutdown(directory: Path) -> str | None:
         return None
     path.unlink(missing_ok=True)
     return mode
+
+
+def request_dashboard_start():
+    """Ask the live container supervisor to reopen its dashboard without stopping jobs.
+
+    Args:
+        None. The container has one supervisor with a private temporary directory.
+
+    Returns:
+        None. During initial collection there is no supervisor yet and no request is needed.
+    """
+    for directory in Path(tempfile.gettempdir()).glob("clan-control-*"):
+        try:
+            age = time.time() - (directory / "heartbeat").stat().st_mtime
+            if 0 <= age < 10:
+                (directory / "resume-dashboard").touch()
+        except FileNotFoundError:
+            continue
