@@ -1,6 +1,6 @@
 # Operations guide
 
-Updated: 2026-10-05 · Document version: 0.1.8
+Updated: 2026-10-05 · Document version: 0.2.0
 
 ## Configuration
 
@@ -80,7 +80,7 @@ service or port 8000. Restrict dashboard access to trusted operators: Settings
 exposes administrative actions and there is no application login layer.
 
 Startup migrates, attempts collection, and supervises both children. A child exit
-stops the supervisor, allowing Compose's restart policy to act. Shutdown requests
+stops the supervisor with a failure status, allowing Compose's on-failure restart policy to act. Shutdown requests
 termination, waits up to 20 seconds per child, then kills remaining children.
 Compose supplies an init process and a 45-second grace period. Its stdout logs
 rotate at 10 MB with three files. Health probes check Streamlit's health endpoint;
@@ -227,3 +227,47 @@ history confirmed prior live identity 136/3, and the live response resolved to
 The [qualification record](v1-qualification.md#real-transition-observed--2026-10-05)
 contains the sanitized sample and the remaining acceptance check. This observation
 used temporary data and disabled Discord; production data was not changed.
+
+
+For the remaining release gate, append `--confirm-season 137 --confirm-section 0`
+to the observation command. Exit 0 means the successful sample confirms that
+identity in fresh completed history; exit 3 means it is still pending. Exit 1
+indicates collection failure and exit 2 indicates invalid arguments. Both options
+must be supplied together. No automatic polling or release publication occurs.
+
+
+### Closing the application
+
+Home and Settings provide a **Close** button with an explicit confirmation dialog.
+Cancel leaves both services running. The two confirmed choices are:
+
+- **Dashboard only:** terminate and reap Streamlit, releasing its listening socket;
+  the supervisor and scheduler remain running. The scheduler needs no web port.
+- **Everything:** stop both children, then exit the supervisor successfully.
+  Scheduled jobs no longer run until the application is started again.
+
+These controls affect every browser using the same application instance. Browsers
+may retain a disconnected tab; application code cannot reliably close a tab the
+browser did not open programmatically. The control stops the server, not just a tab.
+Requests are routed through a private temporary directory inherited from the
+owning supervisor. Only its child processes are terminated; no process is killed
+by a port number or a saved PID. Requests wait three seconds so the UI can display
+acknowledgement. Children get the normal twenty-second shutdown grace period.
+
+Restart your existing application once with `python -m scripts.run_app` to load
+the new supervisor and activate the controls. Direct `streamlit run` launches show
+a disabled Close button because they have no owning application supervisor.
+After dashboard-only shutdown, stop the remaining supervisor from its launching
+terminal with Ctrl+C before starting the complete application again.
+
+Compose now uses `restart: on-failure`: unexpected process exits still restart,
+but confirmed full shutdown exits successfully and stays stopped. Start it again
+with `docker compose up -d`. With this single-container Compose layout, dashboard-only
+shutdown leaves Docker's published host port reserved while the scheduler runs;
+choose **Everything** to stop the container and release that published binding.
+The dashboard HTTP health probe is expected to fail during scheduler-only operation.
+Deploy the updated Compose configuration for the intentional-stop behavior to apply.
+
+Isolated tests exercise confirmation and cancellation, real child-process shutdown,
+socket rebinding after closure, and scheduler survival for dashboard-only mode.
+The production application was not stopped during implementation verification.

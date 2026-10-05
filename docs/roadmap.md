@@ -1,6 +1,6 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-05 · Document version: 0.2.10
+Updated: 2026-10-05 · Document version: 0.2.12
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
@@ -81,6 +81,10 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
 - ✅ Daily-job guards, membership marker consolidation, same-day catch-up, and
   process locks are implemented. Catch-up uses scheduled-time order.
 - ✅ Startup failures and child-process exits are surfaced; shutdown is supervised.
+- ✅ Home/Settings Close confirmation can stop the dashboard alone or both children.
+  Tests verify actual socket release and scheduler survival. Compose uses on-failure
+  restart so intentional full shutdown stays stopped; dashboard-only mode retains
+  Docker's published binding until the container stops.
 - ✅ Compose persists backups, database, caches, logs, and schedule; Linux launcher
   supplies host UID/GID. Streamlit is the only advertised service port.
 - ✅ Restore command validates a read-only source, refuses accidental replacement,
@@ -101,11 +105,11 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
 
 ## Local verification
 
-- Full isolated test suite: **208 passed**.
-- Repository Black check: **69 files unchanged**.
+- Full isolated test suite: **222 passed**.
+- Repository Black check: **72 files unchanged**.
 - Repository Pylint check: **10.00/10**; shell syntax and diff whitespace checks pass.
 - Synthetic query profile, Docker build/smoke test, and isolated live cycle: completed.
-- Current working tree: `make ci` passes Black, Pylint (10.00/10), and all 208 tests.
+- Current working tree: `make ci` passes Black, Pylint (10.00/10), and all 222 tests.
 - The previous documentation pass covered 374 named functions across 48 Python
   files without changing executable syntax trees. New functions follow the same
   description, Args, and Returns convention. The module-length budget is 1,300 lines.
@@ -130,6 +134,9 @@ command, first live baseline, and exact acceptance criteria. No observer runs in
 the background and no production schedule was changed.
 
 - ✅ Added repeatable, identity-only API observation with temporary runtime data.
+- ✅ Explicit confirmation mode checks fresh completed history for an exact race,
+  with distinct success, pending, and failure exit codes. The October 5 follow-up
+  succeeded but still reported 137/0 pending; this is not a release qualification.
 - ✅ Added regressions for inferred rollover confirmation, lagging live responses,
   repeated updates, recovery from a long gap, and worker isolation.
 - ✅ First uncached live observation: completed season 136/section 2, inferred

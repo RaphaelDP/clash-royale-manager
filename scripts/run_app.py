@@ -4,13 +4,16 @@ Filename: run_app.py
 Description: Supervise dashboard and scheduler with safe startup and graceful shutdown.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-10-01
-Version: 0.1.1
+Last Modified: 2026-10-05
+Version: 0.1.2
 Python Version: 3.12
 ================================================================================
 """
 
+import os
+from pathlib import Path
 import signal
+import tempfile
 import subprocess
 import sys
 from threading import Event
@@ -18,6 +21,7 @@ from threading import Event
 from scripts.init_db import init_db
 from scripts.collect_data import main as collect_data
 from app.core.logger import logger
+from app.services.application_control import CONTROL_ENV, pending_shutdown
 
 
 def main():
@@ -39,15 +43,18 @@ def main():
     stop = Event()
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, lambda *_: stop.set())
-    # Processes are terminated together and reaped in the finally block.
-    # pylint: disable=consider-using-with
-    processes = []
-    try:
-        processes.append(
-            subprocess.Popen([sys.executable, "-m", "scripts.run_scheduler"])
-        )
-        processes.append(
-            subprocess.Popen(
+    with tempfile.TemporaryDirectory(prefix="clan-control-") as directory:
+        control = Path(directory)
+        (control / "heartbeat").touch()
+        env = dict(os.environ, **{CONTROL_ENV: directory})
+        processes = {}
+        # Children are always terminated and reaped, including partial startup.
+        # pylint: disable=consider-using-with
+        try:
+            processes["scheduler"] = subprocess.Popen(
+                [sys.executable, "-m", "scripts.run_scheduler"], env=env
+            )
+            processes["dashboard"] = subprocess.Popen(
                 [
                     sys.executable,
                     "-m",
@@ -56,22 +63,59 @@ def main():
                     "dashboard/home.py",
                     "--server.port=8501",
                     "--server.address=0.0.0.0",
-                ]
+                ],
+                env=env,
             )
-        )
-        while not stop.wait(1):
-            if any(process.poll() is not None for process in processes):
-                raise RuntimeError("An application process exited unexpectedly.")
-    finally:
-        for process in processes:
-            if process.poll() is None:
-                process.terminate()
-        for process in processes:
-            try:
-                process.wait(timeout=20)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+            supervise_processes(processes, stop, control)
+        finally:
+            stop_processes(processes.values())
+
+
+def stop_processes(processes):
+    """Terminate owned children, then reap them with a bounded grace period.
+
+    Args:
+        processes: Iterable of subprocess.Popen objects owned by this supervisor.
+
+    Returns:
+        None.
+    """
+    processes = list(processes)
+    for process in processes:
+        if process.poll() is None:
+            process.terminate()
+    for process in processes:
+        try:
+            process.wait(timeout=20)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+
+
+def supervise_processes(processes, stop, control):
+    """Monitor children and honor only this instance's confirmed shutdown requests.
+
+    Args:
+        processes: Mapping of child role to its owned subprocess.Popen object.
+        stop: Event set by supervisor signal handlers for full shutdown.
+        control: Private directory carrying the heartbeat and UI requests.
+
+    Returns:
+        None. Full intentional shutdown returns normally; caller cleans up children.
+
+    Raises:
+        RuntimeError: A child exits without an intentional shutdown request.
+    """
+    while not stop.wait(1):
+        (control / "heartbeat").touch()
+        mode = pending_shutdown(control)
+        if mode == "all":
+            return
+        if mode == "dashboard" and "dashboard" in processes:
+            stop_processes([processes["dashboard"]])
+            del processes["dashboard"]
+        if any(process.poll() is not None for process in processes.values()):
+            raise RuntimeError("An application process exited unexpectedly.")
 
 
 if __name__ == "__main__":
