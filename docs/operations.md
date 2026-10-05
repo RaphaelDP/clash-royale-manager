@@ -1,6 +1,6 @@
 # Operations guide
 
-Updated: 2026-10-02 · Document version: 0.1.7
+Updated: 2026-10-05 · Document version: 0.1.8
 
 ## Configuration
 
@@ -219,3 +219,11 @@ Discord messages. It prints JSON and returns nonzero on collection failure.
 See [v1.0 qualification](v1-qualification.md) for recording samples, the observed
 baseline, and the distinction between synthetic regression coverage and real
 season-boundary confirmation.
+
+
+On 2026-10-05, a new isolated sample observed the real section reset: completed
+history confirmed prior live identity 136/3, and the live response resolved to
+137/0. The new identity is still inferred until a later completed log confirms it.
+The [qualification record](v1-qualification.md#real-transition-observed--2026-10-05)
+contains the sanitized sample and the remaining acceptance check. This observation
+used temporary data and disabled Discord; production data was not changed.

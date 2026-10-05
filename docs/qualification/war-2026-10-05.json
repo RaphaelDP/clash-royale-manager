@@ -1,0 +1,74 @@
+{
+  "explicit_live_season": false,
+  "live_section": 0,
+  "observed_at": "2026-10-05T13:18:44.904251+00:00",
+  "ok": true,
+  "races": [
+    {
+      "completed": true,
+      "season": "134",
+      "section": 3,
+      "timestamp": "2026-08-03T11:54:03"
+    },
+    {
+      "completed": true,
+      "season": "135",
+      "section": 0,
+      "timestamp": "2026-08-10T11:42:44"
+    },
+    {
+      "completed": true,
+      "season": "135",
+      "section": 1,
+      "timestamp": "2026-08-17T11:43:24"
+    },
+    {
+      "completed": true,
+      "season": "135",
+      "section": 2,
+      "timestamp": "2026-08-24T11:44:10"
+    },
+    {
+      "completed": true,
+      "season": "135",
+      "section": 3,
+      "timestamp": "2026-08-31T11:41:05"
+    },
+    {
+      "completed": true,
+      "season": "135",
+      "section": 4,
+      "timestamp": "2026-09-07T11:41:04"
+    },
+    {
+      "completed": true,
+      "season": "136",
+      "section": 0,
+      "timestamp": "2026-09-14T11:33:06"
+    },
+    {
+      "completed": true,
+      "season": "136",
+      "section": 1,
+      "timestamp": "2026-09-21T11:33:06"
+    },
+    {
+      "completed": true,
+      "season": "136",
+      "section": 2,
+      "timestamp": "2026-09-28T11:33:13"
+    },
+    {
+      "completed": true,
+      "season": "136",
+      "section": 3,
+      "timestamp": "2026-10-05T11:34:04"
+    },
+    {
+      "completed": false,
+      "season": "137",
+      "section": 0,
+      "timestamp": "2026-10-05T15:18:44.888071"
+    }
+  ]
+}

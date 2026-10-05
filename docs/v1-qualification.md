@@ -1,6 +1,6 @@
 # v1.0 qualification
 
-Updated: 2026-10-02 · Document version: 0.1.1
+Updated: 2026-10-05 · Document version: 0.1.2
 
 The v1.0 scope is the existing clan-management product with reliable collection,
 dashboard, scheduling, and recovery. Player comparison, forecasting, configurable
@@ -67,3 +67,30 @@ This is an ordinary within-season observation. It does not close the boundary
 gate. Historical seasons in the response provide context, not evidence that the
 new guard ran during those earlier transitions. The operator's v0.9.7 exception
 does not automatically waive this v1.0 requirement.
+
+
+### Real transition observed — 2026-10-05
+
+The uncached isolated observation at 13:18:44 UTC (15:18:44 Europe/Paris), using
+service code committed at `206b179`, succeeded. The complete identity-only sample
+is retained in [war-2026-10-05.json](qualification/war-2026-10-05.json).
+
+| Evidence | Result |
+| --- | --- |
+| October 2 inferred live identity | 136 / section 3 |
+| October 5 API completed history | Confirms 136 / section 3 |
+| October 5 live section | Reset to 0 |
+| October 5 inferred live identity | 137 / section 0 |
+| Explicit live season ID | Still absent |
+| API completed history for 137 / 0 | Not yet present |
+
+The before/after transition is now observed, and the previously live race was
+confirmed by authoritative history. The new season identity remains inferred.
+Acceptance steps 1 and 2 above are satisfied; step 3 still requires a later
+completed-history sample confirming **137 / section 0**. Do not mark the field
+gate complete merely because the numeric increment looks correct.
+
+Next action: collect another sample after the new race completes and look for
+`season: "137", section: 0, completed: true`. If history instead reports a different
+identity, investigate and fix inference before tagging v1.0.0. No background
+observer or automatic release has been installed.

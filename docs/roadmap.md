@@ -1,6 +1,6 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-02 · Document version: 0.2.9
+Updated: 2026-10-05 · Document version: 0.2.10
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
@@ -122,7 +122,8 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
 
 ## Fast path to v1.0
 
-The remaining release blocker is real season-boundary evidence. The other pending
+A real season boundary was observed on October 5. The remaining release blocker
+is authoritative completed-history confirmation of the new inferred race. The other pending
 features below are optional follow-ups, not additions to the v1.0 release gate.
 [Qualification instructions](v1-qualification.md) give the isolated observation
 command, first live baseline, and exact acceptance criteria. No observer runs in
@@ -133,7 +134,10 @@ the background and no production schedule was changed.
   repeated updates, recovery from a long gap, and worker isolation.
 - ✅ First uncached live observation: completed season 136/section 2, inferred
   live season 136/section 3; explicit live season ID absent.
-- ⬜ Capture a real transition and subsequent completed-history confirmation.
+- ✅ Real transition captured on October 5: prior live 136/3 is now completed in
+  API history; live section reset to zero and resolved to 137/0.
+- ⬜ Confirm 137/0 in subsequent completed API history. The live response still
+  omits season ID; inference success alone does not close this final field gate.
 - ⬜ After qualification, prepare and check v1.0.0 release metadata and tag.
 
 ## Required gates before v1.0
@@ -150,8 +154,10 @@ the background and no production schedule was changed.
   acceptance gate below.
 - ✅ Live synchronization passed using authorized credentials, temporary data,
   and disabled Discord: members, history/current race, daily jobs, scoring, restore.
-- ⬜ Verify actual season boundaries and prolonged stale/incomplete history; one
-  successful live cycle does not establish those behaviors.
+- 🟡 Real before/after season transition observed on October 5; prior live race
+  136/3 confirmed by history. New inferred race 137/0 awaits authoritative history.
+  Synthetic long-gap refusal/recovery tests pass; the field gate remains open.
+  See the [qualification evidence](v1-qualification.md#real-transition-observed--2026-10-05).
 - ✅ Discord delivery verified on 2026-10-02: one labeled diagnostic message was
   acknowledged by Discord; a repeated daily-job call sent no duplicate. Separate
   mocked subprocess checks passed for failed delivery, crash lock release, retry,
@@ -170,7 +176,7 @@ the background and no production schedule was changed.
 - ✅ Remote tag cleanup verified: all 15 archived names exist under `legacy/`,
   original aliases are absent, and the 19 primary tags remain unchanged.
 - ✅ Operator approved v0.9.7 as a pre-1.0 release with the real-rollover limitation
-  explicitly accepted. Release commit/tag are prepared locally; publication is a
+  explicitly accepted. Release commit/tag were created locally; publication is a
   separate Git push. No v1.0 tag is authorized by this qualification.
 
 ## Optional enhancements after reliability gates
