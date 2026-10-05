@@ -4,8 +4,8 @@ Filename: war_service.py
 Description: Service for managing war data, including river races and participation.
 Author: Raphael Smilet
 Date Created: 2026-06-09
-Last Modified: 2026-10-01
-Version: 0.4.5
+Last Modified: 2026-10-02
+Version: 0.4.7
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils, app.services.clash_api
 ================================================================================
@@ -13,7 +13,8 @@ Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils, 
 """
 
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from sqlalchemy.orm import Session
 from app.core.logger import logger
 from app.core.constants import MAX_LIVE_HISTORY_AGE_DAYS
@@ -40,6 +41,77 @@ class WarService:
         self.db: Session = db_session
         self.api_client: ClashAPIClient = api_client or ClashAPIClient()
         self.member_service: MemberService = MemberService(db_session, self.api_client)
+
+    @staticmethod
+    def summarize_participations(
+        participations: list[WarParticipation],
+    ) -> dict[str, int]:
+        """Aggregate the supplied player's historical and live participation records.
+
+        Args:
+            participations: Records already selected for the desired player and scope.
+                Zero-deck records count as participation rows, not as attacks.
+
+        Returns:
+            dict[str, int]: Record count and summed fame, boat attacks, and decks.
+                Empty input produces zero for every metric.
+        """
+        return {
+            "count": len(participations),
+            "total_fame": sum(record.fame for record in participations),
+            "total_boats": sum(record.boat_attacks for record in participations),
+            "total_decks": sum(record.decks_used for record in participations),
+        }
+
+    def observe_identity(self, clan_tag: str) -> dict[str, Any]:
+        """Synchronize a fresh API sample and project identity-only evidence.
+
+        Use a disposable database: this method commits historical and live race
+        synchronization through the normal service methods. Runtime isolation,
+        credential loading, and output persistence belong to the caller.
+
+        Args:
+            clan_tag: Requested clan tag, excluded from the returned evidence.
+
+        Returns:
+            dict[str, Any]: UTC observation time, explicit-ID presence, live
+            section, and race identities with scheduler-local timestamps.
+
+        Raises:
+            Exception: API or synchronization failure; callers must avoid exposing
+                raw request errors that may contain private response details.
+        """
+        with self.api_client.session.cache_disabled():
+            history = self.api_client.get_river_race_log(clan_tag)
+            current = self.api_client.get_current_river_race(clan_tag)
+        # Replay exactly the captured pair through normal validation and writes.
+        captured = SimpleNamespace(
+            get_river_race_log=lambda _: history,
+            get_current_river_race=lambda _: current,
+        )
+        service = WarService(self.db, captured)
+        service.sync_river_race_log(clan_tag)
+        service.sync_current_river_race(clan_tag)
+        races = (
+            self.db.query(RiverRace)
+            .order_by(RiverRace.created_date, RiverRace.id)
+            .all()
+        )
+        return {
+            "observed_at": datetime.now(timezone.utc).isoformat(),
+            "ok": True,
+            "explicit_live_season": current.get("seasonId") is not None,
+            "live_section": current["sectionIndex"],
+            "races": [
+                {
+                    "season": race.season_id,
+                    "section": race.section_index,
+                    "completed": race.is_completed,
+                    "timestamp": race.created_date.isoformat(),
+                }
+                for race in races
+            ],
+        }
 
     def _sync_participants(self, race, participants):
         """

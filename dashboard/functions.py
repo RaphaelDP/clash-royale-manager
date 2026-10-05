@@ -4,8 +4,8 @@ Filename: functions.py
 Description: Data preparation and action helpers for the Streamlit dashboard.
 Author: Raphael Smilet
 Date Created: 2026-07-25
-Last Modified: 2026-10-01
-Version: 0.1.3
+Last Modified: 2026-10-02
+Version: 0.1.4
 Python Version: 3.12
 Dependencies: pandas, streamlit, app.database, app.services, app.scheduler.jobs
 ================================================================================
@@ -35,6 +35,7 @@ from app.database.session import get_session
 from app.scheduler.jobs import calculate_scores, update_clan_members, update_war_data
 from app.services.dashboard_service import DashboardService
 from app.services.member_service import MemberService
+from app.services.war_service import WarService
 from app.services.scheduler_config import load_schedule, save_schedule, DEFAULT_SCHEDULE
 from app.scheduler.scheduler import JOB_NAMES
 
@@ -460,9 +461,6 @@ def get_player_page_data(tag: str, refresh: bool) -> dict[str, Any] | None:
     scores = history.get("contribution_scores", [])
     snapshots = history.get("snapshots", [])
 
-    wins = api.get("wins", 0)
-    losses = api.get("losses", 0)
-    total_battles = wins + losses
     score_df = _score_dataframe(scores)
     snapshot_df = _snapshot_dataframe(snapshots)
     updated_at = profile.get("api_data_updated_at")
@@ -519,7 +517,7 @@ def get_player_page_data(tag: str, refresh: bool) -> dict[str, Any] | None:
                 }
             ]
         ),
-        "winrate": round((wins / total_battles) * 100, 1) if total_battles else 0,
+        "winrate": member_service.calculate_winrate(api),
         "deck_df": _deck_dataframe(api.get("currentDeck", [])),
         "progress_df": pd.DataFrame(
             [
@@ -627,10 +625,7 @@ def _player_war_data(participations: list[Any]) -> dict[str, Any]:
     """
     if not participations:
         return {
-            "count": 0,
-            "total_fame": 0,
-            "total_boats": 0,
-            "total_decks": 0,
+            **WarService.summarize_participations(participations),
             "df": pd.DataFrame(),
         }
     ordered = sorted(
@@ -640,10 +635,7 @@ def _player_war_data(participations: list[Any]) -> dict[str, Any]:
     )
 
     return {
-        "count": len(participations),
-        "total_fame": sum(p.fame for p in participations),
-        "total_boats": sum(p.boat_attacks for p in participations),
-        "total_decks": sum(p.decks_used for p in participations),
+        **WarService.summarize_participations(participations),
         "df": pd.DataFrame(
             [
                 {

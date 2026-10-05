@@ -1,6 +1,6 @@
 # Architecture and data semantics
 
-Updated: 2026-10-02 · Document version: 0.1.1
+Updated: 2026-10-02 · Document version: 0.1.3
 
 ## Responsibilities
 
@@ -9,6 +9,18 @@ preparation, detached display values, DataFrames, chart inputs, cache metadata,
 and manual-action orchestration. Services perform database queries, API work,
 scoring, and synchronization. Models define persisted relationships; Alembic owns
 schema changes. `scripts.run_app` supervises the UI and separate scheduler process.
+
+Clash Royale HTTP handling belongs in `ClashAPIClient`; clan, member, and war
+rules belong in their services. Scripts provide command-line entry points and
+runtime setup. `WarService.observe_identity()` owns fresh race collection,
+validation, synchronization, and identity-only evidence projection; its caller
+must supply a disposable database. `scripts.observe_war_identity` owns credential
+loading, temporary-process isolation, and JSON output. `scripts.collect_data`
+only sequences monitored jobs, whose Clash Royale work delegates to services.
+Player win rate and war participation totals also belong to MemberService and
+WarService. Dashboard helpers retain filtered display summaries, DataFrames,
+labels, ordering, and chart formatting; Discord integration formats reports
+from service-provided metrics.
 
 ```mermaid
 flowchart LR

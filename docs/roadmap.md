@@ -1,6 +1,6 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-02 · Document version: 0.2.7
+Updated: 2026-10-02 · Document version: 0.2.9
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
@@ -25,7 +25,7 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
 | v0.6 Analytics UI | ✅ Historical views, rankings, explicit profile-cache freshness and fallback |
 | v0.7 Automation | ✅ Persistent schedule, reload, job health, same-job locking and daily guards |
 | v0.8 Decision support | 🟡 Recommendations available; optional enhancements listed below |
-| v0.9 Production preparation | 🟡 Implementation completed below; deployment verification remains |
+| v0.9 Production preparation | ✅ Implementation, deployment, restore, Discord, and visual checks complete |
 | v1.0 Stable release | ⬜ Release gates remain; not released |
 
 ## Completed reliability work
@@ -60,6 +60,8 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
 ### Dashboard and collection
 
 - ✅ Pages render helper-prepared values, DataFrames, charts, and exports.
+- ✅ API observation, player win rate, and war participation totals are owned by
+  services. Scripts orchestrate execution; dashboard helpers format the results.
 - ✅ Invalid refresh callback, duplicate Player controls, zero-valued slider ranges,
   closed-session history access, and missing-activity crashes are fixed.
 - ✅ Current-roster rankings and growth exclude departed members; automatic
@@ -99,11 +101,11 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
 
 ## Local verification
 
-- Full isolated test suite: **198 passed**.
-- Repository Black check: **66 files unchanged**.
+- Full isolated test suite: **208 passed**.
+- Repository Black check: **69 files unchanged**.
 - Repository Pylint check: **10.00/10**; shell syntax and diff whitespace checks pass.
 - Synthetic query profile, Docker build/smoke test, and isolated live cycle: completed.
-- Current working tree: `make ci` passes Black, Pylint (10.00/10), and all 198 tests.
+- Current working tree: `make ci` passes Black, Pylint (10.00/10), and all 208 tests.
 - The previous documentation pass covered 374 named functions across 48 Python
   files without changing executable syntax trees. New functions follow the same
   description, Args, and Returns convention. The module-length budget is 1,300 lines.
@@ -117,6 +119,22 @@ Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ p
   [Operations](operations.md#backup-copy-upgrade-and-restore-rehearsal--2026-10-02);
   original backup hashes were unchanged. Credentials were loaded privately for
   authorized live API and Discord checks, never for the offline backup rehearsal.
+
+## Fast path to v1.0
+
+The remaining release blocker is real season-boundary evidence. The other pending
+features below are optional follow-ups, not additions to the v1.0 release gate.
+[Qualification instructions](v1-qualification.md) give the isolated observation
+command, first live baseline, and exact acceptance criteria. No observer runs in
+the background and no production schedule was changed.
+
+- ✅ Added repeatable, identity-only API observation with temporary runtime data.
+- ✅ Added regressions for inferred rollover confirmation, lagging live responses,
+  repeated updates, recovery from a long gap, and worker isolation.
+- ✅ First uncached live observation: completed season 136/section 2, inferred
+  live season 136/section 3; explicit live season ID absent.
+- ⬜ Capture a real transition and subsequent completed-history confirmation.
+- ⬜ After qualification, prepare and check v1.0.0 release metadata and tag.
 
 ## Required gates before v1.0
 

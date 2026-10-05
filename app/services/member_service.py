@@ -4,8 +4,8 @@ Filename: member_service.py
 Description: Service for managing clan members, including creation, updates, and departures.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-10-01
-Version: 0.5.3
+Last Modified: 2026-10-02
+Version: 0.5.4
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils
 ================================================================================
@@ -403,6 +403,22 @@ class MemberService:
             logger.info("Member %s added to ex-members list.", tag)
         else:
             logger.warning("Member %s not found. Cannot add to ex-members list.", tag)
+
+    @staticmethod
+    def calculate_winrate(profile: dict[str, Any]) -> float:
+        """Calculate wins as a percentage of decided battles.
+
+        Args:
+            profile: API profile containing wins and losses; missing counts are zero.
+                battleCount is excluded because it can include draws.
+
+        Returns:
+            float: Percentage rounded to one decimal place, or zero without results.
+        """
+        wins = profile.get("wins", 0)
+        losses = profile.get("losses", 0)
+        decided_battles = wins + losses
+        return round(wins / decided_battles * 100, 1) if decided_battles else 0.0
 
     def get_player_profile(
         self, member_tag: str, all_stats: bool = False, refresh: bool = False

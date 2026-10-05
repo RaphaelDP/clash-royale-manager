@@ -1,6 +1,6 @@
 # Operations guide
 
-Updated: 2026-10-02 · Document version: 0.1.6
+Updated: 2026-10-02 · Document version: 0.1.7
 
 ## Configuration
 
@@ -209,3 +209,13 @@ agent visual check, not a claim of human acceptance or exhaustive device coverag
 The operator accepted the unobserved real season-rollover limitation for v0.9.7.
 Actual boundary observation remains required before v1.0; simulated transitions
 and one successful live cycle cannot establish that field behavior.
+
+
+### Repeatable season qualification
+
+Use `python -m scripts.observe_war_identity` in the project environment to collect
+one fresh, identity-only sample without changing production data or sending
+Discord messages. It prints JSON and returns nonzero on collection failure.
+See [v1.0 qualification](v1-qualification.md) for recording samples, the observed
+baseline, and the distinction between synthetic regression coverage and real
+season-boundary confirmation.
