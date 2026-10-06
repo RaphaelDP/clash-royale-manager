@@ -4,7 +4,7 @@ Description: Verify private first-run settings and safe Docker launcher failures
 Author: Raphael Smilet
 Date Created: 2026-10-06
 Last Modified: 2026-10-06
-Version: 0.1.2
+Version: 0.1.3
 """
 
 from unittest.mock import MagicMock
@@ -72,10 +72,15 @@ def test_source_archive_excludes_compiled_launchers(tmp_path):
     """
     folder = tmp_path / "launch"
     folder.mkdir()
-    for name in ("launcher.py", "windows_launcher.exe", "linux_launcher.AppImage"):
+    for name in (
+        "launcher.py",
+        "windows/windows_launcher.exe",
+        "linux/linux_launcher.AppImage",
+    ):
+        (folder / name).parent.mkdir(parents=True, exist_ok=True)
         (folder / name).touch()
-    bundle = folder / "macos_launcher.app"
-    bundle.mkdir()
+    bundle = folder / "macos/macos_launcher.app"
+    bundle.mkdir(parents=True)
     (bundle / "binary").touch()
     assert [path.name for path in source_files(tmp_path)] == ["launcher.py"]
 
@@ -115,3 +120,36 @@ def test_start_retries_reset_without_rebuilding(tmp_path, monkeypatch, owned):
         assert arguments[2][1:4] == ("exec", "-T", "app")
     else:
         assert arguments[1][1:] == ("up", "-d", "app")
+
+
+@pytest.mark.parametrize(
+    "executable",
+    [
+        "linux/linux_launcher.AppImage",
+        "windows/windows_launcher.exe",
+        "macos/macos_launcher.app/Contents/MacOS/macos_launcher",
+    ],
+)
+def test_platform_folder_finds_application_root(tmp_path, monkeypatch, executable):
+    """Locate the same application from nested platform-specific executable paths.
+
+    Args:
+        tmp_path: Temporary installation directory.
+        monkeypatch: Fixture restoring executable and environment overrides.
+        executable: Platform-specific relative launcher path.
+
+    Returns:
+        None. Assertions verify configuration and Compose discovery after relocation.
+    """
+    (tmp_path / "docker-compose.yml").touch()
+    binary = tmp_path / "launch" / executable
+    binary.parent.mkdir(parents=True)
+    binary.touch()
+    monkeypatch.delenv("APPIMAGE", raising=False)
+    monkeypatch.setattr(launcher.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(launcher.sys, "executable", str(binary))
+    assert launcher.project_root() == tmp_path
+    if executable.endswith("AppImage"):
+        monkeypatch.setenv("APPIMAGE", str(binary))
+        monkeypatch.setattr(launcher.sys, "executable", "/tmp/extracted/python")
+        assert launcher.project_root() == tmp_path

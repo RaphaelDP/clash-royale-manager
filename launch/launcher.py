@@ -5,7 +5,7 @@ Description: Graphical Docker launcher requiring no user terminal commands.
 Author: Raphael Smilet
 Date Created: 2026-10-06
 Last Modified: 2026-10-06
-Version: 0.1.2
+Version: 0.1.3
 Python Version: 3.12
 ================================================================================
 """
@@ -236,6 +236,11 @@ class Launcher:
             value="Click Start and open. Docker must be running."
         )
         window.title("Clash Royale Clan Manager")
+        icon = Path(__file__).resolve().with_name("clan-manager.png")
+        if icon.is_file():
+            window.iconphoto(True, tk.PhotoImage(file=str(icon)))
+        elif getattr(sys, "frozen", False):
+            raise RuntimeError("The launcher package is missing its window icon.")
         window.geometry("700x390")
         frame = ttk.Frame(window, padding=18)
         frame.pack(fill="both", expand=True)

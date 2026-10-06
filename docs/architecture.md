@@ -1,6 +1,6 @@
 # Architecture and data semantics
 
-Updated: 2026-10-02 · Document version: 0.1.3
+Updated: 2026-10-06 · Document version: 0.2.0
 
 ## Responsibilities
 
@@ -100,3 +100,20 @@ batching. This is a diagnostic baseline, not a production load test. Reproduce
 with `scripts/profile_queries.py` in an isolated directory, setting
 `PYTHON_DOTENV_DISABLED=1`, `DATABASE_URL=sqlite:///:memory:`, a temporary `LOG_FILE`,
 and `PYTHONPATH` to the source root. It seeds synthetic records only.
+
+## Repository layout
+
+- `launch/launcher.py` and `launch/configuration.py`: shared desktop controls and
+  private settings for all platforms.
+- `launch/linux/`: AppImage entry point, desktop metadata and generated AppImage.
+- `launch/macos/`: SVG-derived ICNS icon and generated macOS application bundle.
+- `launch/windows/`: SVG-derived ICO icon and generated Windows executable.
+- `launch/clan-manager.svg`: master icon; `launch/build_icons.py` generates native
+  icon formats and the shared PNG window icon. Icon tools are build dependencies.
+- `scripts/`: independent operational entry points (startup, backups, restore,
+  observation, profiling, testing and source packaging); service logic stays in `app/`.
+
+Documentation is limited to the root README (installation), Operations (running
+and maintaining the application), Architecture (code and data semantics), and
+Roadmap (remaining work, qualification evidence and historical release/tag records).
+Old platform start/stop scripts are replaced by the shared graphical launcher.

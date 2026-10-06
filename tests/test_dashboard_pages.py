@@ -5,7 +5,7 @@ Description: Integration tests for dashboard pages, data preparation, and action
 Author: Raphael Smilet
 Date Created: 2026-09-30
 Last Modified: 2026-10-06
-Version: 0.1.3
+Version: 0.1.4
 Python Version: 3.12
 Dependencies: pytest, sqlalchemy, streamlit.testing, dashboard.functions
 ================================================================================
@@ -299,7 +299,7 @@ def test_failed_refresh_is_visible_and_unlocks(populated_dashboard, monkeypatch)
     app.button[0].click().run()
     assert not app.exception
     assert any("action failed" in error.value for error in app.error)
-    assert app.session_state["dashboard_action_running"] is False
+    assert not app.session_state["dashboard_action_lock"].locked()
 
 
 def test_member_filters_and_exports(populated_dashboard):

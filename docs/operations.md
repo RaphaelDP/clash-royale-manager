@@ -1,6 +1,6 @@
 # Operations guide
 
-Updated: 2026-10-06 · Document version: 0.2.2
+Updated: 2026-10-06 · Document version: 0.3.0
 
 ## Configuration
 
@@ -216,7 +216,7 @@ and one successful live cycle cannot establish that field behavior.
 Use `python -m scripts.observe_war_identity` in the project environment to collect
 one fresh, identity-only sample without changing production data or sending
 Discord messages. It prints JSON and returns nonzero on collection failure.
-See [v1.0 qualification](v1-qualification.md) for recording samples, the observed
+See [v1.0 qualification](roadmap.md#release-qualification) for recording samples, the observed
 baseline, and the distinction between synthetic regression coverage and real
 season-boundary confirmation.
 
@@ -224,7 +224,7 @@ season-boundary confirmation.
 On 2026-10-05, a new isolated sample observed the real section reset: completed
 history confirmed prior live identity 136/3, and the live response resolved to
 137/0. The new identity is still inferred until a later completed log confirms it.
-The [qualification record](v1-qualification.md#real-transition-observed--2026-10-05)
+The [qualification record](roadmap.md#real-transition-observed--2026-10-05)
 contains the sanitized sample and the remaining acceptance check. This observation
 used temporary data and disabled Discord; production data was not changed.
 
@@ -276,3 +276,30 @@ The desktop launcher now resumes a dashboard-only shutdown through the running
 supervisor without restarting the scheduler. Normal Start reuses the installed
 image; **Update application** explicitly rebuilds and restarts after source
 changes. Existing images must be updated once to add the resume protocol.
+
+
+## Build on GitHub (maintainers)
+
+1. Push `.github/workflows/launchers.yml` and its supporting code to the default
+   branch. GitHub runs the builds; you do not need Windows or macOS locally.
+2. Open the repository on GitHub → **Actions → Desktop launchers → Run workflow**.
+3. Choose the branch and click **Run workflow**. Wait for the checks and all four
+   builds to turn green.
+4. Open that run. Download `project-source` and the matching `launcher-*` artifact
+   from **Artifacts** at the bottom. Artifacts require a GitHub login and expire
+   according to the repository's retention policy; they are not Release assets.
+
+Future pushed `v*` tags also trigger builds. Existing tags are not rebuilt
+retroactively. The workflow does not create tags, move tags or publish releases.
+No application credentials or GitHub secrets are needed for these builds.
+Windows and macOS acceptance requires their actual runner builds to pass.
+
+For local development, run `python -m launch.launcher` with Python/Tk installed.
+The workflow documents the native PyInstaller and AppImage build commands.
+Compiled outputs are ignored by Git and excluded from source ZIPs and Docker
+build contexts.
+
+Icons use `launch/clan-manager.svg` as their source. Regenerate native icons with
+`python -m launch.build_icons` after installing `resvg-py==0.5.0` and `Pillow==12.0.0`
+in a build environment. The workflow does this before packaging. PNG supplies the
+launcher window icon, ICO the Windows executable, and ICNS the macOS bundle.

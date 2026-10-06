@@ -51,12 +51,12 @@ logs/
 .DS_Store
 Thumbs.db
 # Generated desktop launchers
-launch/*.exe
-launch/*.app/
-launch/*.AppImage
-launch/*.spec
-launch/*.app.zip
-launch/*.AppImage.tar.gz
-launch/macos_launcher/
+launch/**/*.exe
+launch/**/*.app/
+launch/**/*.AppImage
+launch/**/*.spec
+launch/**/*.app.zip
+launch/**/*.AppImage.tar.gz
+launch/**/macos_launcher/
 build/
 dist/

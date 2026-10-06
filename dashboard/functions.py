@@ -4,14 +4,15 @@ Filename: functions.py
 Description: Data preparation and action helpers for the Streamlit dashboard.
 Author: Raphael Smilet
 Date Created: 2026-07-25
-Last Modified: 2026-10-02
-Version: 0.1.4
+Last Modified: 2026-10-06
+Version: 0.1.5
 Python Version: 3.12
 Dependencies: pandas, streamlit, app.database, app.services, app.scheduler.jobs
 ================================================================================
 """
 
 import copy
+from threading import Lock
 
 from pathlib import Path
 from platform import python_version
@@ -83,6 +84,21 @@ def recalculate_scores() -> bool:
         return calculate_scores(db_session=db_session)
 
 
+def _dashboard_action_lock():
+    """Get a session-local guard whose release cannot be interrupted by a UI rerun.
+
+    Args:
+        None.
+
+    Returns:
+        Lock: Shared guard for refresh callbacks across pages in this session.
+    """
+    key = "dashboard_action_lock"
+    if key not in st.session_state:
+        st.session_state[key] = Lock()
+    return st.session_state[key]
+
+
 def execute_dashboard_action(action: Callable[[], Any], label: str) -> None:
     """
     Execute a dashboard action with a spinner and prevent multiple simultaneous
@@ -96,10 +112,9 @@ def execute_dashboard_action(action: Callable[[], Any], label: str) -> None:
         None.
     """
 
-    if st.session_state.get("dashboard_action_running", False):
+    lock = _dashboard_action_lock()
+    if not lock.acquire(blocking=False):
         return
-
-    st.session_state.dashboard_action_running = True
 
     try:
         with st.spinner(f"⏳ {label}"):
@@ -109,7 +124,8 @@ def execute_dashboard_action(action: Callable[[], Any], label: str) -> None:
     except Exception as error:
         st.error(f"The action failed: {error}")
     finally:
-        st.session_state.dashboard_action_running = False
+        # Session-state writes can yield to another rerun; lock release cannot.
+        lock.release()
 
 
 def dashboard_action_running() -> bool:
@@ -122,7 +138,7 @@ def dashboard_action_running() -> bool:
     Returns:
         bool: True if an action is running, False otherwise.
     """
-    return st.session_state.get("dashboard_action_running", False)
+    return _dashboard_action_lock().locked()
 
 
 def get_home_page_data() -> dict[str, Any]:

@@ -3,7 +3,7 @@
 # Author: Raphael Smilet
 # Date Created: 2026-10-06
 # Last Modified: 2026-10-06
-# Version: 0.1.1
+# Version: 0.1.3
 name: Desktop launchers
 on:
   workflow_dispatch:
@@ -32,48 +32,49 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-15-intel]
+        os: [ubuntu-22.04, windows-2022, macos-15-intel, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install pyinstaller==6.16.0 python-dotenv==1.2.2
+      - run: pip install pyinstaller==6.16.0 python-dotenv==1.2.2 resvg-py==0.5.0 Pillow==12.0.0
+      - run: python -m launch.build_icons
       - name: Windows executable
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --paths . --specpath build --onefile --windowed --name windows_launcher --distpath launch launch/launcher.py
-          $process = Start-Process launch/windows_launcher.exe -ArgumentList '--smoke-test' -Wait -PassThru
+          python -m PyInstaller --noconfirm --clean --paths . --add-data "${{ github.workspace }}/launch/clan-manager.png:." --specpath build --onefile --windowed --icon "${{ github.workspace }}/launch/windows/clan-manager.ico" --name windows_launcher --distpath launch/windows launch/launcher.py
+          $process = Start-Process launch/windows/windows_launcher.exe -ArgumentList '--smoke-test' -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw 'Launcher smoke test failed' }
       - name: macOS application
         if: runner.os == 'macOS'
         run: |
-          python -m PyInstaller --noconfirm --clean --paths . --specpath build --windowed --name macos_launcher --distpath launch launch/launcher.py
-          launch/macos_launcher.app/Contents/MacOS/macos_launcher --smoke-test
-          ditto -c -k --sequesterRsrc --keepParent launch/macos_launcher.app launch/macos_launcher.app.zip
+          python -m PyInstaller --noconfirm --clean --paths . --add-data "${{ github.workspace }}/launch/clan-manager.png:." --specpath build --windowed --icon "${{ github.workspace }}/launch/macos/clan-manager.icns" --name macos_launcher --distpath launch/macos launch/launcher.py
+          launch/macos/macos_launcher.app/Contents/MacOS/macos_launcher --smoke-test
+          ditto -c -k --sequesterRsrc --keepParent launch/macos/macos_launcher.app launch/macos/macos_launcher.app.zip
       - name: Linux AppImage
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y desktop-file-utils xvfb
-          python -m PyInstaller --noconfirm --clean --paths . --specpath build --onedir --name linux_launcher --distpath build/native launch/launcher.py
+          python -m PyInstaller --noconfirm --clean --paths . --add-data "${{ github.workspace }}/launch/clan-manager.png:." --specpath build --onedir --name linux_launcher --distpath build/native launch/launcher.py
           mkdir -p build/Launcher.AppDir/usr
           cp -a build/native/linux_launcher build/Launcher.AppDir/usr/
-          cp launch/AppRun launch/clan-manager.desktop launch/clan-manager.svg build/Launcher.AppDir/
+          cp launch/linux/AppRun launch/linux/clan-manager.desktop launch/clan-manager.svg build/Launcher.AppDir/
           chmod +x build/Launcher.AppDir/AppRun
           curl --fail --location --retry 3 https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage -o build/appimagetool
           chmod +x build/appimagetool
-          ARCH=x86_64 build/appimagetool --appimage-extract-and-run build/Launcher.AppDir launch/linux_launcher.AppImage
-          APPIMAGE_EXTRACT_AND_RUN=1 launch/linux_launcher.AppImage --self-test
-          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a launch/linux_launcher.AppImage --smoke-test
-          tar -czf launch/linux_launcher.AppImage.tar.gz -C launch linux_launcher.AppImage
+          ARCH=x86_64 build/appimagetool --appimage-extract-and-run build/Launcher.AppDir launch/linux/linux_launcher.AppImage
+          APPIMAGE_EXTRACT_AND_RUN=1 launch/linux/linux_launcher.AppImage --self-test
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a launch/linux/linux_launcher.AppImage --smoke-test
+          tar -czf launch/linux/linux_launcher.AppImage.tar.gz -C launch/linux linux_launcher.AppImage
       - uses: actions/upload-artifact@v4
         with:
           name: launcher-${{ matrix.os }}
           path: |
-            launch/windows_launcher.exe
-            launch/macos_launcher.app.zip
-            launch/linux_launcher.AppImage.tar.gz
+            launch/windows/windows_launcher.exe
+            launch/macos/macos_launcher.app.zip
+            launch/linux/linux_launcher.AppImage.tar.gz
           if-no-files-found: error
