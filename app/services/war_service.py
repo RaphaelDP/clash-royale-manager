@@ -4,8 +4,8 @@ Filename: war_service.py
 Description: Service for managing war data, including river races and participation.
 Author: Raphael Smilet
 Date Created: 2026-06-09
-Last Modified: 2026-10-05
-Version: 0.4.8
+Last Modified: 2026-10-07
+Version: 0.4.10
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models, app.core.logger, app.core.utils, app.services.clash_api
 ================================================================================
@@ -122,6 +122,8 @@ class WarService:
             "ok": True,
             "explicit_live_season": current.get("seasonId") is not None,
             "live_section": current["sectionIndex"],
+            "period_type": current.get("periodType"),
+            "period_index": current.get("periodIndex"),
             "races": [
                 {
                     "season": race.season_id,
@@ -255,6 +257,11 @@ class WarService:
             section = data.get("sectionIndex")
             if isinstance(section, bool) or not isinstance(section, int) or section < 0:
                 raise ValueError("Missing live race section index.")
+            period_type = data.get("periodType")
+            if period_type not in (None, "training", "warDay", "colosseum"):
+                raise ValueError(
+                    "Unrecognized API war phase; participation was not updated."
+                )
             season_id = self._resolve_live_season(data, section)
             race = (
                 self.db.query(RiverRace)
@@ -269,11 +276,51 @@ class WarService:
             race = self._create_or_update_river_race(
                 season_id, section, get_time(), is_completed=False
             )
-            self._sync_participants(race, clan.get("participants"))
+            self._store_live_phase(data, race)
+            if race.type_of_day == "training":
+                race.war_participations.clear()
+            else:
+                self._sync_participants(race, clan.get("participants"))
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
+
+    def _store_live_phase(self, data, race):
+        """Store the weekly race phase, rejecting stale observations.
+
+        Args:
+            data: Validated current-race API response.
+            race: Open weekly race whose phase is being synchronized.
+
+        Returns:
+            None. The caller owns the transaction.
+        """
+        index = data.get("periodIndex")
+        if index is not None and (
+            isinstance(index, bool) or not isinstance(index, int) or index < 0
+        ):
+            raise ValueError("Invalid API war period index.")
+        latest = (
+            self.db.query(RiverRace)
+            .filter_by(season_id=race.season_id)
+            .filter(RiverRace.period_index.isnot(None))
+            .order_by(RiverRace.period_index.desc())
+            .first()
+        )
+        if latest is not None and index is not None and index < latest.period_index:
+            raise ValueError(
+                "Regressing API war period; previous observation preserved."
+            )
+        kind = data.get("periodType")
+        if race.type_of_day == "battle" and kind == "training":
+            raise ValueError(
+                "Training response cannot replace an observed battle phase."
+            )
+        if kind is not None:
+            race.type_of_day = "training" if kind == "training" else "battle"
+        race.period_index = index if index is not None else race.period_index
+        race.observed_at = get_time()
 
     def _resolve_live_season(self, data: dict[str, Any], section: int) -> str:
         """Resolve a live season only from an explicit ID or recent adjacent history.
@@ -417,6 +464,7 @@ class WarService:
         if existing_race:
             if is_completed:
                 existing_race.is_completed = True
+                existing_race.type_of_day = "battle"
                 existing_race.created_date = created_date
                 self.db.flush()
             return existing_race
@@ -425,6 +473,7 @@ class WarService:
             section_index=section_index,
             created_date=created_date,
             is_completed=is_completed,
+            type_of_day="battle" if is_completed else "unknown",
         )
         self.db.add(new_race)
         self.db.flush()

@@ -4,8 +4,8 @@ Filename: init_db.py
 Description: Initialize and upgrade databases through the Alembic migration chain.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-10-01
-Version: 0.1.2
+Last Modified: 2026-10-07
+Version: 0.1.4
 Python Version: 3.12
 ================================================================================
 """
@@ -66,9 +66,11 @@ def recognize_unversioned_schema(connection) -> str:
     for name in tables:
         actual = {c["name"]: c for c in inspector.get_columns(name)}
         model = Base.metadata.tables[name]
-        optional = {"days_in_clan"} if name == "members" else set()
-        if name == "job_run_state":
-            optional = {"last_attempt_at", "last_success_at", "last_error"}
+        optional = {
+            "members": {"days_in_clan"},
+            "river_races": {"type_of_day", "period_index", "observed_at"},
+            "job_run_state": {"last_attempt_at", "last_success_at", "last_error"},
+        }.get(name, set())
         if set(actual) - set(model.columns.keys()) or set(
             model.columns.keys()
         ) - optional - set(actual):

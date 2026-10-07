@@ -4,8 +4,8 @@ Filename: _05_wars.py
 Description: Streamlit page for displaying clan war performance.
 Author: Raphael Smilet
 Date Created: 2026-07-03
-Last Modified: 2026-09-30
-Version: 0.6.2
+Last Modified: 2026-10-06
+Version: 0.6.3
 Python Version: 3.12
 Dependencies: streamlit, dashboard.functions
 ================================================================================
@@ -33,8 +33,17 @@ st.button(
 
 overview = get_war_overview_data()
 live = overview["live_status"]
-st.header("🔴 Live Race")
-if live:
+st.header("Current war phase")
+if live and live.get("phase") == "training":
+    day = live["training_day"]
+    st.info(f"Training days — day {day} of 3" if day else "Training days")
+    st.caption(
+        "Training is optional. Decks, fame and participation during this phase are excluded from war statistics."
+    )
+    st.caption(
+        f"Last synchronized: {live['observed_at']}. Sync War Data to update the phase."
+    )
+elif live:
     st.info(
         f"Season {live['season_id']}, race #{live['section_index'] + 1} is currently in progress."
     )

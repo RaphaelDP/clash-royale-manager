@@ -1,6 +1,6 @@
 # Operations guide
 
-Updated: 2026-10-06 · Document version: 0.3.0
+Updated: 2026-10-07 · Document version: 0.3.2
 
 ## Configuration
 
@@ -303,3 +303,13 @@ Icons use `launch/clan-manager.svg` as their source. Regenerate native icons wit
 `python -m launch.build_icons` after installing `resvg-py==0.5.0` and `Pillow==12.0.0`
 in a build environment. The workflow does this before packaging. PNG supplies the
 launcher window icon, ICO the Windows executable, and ICNS the macOS bundle.
+
+## Training-day update
+
+Use **Update application** to install the phase-aware code. Startup upgrades the
+database to `a2026100701`; the next war sync records the current phase. During
+training the Wars page shows “Training days”, and current-week practice counters
+are excluded. Completed war history remains available. A phase shown with an old
+sync timestamp is the last observation, not a live clock; use Sync War Data and
+check job health if it is stale. Existing practice participation from earlier versions is removed only for the
+matching uncompleted week during a successful sync; its weekly race row remains.

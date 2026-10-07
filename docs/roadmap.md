@@ -1,6 +1,6 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-06 · Document version: 0.3.1
+Updated: 2026-10-07 · Document version: 0.3.4
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
@@ -44,6 +44,25 @@ Do not move a published tag; use a new candidate version if fixes are needed.
 - See [launcher instructions](../README.md#desktop-installation-no-coding) and
   [verification evidence](roadmap.md#launcher-verification-record).
   These changes are after v0.9.7 and do not close the remaining v1.0 war gate.
+
+## Training-phase correctness follow-up
+
+Implemented after the candidate tag: API-driven training/battle phase storage on each weekly RiverRace,
+training exclusion from scored races and participant totals, and a training-day
+Wars display without nonparticipant warnings. Supercell's weekly schedule is
+three training days and four battle days; sections 0–3 or 0–4 represent the four
+or five weekly races of a season. The October 6 live metadata confirms training
+day 2. This fixes application interpretation; a race being unfinished is normal
+user data, not a failed synchronization. The earlier identity observation is a
+separate safeguard against assigning results to the wrong weekly/season record.
+
+Validation: 246 isolated tests passed; Black clean and Pylint 10/10. Includes fresh
+and legacy schema upgrades, training-to-battle/Colosseum transitions, preserved
+completed history, stale training rejection, the training dashboard view, and
+the phase-to-race migration round trip.
+The installed production database has not been migrated by these checks.
+The [live phase-aware sample](qualification/war-training-2026-10-06.json)
+retained all ten completed races and imported no scored training race.
 
 ## Capability baseline
 
@@ -336,6 +355,22 @@ Next action: collect another sample after the new race completes and look for
 identity, investigate and fix inference before tagging v1.0.0. No background
 observer or automatic release has been installed.
 
+
+#### Latest live check — 2026-10-06
+
+At **17:23 Europe/Paris** (15:23 UTC), the uncached isolated check succeeded
+and returned exit code 3: **confirmation pending**. The complete sanitized sample
+is [war-2026-10-06.json](qualification/war-2026-10-06.json).
+
+- Latest authoritative completed race: season **136**, section **3**.
+- Current live race: section **0**, inferred by the application as season **137**.
+- Completed API history does not yet contain **137 / 0**.
+
+The check is operational; the external evidence is not available yet. Recheck
+after the current race finishes and appears in the completed API log. Repeating
+the same request before history changes cannot close the gate. No production
+database, scheduler state or Discord delivery was modified. Credentials were
+loaded privately by the isolated observer. No release or tag was changed.
 
 #### Explicit final-gate check
 

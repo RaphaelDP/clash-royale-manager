@@ -4,8 +4,8 @@ Filename: test_dashboard_pages.py
 Description: Integration tests for dashboard pages, data preparation, and actions.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-10-06
-Version: 0.1.4
+Last Modified: 2026-10-07
+Version: 0.1.6
 Python Version: 3.12
 Dependencies: pytest, sqlalchemy, streamlit.testing, dashboard.functions
 ================================================================================
@@ -27,7 +27,13 @@ from streamlit.testing.v1 import AppTest
 
 from app.core.utils import get_time
 from app.database.base import Base
-from app.database.models import Member, Snapshot, WarSeason, RiverRace, WarParticipation
+from app.database.models import (
+    Member,
+    Snapshot,
+    WarSeason,
+    RiverRace,
+    WarParticipation,
+)
 from app.services.dashboard_service import DashboardService
 from app.services.member_service import MemberService
 from app.services.score_service import ScoreService
@@ -343,3 +349,27 @@ def test_navigation_clears_previous_page(populated_dashboard):
         assert not app.text_input
         assert not app.multiselect
         assert not app.dataframe
+
+
+def test_training_page_does_not_warn_about_nonparticipants(populated_dashboard):
+    """Show the synced training phase without live attack metrics or absence warnings.
+
+    Args:
+        populated_dashboard: Populated isolated dashboard database fixture.
+
+    Returns:
+        None. Assertions verify the training-specific UI.
+    """
+    with populated_dashboard() as db:
+        race = db.query(RiverRace).filter_by(is_completed=False).one()
+        race.type_of_day = "training"
+        race.period_index = 1
+        race.observed_at = get_time()
+        db.commit()
+    app = AppTest.from_file(str(ROOT / "dashboard/pages/_05_wars.py")).run()
+    assert not app.exception
+    assert any("Training days — day 2 of 3" in item.value for item in app.info)
+    assert not any(
+        item.label in {"Have attacked", "Haven't attacked yet"} for item in app.metric
+    )
+    assert not any("Members who haven't attacked" in item.value for item in app.warning)

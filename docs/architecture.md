@@ -1,6 +1,6 @@
 # Architecture and data semantics
 
-Updated: 2026-10-06 · Document version: 0.2.0
+Updated: 2026-10-07 · Document version: 0.2.2
 
 ## Responsibilities
 
@@ -117,3 +117,30 @@ Documentation is limited to the root README (installation), Operations (running
 and maintaining the application), Architecture (code and data semantics), and
 Roadmap (remaining work, qualification evidence and historical release/tag records).
 Old platform start/stop scripts are replaced by the shared graphical launcher.
+
+## War training and battle phases
+
+Supercell specifies three optional training days and four battle days per week;
+a season spans four or five weekly races. See [About Clan Wars](https://ingame.help.supercellsupport.com/clash-royale/en/articles/about-clan-wars-2.html).
+API `sectionIndex` identifies the weekly race, not a battle day. Current phase is
+read from `periodType`; `periodIndex` supplies the season day counter. No weekday
+or local-midnight guess controls data ingestion. The live October 6 response was
+`training`, period 1, section 0, matching training day 2.
+
+Each `RiverRace` stores `type_of_day` (training, battle, or unknown for legacy
+observations), `period_index`, and `observed_at`. Training and battle days belong
+to the same weekly row. Training syncs exclude participation, and analytics exclude
+training races from efficiency denominators. Previously imported practice
+participation is cleared only for the matching open week; completed history is
+preserved. An unresolved season identity fails safely without inventing a race. Once battle
+or Colosseum days begin, normal synchronization resumes. A backwards period or
+training response after an observed battle phase is rejected without losing data.
+Unknown nonempty phase values are rejected. Legacy responses without a phase
+retain the existing synchronization behavior for compatibility.
+
+The Wars page displays the last synchronized phase and timestamp. It suppresses
+live attack counts and nonparticipant warnings during training. Historic rankings
+and recommendations still use completed races; training is not an inactivity or
+war-attendance penalty. Migration `a2026100701` moves identified phase metadata onto races and removes
+the temporary phase table;
+existing scores and completed history are not rewritten by migration.

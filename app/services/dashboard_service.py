@@ -3,8 +3,8 @@ Filename: dashboard_service.py
 Description: Service providing aggregated SQL statistics for the Streamlit dashboard.
 Author: Raphael Smilet
 Date Created: 2026-07-07
-Last Modified: 2026-10-01
-Version: 0.6.2
+Last Modified: 2026-10-07
+Version: 0.6.4
 Python Version: 3.12
 Dependencies: sqlalchemy, app.database.models
 """
@@ -68,9 +68,7 @@ class DashboardService:
         self.api_clash = api_clash or ClashAPIClient()
         self.member_service = MemberService(db_session, self.api_clash)
 
-    # ==========================================================================
     # Clan overview
-    # ==========================================================================
 
     def get_overview_stats(self) -> dict[str, Any]:
         """
@@ -197,9 +195,7 @@ class DashboardService:
 
         return query.all()
 
-    # ==========================================================================
     # Database statistics
-    # ==========================================================================
 
     def get_database_stats(self) -> dict[str, int]:
         """
@@ -223,9 +219,7 @@ class DashboardService:
             "participations": self.db.query(count(WarParticipation.id)).scalar() or 0,
         }
 
-    # ==========================================================================
     # War overview
-    # ==========================================================================
 
     def get_war_stats(self) -> dict[str, Any]:
         """
@@ -756,7 +750,9 @@ class DashboardService:
                 count(func.distinct(WarParticipation.member_tag)).label("participants"),
             )
             .outerjoin(WarParticipation, WarParticipation.river_race_id == RiverRace.id)
-            .filter(RiverRace.season_id == season_id)
+            .filter(
+                RiverRace.season_id == season_id, RiverRace.type_of_day != "training"
+            )
             .group_by(RiverRace.id, RiverRace.section_index, RiverRace.created_date)
             .order_by(RiverRace.section_index)
             .all()
@@ -802,6 +798,21 @@ class DashboardService:
 
         if not current_race:
             return None
+
+        if current_race.type_of_day == "training":
+            day = (
+                current_race.period_index % 7
+                if current_race.period_index is not None
+                else None
+            )
+            return {
+                "phase": "training",
+                "training_day": day + 1 if day is not None and day < 3 else None,
+                "observed_at": current_race.observed_at,
+                "season_id": current_race.season_id,
+                "section_index": current_race.section_index,
+                "not_participated": [],
+            }
 
         active_members = (
             self.db.query(Member).filter(Member.role.notin_(["left", "fired"])).all()
@@ -899,10 +910,14 @@ class DashboardService:
         Returns:
             list[dict[str, Any]]: Season player totals and efficiency, ordered by fame.
         """
-        race_ids = select(RiverRace.id).where(RiverRace.season_id == season_id)
+        race_ids = select(RiverRace.id).where(
+            RiverRace.season_id == season_id, RiverRace.type_of_day != "training"
+        )
         number_of_races = (
             self.db.query(count(RiverRace.id))
-            .filter(RiverRace.season_id == season_id)
+            .filter(
+                RiverRace.season_id == season_id, RiverRace.type_of_day != "training"
+            )
             .scalar()
         )
 
@@ -956,7 +971,9 @@ class DashboardService:
                 count(func.distinct(WarParticipation.member_tag)).label("participants"),
             )
             .outerjoin(WarParticipation, WarParticipation.river_race_id == RiverRace.id)
-            .filter(RiverRace.season_id == season_id)
+            .filter(
+                RiverRace.season_id == season_id, RiverRace.type_of_day != "training"
+            )
             .group_by(RiverRace.id, RiverRace.section_index, RiverRace.created_date)
             .order_by(RiverRace.section_index)
             .all()
@@ -986,7 +1003,9 @@ class DashboardService:
             dict[str, Any]: Fame, repairs, boat attacks, decks, and normalized efficiency.
         """
 
-        number_of_races_query = self.db.query(count(RiverRace.id))
+        number_of_races_query = self.db.query(count(RiverRace.id)).filter(
+            RiverRace.type_of_day != "training"
+        )
         if season_id is not None:
             number_of_races_query = number_of_races_query.filter(
                 RiverRace.season_id == season_id
@@ -1007,7 +1026,9 @@ class DashboardService:
         if season_id is not None:
             query = query.join(
                 RiverRace, RiverRace.id == WarParticipation.river_race_id
-            ).filter(RiverRace.season_id == season_id)
+            ).filter(
+                RiverRace.season_id == season_id, RiverRace.type_of_day != "training"
+            )
 
         row = query.one()
 
@@ -1202,12 +1223,17 @@ class DashboardService:
             dict[str, Any]: Race count, distinct participants, and season war totals.
         """
 
-        race_ids = select(RiverRace.id).where(RiverRace.season_id == season_id)
+        race_ids = select(RiverRace.id).where(
+            RiverRace.season_id == season_id, RiverRace.type_of_day != "training"
+        )
 
         return {
             "race_count": (
                 self.db.query(count(RiverRace.id))
-                .filter(RiverRace.season_id == season_id)
+                .filter(
+                    RiverRace.season_id == season_id,
+                    RiverRace.type_of_day != "training",
+                )
                 .scalar()
                 or 0
             ),
