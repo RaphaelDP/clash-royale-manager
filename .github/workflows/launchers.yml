@@ -1,9 +1,9 @@
 # Filename: launchers.yml
-# Description: Build native graphical Docker launchers on their target systems.
+# Description: Build standalone desktop apps and optional Docker launchers.
 # Author: Raphael Smilet
 # Date Created: 2026-10-06
 # Last Modified: 2026-10-07
-# Version: 0.2.0
+# Version: 0.4.0
 name: Desktop launchers
 on:
   workflow_dispatch:
@@ -21,6 +21,9 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements-dev.txt
       - run: make ci
+      - run: pip install reportlab==4.4.4
+      - run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core
+      - run: python -m scripts.build_user_guides
       - run: python -m scripts.package_release --output dist/project.zip
       - uses: actions/upload-artifact@v4
         with:
@@ -28,6 +31,7 @@ jobs:
           path: dist/project.zip
           if-no-files-found: error
   build:
+    name: Optional Docker launcher
     needs: checks
     strategy:
       fail-fast: false
@@ -78,16 +82,82 @@ jobs:
             launch/macos/macos_launcher.app.zip
             launch/linux/linux_launcher.AppImage.tar.gz
           if-no-files-found: error
-  publish:
-    name: Publish stable release
-    needs: [checks, build]
-    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+  standalone:
+    name: Standalone desktop
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyinstaller==6.16.0 python-dotenv==1.2.2 uv
+      - uses: actions/download-artifact@v4
+        with:
+          name: project-source
+          path: build/source
+      - name: Build bundled runtime
+        shell: bash
+        run: |
+          python - <<'PYCODE'
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          from zipfile import ZipFile
+          with ZipFile("build/source/project.zip") as archive:
+              for language in ("en", "fr"):
+                  name = f"docs/user-guide-{language}.pdf"
+                  Path(name).write_bytes(archive.read(name))
+          runtime_dir = Path("build/python").resolve()
+          subprocess.run(["uv", "python", "install", "3.12", "--install-dir", str(runtime_dir), "--no-bin"], check=True)
+          installations = {p.resolve() for p in runtime_dir.glob("cpython-*") if p.is_dir()}
+          assert len(installations) == 1
+          runtime = installations.pop()
+          python = runtime / ("python.exe" if os.name == "nt" else "bin/python3")
+          subprocess.run(["uv", "--no-cache", "pip", "install", "--break-system-packages",
+                          "--python", str(python), "-r", "requirements.txt"], check=True)
+          subprocess.run([sys.executable, "-m", "scripts.build_standalone",
+                          "--python-dir", str(runtime)], check=True)
+          PYCODE
+      - name: Test bundled application lifecycle
+        run: python -m scripts.smoke_standalone dist/ClanManager
+      - name: Linux GUI check
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          xvfb-run -a dist/ClanManager/ClanManager --smoke-test --data-dir build/gui-smoke
+      - name: Windows GUI check
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process dist/ClanManager/ClanManager.exe -ArgumentList '--smoke-test', '--data-dir', 'build/gui-smoke' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Standalone GUI smoke test failed' }
+      - name: Archive complete standalone application
+        shell: bash
+        run: |
+          python - <<'PYCODE'
+          import os
+          import shutil
+          from app import __version__
+          platform = "windows" if os.name == "nt" else "linux-x86_64"
+          shutil.make_archive(f"dist/clan-manager-v{__version__}-standalone-{platform}",
+                              "zip", "dist", "ClanManager")
+          PYCODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: standalone-${{ matrix.os }}
+          path: dist/*-standalone-*.zip
+          if-no-files-found: error
+  package:
+    name: Assemble complete downloads
+    needs: [checks, build, standalone]
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write
-    concurrency:
-      group: release-${{ github.ref }}
-      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -98,40 +168,28 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           python - <<'PY'
-          import ast
-          import hashlib
           import os
           from pathlib import Path
-          import shutil
-          import zipfile
+          from app import __version__
+          from scripts.bundle_release import build_bundles
 
           tag = os.environ["RELEASE_TAG"]
-          tree = ast.parse(Path("app/__init__.py").read_text())
-          version = next(ast.literal_eval(node.value) for node in tree.body
-                         if isinstance(node, ast.Assign)
-                         and any(isinstance(t, ast.Name) and t.id == "__version__" for t in node.targets))
-          assert tag == f"v{version}", "Tag and canonical version differ"
-          output = Path("release-assets")
-          output.mkdir()
-          sources = [
-              ("project-source", "project.zip", "source.zip"),
-              ("launcher-windows-2022", "windows_launcher.exe", "windows.exe"),
-              ("launcher-ubuntu-22.04", "linux_launcher.AppImage.tar.gz", "linux-x86_64.AppImage.tar.gz"),
-              ("launcher-macos-15-intel", "macos_launcher.app.zip", "macos-intel.app.zip"),
-              ("launcher-macos-15", "macos_launcher.app.zip", "macos-apple-silicon.app.zip"),
-          ]
-          for artifact, filename, suffix in sources:
-              matches = list((Path("release-artifacts") / artifact).rglob(filename))
-              assert len(matches) == 1, f"Expected one {artifact}/{filename}"
-              assert matches[0].stat().st_size > 0, f"Empty artifact: {artifact}"
-              shutil.copy2(matches[0], output / f"clan-manager-{tag}-{suffix}")
-          source = output / f"clan-manager-{tag}-source.zip"
-          with zipfile.ZipFile(source) as archive:
-              assert archive.read("app/__init__.py") == Path("app/__init__.py").read_bytes()
-              assert "docs/user-guide.md" in archive.namelist()
-          lines = [f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}"
-                   for p in sorted(output.iterdir())]
-          (output / "SHA256SUMS.txt").write_text("\n".join(lines) + "\n")
+          if os.environ["GITHUB_REF"].startswith("refs/tags/"):
+              assert tag.replace("-rc.", "rc") == f"v{__version__}", "Tag/version mismatch"
+          else:
+              tag = f"v{__version__}"
+          build_bundles(Path("release-artifacts"), Path("release-assets"), __version__)
+          import hashlib
+          import shutil
+          for group, platform in (("standalone-windows-2022", "windows"), ("standalone-ubuntu-22.04", "linux-x86_64")):
+              name = f"clan-manager-v{__version__}-standalone-{platform}.zip"
+              matches = list((Path("release-artifacts") / group).rglob(name))
+              assert len(matches) == 1
+              shutil.copy2(matches[0], Path("release-assets") / name)
+          assets = sorted(p for p in Path("release-assets").iterdir() if p.name != "SHA256SUMS.txt")
+          Path("release-assets/SHA256SUMS.txt").write_text(
+              "".join(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n" for p in assets))
+
           base = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/blob/{tag}"
           Path("release-notes.md").write_text(
               f"# Clash Royale Clan Manager {tag}\n\n"
@@ -140,10 +198,12 @@ jobs:
               f"[English user guide]({base}/docs/user-guide.md#english) · "
               f"[Guide en français]({base}/docs/user-guide.md#francais) · "
               f"[Technical reference]({base}/README.md)\n\n"
-              "Download source.zip and the launcher matching your system. Extract the source, then "
-              "place the launcher in launch/windows, launch/linux, or launch/macos. "
-              "Rename the Windows executable to windows_launcher.exe. macOS and Linux archives "
-              "contain the expected launcher filename. Docker and an API key are required.\n\n"
+              "Windows and Linux users: choose a standalone ZIP, extract it and open ClanManager. "
+              "It includes Python and needs no Docker. macOS currently uses the Docker launcher. "
+              "The other platform ZIPs are complete Docker-based distributions. "
+              "Extract the whole folder: the launcher is already under launch/ and both PDF guides "
+              "are in docs/. No renaming or second download is needed. "
+              "An API key is required. Only Docker-based downloads need Docker/virtualization.\n\n"
               "All attached files come from this tag's successful checks and four-platform build run. "
               "SHA256SUMS.txt records their checksums. Launchers are unsigned; macOS is not notarized.\n\n"
               "Back up your installation before updating. Keep .env, data, logs, and backups; "
@@ -152,6 +212,28 @@ jobs:
               "remain dated evidence. Forecasting and dedicated player comparison are deferred.\n"
           )
           PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: complete-downloads
+          path: |
+            release-assets/
+            release-notes.md
+          if-no-files-found: error
+  publish:
+    name: Publish stable release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: complete-downloads
+          path: .
       - name: Publish all assets together
         env:
           GH_TOKEN: ${{ github.token }}

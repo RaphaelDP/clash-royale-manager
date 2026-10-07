@@ -1,15 +1,45 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-07 · Document version: 1.0.0
+Updated: 2026-10-07 · Document version: 1.1.0
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
-Application version: **1.0.0**, release tag **v1.0.0**.
-Stable-tag publication runs only after checks and all four launcher builds pass.
-The [release page](https://github.com/RaphaelDP/clash-royale-manager/releases/tag/v1.0.0)
-is the authoritative publication status. Earlier tags and dated evidence are preserved.
+Application version: **1.1.0rc1**, candidate tag **v1.1.0-rc.1**.
+The previous stable tag remains v1.0.0. Candidate pushes build the Windows/Linux
+standalone applications, optional Docker launchers and PDF guides; they do not
+publish a stable Release. Download **complete-downloads** from the matching
+[workflow run](https://github.com/RaphaelDP/clash-royale-manager/actions/workflows/launchers.yml).
+
+## v1.1.0-rc.1 standalone candidate
+
+- Standalone is the primary Windows/Linux desktop path, with its own Python runtime.
+- Per-user data survives application replacement; existing Docker data is not imported.
+- Docker remains optional and its ZIPs are explicitly named `docker`.
+- English/French PDF guides describe standalone installation and API registration.
+- Local checks: 253 tests, Black and Pylint passed; Linux GUI, lifecycle, all pages,
+  archive integrity and executable permissions verified.
+- Windows standalone compilation and lifecycle checks await this tag's CI run.
+  A Windows operator test is required before promoting the candidate to v1.1.0.
+- Generated `build/` and `dist/` are not committed; local builds are snapshots,
+  and candidate artifacts are built anew from the tagged source.
 
 Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ pending.
+
+## Post-release onboarding follow-up
+
+Windows testing with a nontechnical user exposed WSL/virtualization setup friction.
+This qualifies the earlier acceptance: a successful build does not prove easy
+installation on a clean Windows machine. Standalone is now the primary Windows/Linux desktop implementation; Docker
+remains optional. Linux runtime and GUI smoke checks passed locally. Windows
+build/smoke coverage is configured in Actions and awaits a run for this revision.
+
+The updated workflow assembles standalone Windows/Linux ZIPs with Python included,
+plus explicitly named Docker ZIPs. Both include English/French PDF guides.
+Standalone user data lives outside the downloaded program; old Docker data
+is never imported automatically. Source, desktop and Docker share the supervisor. Launcher
+renaming is unnecessary. API account registration is illustrated with real public
+portal screenshots; authenticated key creation uses explicit text instructions.
+These changes require a new release/build; existing v1.0.0 assets are not replaced.
 
 ## Operator acceptance — 2026-10-07
 

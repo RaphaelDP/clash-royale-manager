@@ -4,12 +4,13 @@ Filename: run_app.py
 Description: Supervise dashboard and scheduler with safe startup and graceful shutdown.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-10-06
-Version: 0.1.4
+Last Modified: 2026-10-07
+Version: 0.2.0
 Python Version: 3.12
 ================================================================================
 """
 
+from contextlib import nullcontext
 import os
 from pathlib import Path
 import signal
@@ -21,6 +22,7 @@ from threading import Event
 from scripts.init_db import init_db
 from scripts.collect_data import main as collect_data
 from app.core.logger import logger
+from app.core.job_lock import job_lock
 from app.services.application_control import CONTROL_ENV, pending_shutdown
 
 
@@ -34,17 +36,45 @@ def main():
     Returns:
         None.
     """
+    with job_lock("supervisor_process") as acquired:
+        if not acquired:
+            raise RuntimeError("An application supervisor is already running.")
+        run_supervisor()
+
+
+def run_supervisor():
+    """Initialize data and own dashboard/scheduler children until shutdown.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+    """
     init_db()  # Never launch against an incompatible schema.
     try:
-        collect_data()
+        if os.getenv("CLAN_SKIP_STARTUP_COLLECTION") != "1":
+            collect_data()
     except Exception:
         # Keep the dashboard available to inspect persisted sync failures.
         logger.exception("Initial collection failed; serving existing data.")
     stop = Event()
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, lambda *_: stop.set())
-    with tempfile.TemporaryDirectory(prefix="clan-control-") as directory:
+    desktop = os.getenv("CLAN_DESKTOP_CONTROL")
+    # The selected context is entered immediately below.
+    # pylint: disable=consider-using-with
+    context = (
+        nullcontext(desktop)
+        if desktop
+        else tempfile.TemporaryDirectory(prefix="clan-control-")
+    )
+    # pylint: enable=consider-using-with
+    with context as directory:
         control = Path(directory)
+        control.mkdir(parents=True, exist_ok=True, mode=0o700)
+        (control / "request.json").unlink(missing_ok=True)
+        (control / "resume-dashboard").unlink(missing_ok=True)
         (control / "heartbeat").touch()
         env = dict(os.environ, **{CONTROL_ENV: directory})
         processes = {}
@@ -52,12 +82,17 @@ def main():
         # pylint: disable=consider-using-with
         try:
             processes["scheduler"] = subprocess.Popen(
-                [sys.executable, "-m", "scripts.run_scheduler"], env=env
+                [sys.executable, "-m", "scripts.run_scheduler"],
+                env=env,
+                creationflags=(
+                    subprocess.CREATE_NO_WINDOW if os.name == "nt" and desktop else 0
+                ),
             )
             processes["dashboard"] = start_dashboard(control)
             supervise_processes(processes, stop, control)
         finally:
             stop_processes(processes.values())
+            (control / "heartbeat").unlink(missing_ok=True)
 
 
 def start_dashboard(control):
@@ -75,11 +110,17 @@ def start_dashboard(control):
             "-m",
             "streamlit",
             "run",
-            "dashboard/navigation.py",
-            "--server.port=8501",
-            "--server.address=0.0.0.0",
+            os.getenv("CLAN_DASHBOARD_SCRIPT", "dashboard/navigation.py"),
+            f"--server.port={os.getenv('CLAN_DASHBOARD_PORT', '8501')}",
+            "--server.address="
+            + ("127.0.0.1" if os.getenv("CLAN_DESKTOP_CONTROL") else "0.0.0.0"),
         ],
         env=dict(os.environ, **{CONTROL_ENV: str(control)}),
+        creationflags=(
+            subprocess.CREATE_NO_WINDOW
+            if os.name == "nt" and os.getenv("CLAN_DESKTOP_CONTROL")
+            else 0
+        ),
     )
 
 

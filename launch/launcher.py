@@ -1,11 +1,11 @@
 """
 ================================================================================
 Filename: launcher.py
-Description: Graphical Docker launcher requiring no user terminal commands.
+Description: Shared desktop control panel with standalone and optional Docker backends.
 Author: Raphael Smilet
 Date Created: 2026-10-06
-Last Modified: 2026-10-06
-Version: 0.1.3
+Last Modified: 2026-10-07
+Version: 0.2.0
 Python Version: 3.12
 ================================================================================
 """
@@ -214,26 +214,32 @@ def open_dashboard():
 
 
 class Launcher:
-    """Small graphical control panel for the project's Docker deployment."""
+    """Graphical control panel for standalone and optional Docker deployments."""
 
-    def __init__(self, window, configure=True):
-        """Build the control panel without starting Docker.
+    def __init__(self, window, configure=True, backend=None):
+        """Build the control panel without starting the application.
 
         Args:
             window: Tk root window.
             configure: Read local settings unless this is an isolated packaging smoke test.
+            backend: Optional standalone backend; None uses Docker.
 
         Returns:
             None.
         """
+        self.backend = backend
         self.window = window
         self.events = queue.Queue()
         self.busy = False
         self.configuration_changed = False
-        detected = project_root()
+        detected = backend.root if backend else project_root()
         self.folder = tk.StringVar(value=str(detected or ""))
         self.status = tk.StringVar(
-            value="Click Start and open. Docker must be running."
+            value=(
+                "Click Start and open. No Docker required."
+                if backend
+                else "Click Start and open. Docker must be running."
+            )
         )
         window.title("Clash Royale Clan Manager")
         icon = Path(__file__).resolve().with_name("clan-manager.png")
@@ -270,9 +276,16 @@ class Launcher:
         ttk.Button(
             actions, text="Stop all", command=lambda: self.run_action("stop")
         ).pack(side="left", padx=6)
-        ttk.Button(
-            frame, text="Update application", command=lambda: self.run_action("update")
-        ).pack(anchor="w")
+        if backend is None:
+            ttk.Button(
+                frame,
+                text="Update application",
+                command=lambda: self.run_action("update"),
+            ).pack(anchor="w")
+        else:
+            ttk.Label(frame, text=f"Your data: {backend.root}", wraplength=650).pack(
+                anchor="w"
+            )
         ttk.Label(frame, textvariable=self.status, wraplength=610).pack(anchor="w")
         window.protocol("WM_DELETE_WINDOW", self.close_window)
         window.after(100, self.poll)
@@ -367,7 +380,7 @@ class Launcher:
             self.window.destroy()
 
     def run_action(self, action):
-        """Validate user choices and dispatch a Docker operation off the GUI thread.
+        """Validate user choices and dispatch an application operation off the GUI thread.
 
         Args:
             action: start, update, or stop.
@@ -378,7 +391,7 @@ class Launcher:
         if self.busy:
             return
         root = Path(self.folder.get()).expanduser().resolve()
-        if not (root / "docker-compose.yml").is_file():
+        if self.backend is None and not (root / "docker-compose.yml").is_file():
             messagebox.showerror(
                 "Select project",
                 "Keep the launcher inside the extracted application folder, or locate that folder.",
@@ -400,14 +413,18 @@ class Launcher:
             return
         self.busy = True
         self.status.set(
-            "Starting… The first build can take several minutes."
+            (
+                "Starting the application…"
+                if self.backend
+                else "Starting… The first build can take several minutes."
+            )
             if action in {"start", "update"}
             else "Stopping…"
         )
         Thread(target=self.work, args=(root, action), daemon=True).start()
 
     def work(self, root, action):
-        """Perform a Docker operation and send a safe result to the GUI queue.
+        """Perform an application operation and send a safe result to the GUI queue.
 
         Args:
             root: Selected source project directory.
@@ -417,7 +434,12 @@ class Launcher:
             None.
         """
         try:
-            if action in {"start", "update"}:
+            if self.backend is not None:
+                if action == "stop":
+                    self.backend.stop()
+                else:
+                    self.backend.start(reconfigure=self.configuration_changed)
+            elif action in {"start", "update"}:
                 start_application(
                     root,
                     rebuild=action == "update",

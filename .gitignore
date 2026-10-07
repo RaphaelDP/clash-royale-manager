@@ -60,3 +60,6 @@ launch/**/*.AppImage.tar.gz
 launch/**/macos_launcher/
 build/
 dist/
+
+# Generated PDF guides (rebuilt for release bundles)
+docs/user-guide-*.pdf

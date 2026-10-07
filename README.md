@@ -9,14 +9,15 @@ role or remove anyone from the clan.
 [Guide utilisateur en français](docs/user-guide.md#francais).**
 
 This README is the technical reference for developers, administrators, and curious
-users. Updated: **2026-10-07** · Document version: **1.0.0** (documentation only).
+users. Updated: **2026-10-07** · Document version: **1.2.1** (documentation only).
 
-Current application version: **1.0.0** (tag **v1.0.0**). On October 7 the operator
+Current application version: **1.1.0rc1** (candidate tag **v1.1.0-rc.1**). On October 7 the operator
 reported successful launcher builds, installed update/synchronization, and
 completed-history confirmation of race 137/0. These are operator-reported
 acceptance results; the retained October 6 JSON samples still say pending.
-[Release downloads](https://github.com/RaphaelDP/clash-royale-manager/releases/tag/v1.0.0)
-are published after this tag’s checks and all four launcher builds pass.
+[Candidate downloads](https://github.com/RaphaelDP/clash-royale-manager/actions/workflows/launchers.yml)
+are available as **complete-downloads** artifacts after all builds pass. Candidate
+tags do not publish a stable GitHub Release. The previous stable tag remains v1.0.0.
 See the [roadmap and release record](docs/roadmap.md#operator-acceptance--2026-10-07).
 Forecasting and dedicated player comparison are optional later improvements.
 
@@ -56,15 +57,110 @@ four or five weekly races, each comprising three training and four battle days.
 
 ## Desktop installation (no coding)
 
-Use the [bilingual user guide](docs/user-guide.md) for step-by-step instructions using the actual button labels without terminal commands. A compiled launcher needs
-Docker, the matching extracted application source folder, and a configured API
-key; it does not need a local Python installation.
+**Standalone is the default for Windows and Linux desktop users.** Download a
+`standalone-windows.zip` or `standalone-linux-x86_64.zip`, extract the entire
+`ClanManager` folder, and open `ClanManager.exe` (Windows) or `ClanManager`
+(Linux). Python and dependencies are included; Docker, WSL, virtualization and
+FUSE are not required. Do not move the executable away from its accompanying folders.
+Read the English/French PDFs beside the executable or the [user guide](docs/user-guide.md).
 
-The launcher is a Docker controller, not a self-contained copy of the dashboard.
-It finds the project from its location under `launch/`, creates a missing
-`.env` from `.env.example`, and prompts for missing settings.
-Normal startup reuses the image. **Update application** rebuilds from the source
-files already on disk; it does **not** download a new release or pull Git changes.
+The standalone implementation is newer than the v1.0.0 release: do not assume
+old release assets include it. Linux has a locally built, lifecycle-tested
+package under `dist/ClanManager/`. Windows has a native GitHub build and smoke
+workflow; its current build still needs to run before Windows distribution.
+macOS currently retains the optional Docker launcher, not a standalone package.
+
+Settings and runtime data live outside the application folder:
+
+| OS | Default data root |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%/ClashRoyaleClanManager` |
+| Linux | `$XDG_DATA_HOME/ClashRoyaleClanManager`, default `~/.local/share/ClashRoyaleClanManager` |
+
+The launcher shows this location. Relative database, log and backup paths resolve
+inside it. First launch copies the example configuration and asks for missing
+fields. User data survives replacing the program directory. No existing Docker
+database or credentials are imported automatically.
+The dashboard binds to **127.0.0.1:8501** in standalone mode.
+
+**Start and open** starts or resumes the owned dashboard. **Stop all** stops its
+supervisor and both children. Closing only the launcher leaves collection running.
+A full computer restart requires opening the application again; no service or
+autostart entry is installed. Configuration edits take effect on the next Start,
+which restarts the owned application. Download/extract a new package to update,
+after stopping the old one; there is no source rebuild or automatic updater.
+
+### Optional Docker deployment
+
+Docker remains supported for operators who prefer container deployment and for
+the current macOS launcher. Downloads marked **docker** contain source and a
+Docker controller under `launch/`; they are separate from standalone packages.
+Use [Docker deployment](#docker-deployment) and [closing Docker](#closing-the-application).
+Windows Docker installations need WSL 2 and hardware virtualization. A skipped
+Docker account sign-in does not cause a missing Virtual Machine Platform error.
+
+For that error, use Windows **Turn Windows features on or off**, enable
+**Virtual Machine Platform** and **Windows Subsystem for Linux**, then restart
+Windows. If virtualization is disabled in firmware, follow your manufacturer's
+instructions or ask IT; managed computers require administrator approval.
+See [Microsoft virtualization guidance](https://support.microsoft.com/en-us/windows/experience/enable-virtualization-on-windows)
+and [Docker requirements](https://docs.docker.com/desktop/setup/install/windows-install/).
+These steps are **not needed for the standalone application**.
+
+## Standalone builds and maintenance
+
+`launch/desktop.py` is the standalone entry point; `launch/native_backend.py`
+owns native process control. `launch/launcher.py` supplies the shared GUI and
+optional Docker backend. The native GUI starts a bundled interpreter, which runs
+the same application supervisor, migration code and scheduler as Python/Docker.
+Frozen GUI library paths are removed before launching the independent interpreter.
+
+Build with a relocatable Python installation (the CI workflow uses uv-managed
+CPython 3.12) containing the dependencies from `requirements.txt`. Do not copy a
+normal virtual environment: its interpreter/configuration paths may point to
+the build machine. In a packaging environment install PyInstaller 6.16.0 and
+python-dotenv 1.2.2, then run:
+
+```bash
+python -m scripts.build_standalone --python-dir PATH_TO_RELOCATABLE_PYTHON
+python -m scripts.smoke_standalone dist/ClanManager
+```
+
+`build_standalone` supports `--output` (default `dist/ClanManager`, must not exist).
+It copies reviewed source files, the runtime, native GUI, and generated PDFs.
+`smoke_standalone BUNDLE` uses a temporary database and port, disables API
+collection and Discord, and checks startup, dashboard resume, persistence,
+full shutdown and port release. The GUI's `--smoke-test --data-dir TEMP_DIRECTORY`
+checks the window without loading personal settings. `--bundle` overrides the
+program directory for source-mode GUI development.
+
+Internal supervisor settings: `CLAN_DESKTOP_CONTROL` selects the owned heartbeat/
+request directory; `CLAN_DASHBOARD_SCRIPT` and `CLAN_DASHBOARD_PORT` select bundled
+UI/port. `CLAN_SKIP_STARTUP_COLLECTION=1` skips initial collection for isolated
+acceptance tests; normal users should leave it unset. Scheduler settings separately
+control scheduled collection. The supervisor process lock prevents concurrent
+startup against one lock directory.
+
+PDFs are built with `python -m scripts.build_user_guides` (build-only
+`reportlab==4.4.4` and DejaVu Sans). Options: `--source`, `--output-dir`,
+`--font-dir`. Markdown remains editable source; PDFs are the user-facing format.
+Real public API-portal screenshots live in `docs/images/`; authenticated
+key creation is described in text without personal credentials.
+
+`python -m scripts.bundle_release --artifacts release-artifacts --output release-assets`
+assembles optional Docker downloads. CI also attaches standalone Windows/Linux
+archives, separate PDFs, and checksums. Generated binaries/PDFs are not committed
+to Git. The workflow preserves existing public releases.
+
+### Moving an existing installation to standalone
+
+Stop both applications first. Back up the old database and configuration, then
+use the [restore procedure](#backup-and-restore) to restore a validated database
+copy into the standalone data root's `data/clan_manager.db`.
+Transfer required settings deliberately through the GUI; retain the standalone
+relative paths unless you intend a custom location. Keep the old backup until
+the new installation is verified. Do not point Docker and standalone at the same
+active database or run their collectors simultaneously for the same installation.
 
 ## Python installation
 
@@ -114,6 +210,36 @@ collection, and starts the scheduler and dashboard. Back up existing data before
 an upgrade. A collection failure leaves existing data available; an incompatible
 schema prevents startup.
 
+## Generated folders and script responsibilities
+
+| Folder | Purpose | Can it be deleted? |
+| --- | --- | --- |
+| `build/` | Temporary packaging work: PyInstaller analysis/spec files, downloaded build runtimes and intermediate launcher files. | Yes, once builds have stopped. A later build recreates its inputs as needed. |
+| `dist/` | Finished applications and downloadable archives, such as `dist/ClanManager/`. | Yes, after stopping applications launched from it and keeping any distribution you want to use/share. |
+
+Both folders are ignored by Git. Neither is the standalone user's data directory.
+Removing them does not remove data stored under the user-data root described above.
+Local output is a snapshot of its last build, not a live copy of the source; a new
+commit does not update it automatically. CI builds fresh artifacts for each tag.
+
+The scripts have separate command-line responsibilities. Users do not run them
+manually; the launcher and workflow invoke the ones they need.
+
+| Role | Scripts | Required for normal desktop operation? |
+| --- | --- | --- |
+| Startup and scheduling | `run_app.py`, `run_scheduler.py` | Yes: supervisor and scheduled worker. |
+| Database and collection | `init_db.py`, `collect_data.py`, `backup_db.py` | Yes: startup migration, collection and backups. |
+| Recovery | `restore_db.py` | Only when restoring data. |
+| Desktop packaging | `build_standalone.py`, `build_user_guides.py` | Build-time only: executable/runtime bundle and PDFs. |
+| Source/Docker distribution | `package_release.py`, `bundle_release.py` | Build-time only: reviewed source archive and optional Docker downloads. |
+| Verification | `run_tests.py`, `smoke_standalone.py` | Development/CI only: isolated unit tests and packaged lifecycle checks. |
+| Diagnostics | `observe_war_identity.py`, `profile_queries.py` | Optional maintainer tools for live API identity and synthetic query profiling. |
+
+These files are not duplicates: merging them would mix runtime operations with
+packaging or diagnostic dependencies. They remain small entry points around the
+shared services. `launch/desktop.py` is the standalone graphical entry point;
+`launch/launcher.py` provides shared controls and the optional Docker entry point.
+
 ## Command reference
 
 These commands run from the project root in its Python environment. Unless
@@ -133,7 +259,7 @@ may write runtime data. None of the scripts requires a shell alias.
 | `python -m scripts.observe_war_identity --confirm-season ID --confirm-section INDEX` | Options must appear together; section must be a nonnegative integer. Confirms the exact identity in completed API history. Exit 0: success/confirmed, 1: collection failure, 2: invalid arguments, 3: confirmation pending. `--worker` is internal. |
 | `python -m scripts.run_tests [PYTEST_ARGS...]` | Tests in temporary storage, dummy credentials, no `.env` loading. For example `-k training` selects training tests. |
 | `python -m scripts.profile_queries` | Synthetic 50-member/eight-race query benchmark. Use the isolated recipe below to avoid normal configuration/log loading. |
-| `python -m launch.launcher` | Shared desktop GUI; requires Tk and Docker. `--self-test`: import/packaging check without GUI. `--smoke-test`: open/close the GUI automatically without real settings. |
+| `python -m launch.launcher` | Optional Docker GUI; requires Tk and Docker. `--self-test`: import/packaging check without GUI. `--smoke-test`: open/close the GUI automatically without real settings. |
 | `python -m launch.build_icons` | Rebuild PNG/ICO/ICNS from SVG. Requires the build dependencies below. No custom flags. |
 
 Argument-parsing commands support `--help`. Scripts with no custom flags are
@@ -498,6 +624,9 @@ must be supplied together. No automatic polling or release publication occurs.
 
 ### Closing the application
 
+This section describes the optional Docker/source deployment. Standalone uses
+the same Close choices but has no Docker port binding to keep reserved.
+
 The shared navigation sidebar provides a **Close** button with an explicit confirmation dialog.
 Cancel leaves both services running. The two confirmed choices are:
 
@@ -544,10 +673,11 @@ changes. Existing images must be updated once to add the resume protocol.
 1. Push `.github/workflows/launchers.yml` and its supporting code to the default
    branch. GitHub runs the builds; you do not need Windows or macOS locally.
 2. Open the repository on GitHub → **Actions → Desktop launchers → Run workflow**.
-3. Choose the branch and click **Run workflow**. Wait for the checks and all four
+3. Choose the branch and click **Run workflow**. Wait for the checks and all Docker and standalone
    builds to turn green.
-4. Open that run. Download `project-source` and the matching `launcher-*` artifact
-   from **Artifacts** at the bottom. Artifacts require a GitHub login and expire
+4. Open that run and download **complete-downloads** from **Artifacts**. It contains
+   standalone Windows/Linux ZIPs, optional Docker ZIPs, and PDF guides. Individual source/native artifacts
+   remain available for developers. Artifacts require a GitHub login and expire
    according to the repository's retention policy; they are not Release assets.
 
 Future pushed `v*` tags also trigger builds. Existing tags are not rebuilt
@@ -785,9 +915,9 @@ Docker lifecycle behavior on each user's machine.
    to Python version `1.0.0`.
 5. Push the branch and that specific tag. Tag pushes trigger the launcher workflow;
    branch pushes alone do not. A maintainer can also run it manually from Actions.
-6. Wait for checks and all four native builds. Download the source and launchers
-   from the same run and verify they match the release commit.
-7. Verify the GitHub Release contains the source and four native assets,
+6. Wait for checks, all four native builds and complete-download assembly. Verify
+   the platform bundles match the release commit and contain both PDF guides.
+7. Verify the GitHub Release contains the four complete platform bundles and two PDF guides,
    named by version and OS/architecture, plus SHA256SUMS.txt. The stable-tag workflow publishes these assets automatically after all builds
    pass, with version checks, SHA-256 checksums and links to the user guides. It
    prepares a draft before publishing and refuses to replace an existing public release.
