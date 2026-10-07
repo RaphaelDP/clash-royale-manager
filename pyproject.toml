@@ -48,6 +48,7 @@ dev = [
     "mypy>=1.8.0",
     "sqlalchemy2-stubs>=0.0.2a35",
     "types-requests>=2.31.0",
+    "resvg_py",
 ]
 
 [project.scripts]

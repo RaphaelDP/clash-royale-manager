@@ -4,7 +4,7 @@ Description: Generate platform and window icons from the shared launcher SVG.
 Author: Raphael Smilet
 Date Created: 2026-10-06
 Last Modified: 2026-10-06
-Version: 0.1.0
+Version: 0.1.1
 """
 
 from io import BytesIO
@@ -21,7 +21,8 @@ def main():
         None. Writes derived icons beside their corresponding platform launchers.
     """
     # These dependencies belong to the build environment, not the application runtime.
-    # pylint: disable=import-outside-toplevel,import-error
+    # resvg exposes svg_to_bytes through a compiled extension.
+    # pylint: disable=import-outside-toplevel,import-error,no-member
     import resvg_py
     from PIL import Image
 
