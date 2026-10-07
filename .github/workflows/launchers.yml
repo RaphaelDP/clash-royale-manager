@@ -2,8 +2,8 @@
 # Description: Build native graphical Docker launchers on their target systems.
 # Author: Raphael Smilet
 # Date Created: 2026-10-06
-# Last Modified: 2026-10-06
-# Version: 0.1.3
+# Last Modified: 2026-10-07
+# Version: 0.2.0
 name: Desktop launchers
 on:
   workflow_dispatch:
@@ -78,3 +78,94 @@ jobs:
             launch/macos/macos_launcher.app.zip
             launch/linux/linux_launcher.AppImage.tar.gz
           if-no-files-found: error
+  publish:
+    name: Publish stable release
+    needs: [checks, build]
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+      - name: Prepare matching assets and release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import ast
+          import hashlib
+          import os
+          from pathlib import Path
+          import shutil
+          import zipfile
+
+          tag = os.environ["RELEASE_TAG"]
+          tree = ast.parse(Path("app/__init__.py").read_text())
+          version = next(ast.literal_eval(node.value) for node in tree.body
+                         if isinstance(node, ast.Assign)
+                         and any(isinstance(t, ast.Name) and t.id == "__version__" for t in node.targets))
+          assert tag == f"v{version}", "Tag and canonical version differ"
+          output = Path("release-assets")
+          output.mkdir()
+          sources = [
+              ("project-source", "project.zip", "source.zip"),
+              ("launcher-windows-2022", "windows_launcher.exe", "windows.exe"),
+              ("launcher-ubuntu-22.04", "linux_launcher.AppImage.tar.gz", "linux-x86_64.AppImage.tar.gz"),
+              ("launcher-macos-15-intel", "macos_launcher.app.zip", "macos-intel.app.zip"),
+              ("launcher-macos-15", "macos_launcher.app.zip", "macos-apple-silicon.app.zip"),
+          ]
+          for artifact, filename, suffix in sources:
+              matches = list((Path("release-artifacts") / artifact).rglob(filename))
+              assert len(matches) == 1, f"Expected one {artifact}/{filename}"
+              assert matches[0].stat().st_size > 0, f"Empty artifact: {artifact}"
+              shutil.copy2(matches[0], output / f"clan-manager-{tag}-{suffix}")
+          source = output / f"clan-manager-{tag}-source.zip"
+          with zipfile.ZipFile(source) as archive:
+              assert archive.read("app/__init__.py") == Path("app/__init__.py").read_bytes()
+              assert "docs/user-guide.md" in archive.namelist()
+          lines = [f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}"
+                   for p in sorted(output.iterdir())]
+          (output / "SHA256SUMS.txt").write_text("\n".join(lines) + "\n")
+          base = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/blob/{tag}"
+          Path("release-notes.md").write_text(
+              f"# Clash Royale Clan Manager {tag}\n\n"
+              "Clan dashboard, historical data, contribution recommendations, scheduled collection, "
+              "backups, and native Docker launchers. Training and battle phases share each weekly race.\n\n"
+              f"[English user guide]({base}/docs/user-guide.md#english) · "
+              f"[Guide en français]({base}/docs/user-guide.md#francais) · "
+              f"[Technical reference]({base}/README.md)\n\n"
+              "Download source.zip and the launcher matching your system. Extract the source, then "
+              "place the launcher in launch/windows, launch/linux, or launch/macos. "
+              "Rename the Windows executable to windows_launcher.exe. macOS and Linux archives "
+              "contain the expected launcher filename. Docker and an API key are required.\n\n"
+              "All attached files come from this tag's successful checks and four-platform build run. "
+              "SHA256SUMS.txt records their checksums. Launchers are unsigned; macOS is not notarized.\n\n"
+              "Back up your installation before updating. Keep .env, data, logs, and backups; "
+              "use Update application after replacing source files. Startup applies database migrations.\n\n"
+              "Operator acceptance was reported on October 7, 2026; retained earlier API samples "
+              "remain dated evidence. Forecasting and dedicated player comparison are deferred.\n"
+          )
+          PY
+      - name: Publish all assets together
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > release-state.txt; then
+            if [ "$(cat release-state.txt)" != "true" ]; then
+              echo "Release already published; refusing to replace its assets."
+              exit 1
+            fi
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft               --title "Clash Royale Clan Manager $RELEASE_TAG" --notes-file release-notes.md
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest --notes-file release-notes.md

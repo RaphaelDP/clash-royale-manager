@@ -1,16 +1,32 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-07 · Document version: 0.3.4
+Updated: 2026-10-07 · Document version: 1.0.0
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
-Application version: **0.9.8rc1**, matching annotated candidate tag
-`v0.9.8-rc.1`. The last finalized release remains `v0.9.7`. The [history and tag audit](roadmap.md#git-history-and-tag-audit) records the original
-refs and the exact archive mapping for tag cleanup. Remote cleanup was verified
-on 2026-10-02. [v0.9.7 release notes](roadmap.md#v097-release-record) record the accepted scope
-and limitations; v1.0 qualification remains separate.
+Application version: **1.0.0**, release tag **v1.0.0**.
+Stable-tag publication runs only after checks and all four launcher builds pass.
+The [release page](https://github.com/RaphaelDP/clash-royale-manager/releases/tag/v1.0.0)
+is the authoritative publication status. Earlier tags and dated evidence are preserved.
 
 Legend: ✅ implemented and locally checked; 🟡 remaining qualification; ⬜ pending.
+
+## Operator acceptance — 2026-10-07
+
+The operator reported success for all three requested checks: updated launcher
+builds, installed application update/synchronization, and completed-history
+confirmation of inferred race 137/0. These are operator-reported acceptance
+results, not a new independent observation collected by the assistant.
+No workflow URL or fresh confirmation JSON was supplied with this report.
+The dated October 6 JSON evidence remains unchanged and still records pending.
+
+The agreed implementation/acceptance work is closed on that basis. v1.0.0 metadata
+and documentation are prepared. The stable-tag workflow validates and publishes
+matching source and launcher assets; see the release page for publication status.
+Forecasting and dedicated player comparison remain optional after v1.0.
+The technical README now consolidates operations and architecture; the
+[bilingual user guide](user-guide.md) covers English and French everyday use.
+Earlier dated qualification entries below preserve what was known at the time.
 
 ## v0.9.8-rc.1 release candidate
 
@@ -38,12 +54,11 @@ Do not move a published tag; use a new candidate version if fixes are needed.
 - ✅ Graphical Docker launcher and locally smoke-tested Linux AppImage.
 - ✅ Docker page-content bleeding reproduced and corrected by disabling telemetry
   writes to an unwritable home; explicit navigation isolates page rendering.
-- 🟡 Windows/Intel macOS previously passed build smoke checks; the reorganized
-  icon-enabled builds and Apple Silicon variant await a new workflow run.
-- 🟡 Rebuild the installed Docker image to receive the navigation fix.
+- ✅ Updated launcher build checks reported successful by the operator on October 7.
+- ✅ Installed update and synchronization reported successful by the operator on October 7.
 - See [launcher instructions](../README.md#desktop-installation-no-coding) and
   [verification evidence](roadmap.md#launcher-verification-record).
-  These changes are after v0.9.7 and do not close the remaining v1.0 war gate.
+  These changes are after v0.9.7; see the October 7 acceptance record for current status.
 
 ## Training-phase correctness follow-up
 
@@ -71,14 +86,14 @@ retained all ten completed races and imported no scored training race.
 | v0.0 Foundation | ✅ Python packages, dependency declarations, test tooling |
 | v0.1 Database | ✅ Models, relationships, migration-driven initialization and repair |
 | v0.2 API | ✅ Cached client, transient retries, validated atomic roster synchronization |
-| v0.3 Collection | 🟡 Daily snapshots and race history; live season inference needs field verification |
+| v0.3 Collection | ✅ Daily snapshots, race history; field confirmation reported by operator |
 | v0.4 Analytics | ✅ Activity, participation, contribution scores, rank recommendations |
 | v0.5 Dashboard | ✅ Six pages with shared data preparation in `dashboard/functions.py` |
 | v0.6 Analytics UI | ✅ Historical views, rankings, explicit profile-cache freshness and fallback |
 | v0.7 Automation | ✅ Persistent schedule, reload, job health, same-job locking and daily guards |
 | v0.8 Decision support | 🟡 Recommendations available; optional enhancements listed below |
 | v0.9 Production preparation | ✅ Implementation, deployment, restore, Discord, and visual checks complete |
-| v1.0 Stable release | ⬜ Release gates remain; not released |
+| v1.0 Stable release | ✅ Scope accepted; v1.0.0 metadata prepared, publication gated by CI |
 
 ## Completed reliability work
 
@@ -106,8 +121,8 @@ retained all ten completed races and imported no scored training race.
 - ✅ Inferred live identity requires completed history aged zero to eight days and
   a supported section transition. Missing evidence, stale/future history, malformed
   IDs, and unexplained section gaps fail visibly without overwriting results.
-- 🟡 The eight-day limit is an application policy; real season-boundary and stale
-  API response behavior still need field verification.
+- ✅ The eight-day limit remains an application policy; season confirmation was
+  reported by the operator. Stale-response safeguards have automated coverage.
 
 ### Dashboard and collection
 
@@ -146,9 +161,9 @@ retained all ten completed races and imported no scored training race.
 ### Documentation and performance
 
 - ✅ README covers setup and isolated tests.
-- ✅ [Operations](operations.md) covers configuration, scheduler semantics,
+- ✅ [Operations](../README.md#configuration) covers configuration, scheduler semantics,
   deployment, backup/restore, and troubleshooting.
-- ✅ [Architecture](architecture.md) describes data boundaries, known history
+- ✅ [Architecture](../README.md#architecture-and-data-semantics) describes data boundaries, known history
   limitations, migration behavior, and synthetic query measurements.
 - ✅ Profiling identifies recommendation/scoring loops as the largest query-count
   targets. Batching optimization is a follow-up, not claimed complete.
@@ -172,15 +187,16 @@ retained all ten completed races and imported no scored training race.
 - The active production database was not modified; authorized deployment checks
   read job status and schema revision. Two existing backups were
   read with operator authorization for the isolated rehearsal documented in
-  [Operations](operations.md#backup-copy-upgrade-and-restore-rehearsal--2026-10-02);
+  [Operations](../README.md#backup-copy-upgrade-and-restore-rehearsal--2026-10-02);
   original backup hashes were unchanged. Credentials were loaded privately for
   authorized live API and Discord checks, never for the offline backup rehearsal.
 
 ## Fast path to v1.0
 
-A real season boundary was observed on October 5. The remaining release blocker
-is authoritative completed-history confirmation of the new inferred race. The other pending
-features below are optional follow-ups, not additions to the v1.0 release gate.
+A real season boundary was observed on October 5. On October 7 the operator
+reported successful completed-history confirmation; see the acceptance record
+above. The remaining work is release preparation. Other pending features below
+are optional follow-ups, not additions to the v1.0 release gate.
 [Qualification instructions](roadmap.md#release-qualification) give the isolated observation
 command, first live baseline, and exact acceptance criteria. No observer runs in
 the background and no production schedule was changed.
@@ -195,9 +211,10 @@ the background and no production schedule was changed.
   live season 136/section 3; explicit live season ID absent.
 - ✅ Real transition captured on October 5: prior live 136/3 is now completed in
   API history; live section reset to zero and resolved to 137/0.
-- ⬜ Confirm 137/0 in subsequent completed API history. The live response still
-  omits season ID; inference success alone does not close this final field gate.
-- ⬜ After qualification, prepare and check v1.0.0 release metadata and tag.
+- ✅ Operator reported successful confirmation of 137/0 on October 7.
+  A fresh machine-readable sample was not supplied; archived samples stay unchanged.
+- ✅ Prepare v1.0.0 metadata and a stable-tag publication workflow; release assets
+  are published only after the matching build matrix passes.
 
 ## Required gates before v1.0
 
@@ -213,9 +230,9 @@ the background and no production schedule was changed.
   acceptance gate below.
 - ✅ Live synchronization passed using authorized credentials, temporary data,
   and disabled Discord: members, history/current race, daily jobs, scoring, restore.
-- 🟡 Real before/after season transition observed on October 5; prior live race
-  136/3 confirmed by history. New inferred race 137/0 awaits authoritative history.
-  Synthetic long-gap refusal/recovery tests pass; the field gate remains open.
+- ✅ Real before/after season transition observed on October 5; prior live race
+  136/3 confirmed by history. Confirmation of 137/0 reported by operator October 7.
+  Synthetic long-gap refusal/recovery tests pass; see acceptance provenance above.
   See the [qualification evidence](roadmap.md#real-transition-observed--2026-10-05).
 - ✅ Discord delivery verified on 2026-10-02: one labeled diagnostic message was
   acknowledged by Discord; a repeated daily-job call sent no duplicate. Separate
@@ -270,7 +287,7 @@ block the current reliability milestone.
 ### Completed evidence
 
 Deployment, visual review, live synchronization, Discord delivery/recovery, and
-real-backup upgrade/restore passed; see [Operations](operations.md). Automated
+real-backup upgrade/restore passed; see [Operations](../README.md#configuration). Automated
 regressions additionally cover an inferred rollover later confirmed by completed
 history, a lagging live endpoint after completion, repeat synchronization, and
 recovery after a 45-day history gap. Simulated cases are not live boundary proof.
@@ -425,7 +442,7 @@ It is not a v1.0 stability declaration.
   no Streamlit exceptions or page-wide horizontal overflow; screenshots inspected.
   Backup-copy offline rendering and failure-path tests cover API unavailability.
 
-See [Operations](operations.md) for the scope and evidence of these checks.
+See [Operations](../README.md#configuration) for the scope and evidence of these checks.
 
 ### Accepted limitations
 
@@ -441,7 +458,7 @@ See [Operations](operations.md) for the scope and evidence of these checks.
 ### Upgrade
 
 Back up the database before upgrading. Startup runs Alembic to `a2026093001`.
-Follow the [backup and restore procedure](operations.md#backup-and-restore).
+Follow the [backup and restore procedure](../README.md#backup-and-restore).
 Restart the application after installing the release so long-lived processes
 load its version and code. Release publication does not itself restart deployment.
 
