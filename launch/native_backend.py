@@ -3,8 +3,8 @@ Filename: native_backend.py
 Description: Control a bundled Python application without Docker or a system interpreter.
 Author: Raphael Smilet
 Date Created: 2026-10-07
-Last Modified: 2026-10-07
-Version: 0.1.0
+Last Modified: 2026-10-15
+Version: 0.1.1
 """
 
 import json
@@ -16,7 +16,7 @@ import subprocess
 import sys
 import time
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.request import ProxyHandler, build_opener
 from http.client import HTTPException
 
 
@@ -55,7 +55,9 @@ class NativeBackend:
         self.bundle = Path(bundle).resolve()
         self.root = Path(data or user_directory()).resolve()
         self.port = port
-        self.url = f"http://localhost:{port}"
+        self.url = f"http://127.0.0.1:{port}"
+        self.process = None
+        self.health_client = build_opener(ProxyHandler({}))
         self.control = self.root / "data/desktop-control"
         self.python = (
             self.bundle
@@ -129,16 +131,21 @@ class NativeBackend:
                 SCHEDULER_CONFIG_FILE=str(self.root / "data/scheduler.json"),
             )
             with (self.root / "logs/desktop-startup.log").open("ab") as log:
-                process = subprocess.Popen(  # pylint: disable=consider-using-with
-                    [str(self.python), "-m", "scripts.run_app"],
-                    cwd=self.root,
-                    env=env,
-                    stdin=subprocess.DEVNULL,
-                    stdout=log,
-                    stderr=log,
-                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-                    start_new_session=os.name != "nt",
+                self.process = process = (
+                    subprocess.Popen(  # pylint: disable=consider-using-with
+                        [str(self.python), "-m", "scripts.run_app"],
+                        cwd=self.root,
+                        env=env,
+                        stdin=subprocess.DEVNULL,
+                        stdout=log,
+                        stderr=log,
+                        creationflags=(
+                            subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+                        ),
+                        start_new_session=os.name != "nt",
+                    )
                 )
+        last_error = "Supervisor heartbeat not ready."
         deadline = time.monotonic() + 180
         while time.monotonic() < deadline:
             if process is not None and process.poll() is not None:
@@ -146,14 +153,17 @@ class NativeBackend:
                     f"Application startup failed. See {self.root / 'logs/desktop-startup.log'}."
                 )
             try:
-                with urlopen(self.url + "/_stcore/health", timeout=2) as response:
+                with self.health_client.open(
+                    self.url + "/_stcore/health", timeout=2
+                ) as response:
                     if self.alive() and response.status == 200:
                         return
-            except (OSError, URLError, HTTPException):
-                pass
+            except (OSError, URLError, HTTPException) as error:
+                last_error = str(error)
             time.sleep(0.5)
         raise RuntimeError(
-            "Startup timed out. Check desktop-startup.log; use Stop all to stop."
+            f"Startup timed out at {self.url}. Last health check: {last_error}. "
+            f"Check {self.root / 'logs/desktop-startup.log'}; use Stop all to stop."
         )
 
     def stop(self):
@@ -168,17 +178,26 @@ class NativeBackend:
         Raises:
             RuntimeError: Shutdown did not complete within its grace period.
         """
-        if not self.alive():
+        owned_process = self.process
+        running = owned_process is not None and owned_process.poll() is None
+        if not running and not self.alive():
             return
-        temporary = self.control / "desktop-request.tmp"
-        temporary.write_text(
-            json.dumps({"mode": "all", "not_before": time.time()}), encoding="utf-8"
-        )
-        temporary.replace(self.control / "request.json")
         deadline = time.monotonic() + 60
-        while self.alive() and time.monotonic() < deadline:
+        while time.monotonic() < deadline:
+            # A stale heartbeat is not proof of exit. For a process we launched,
+            # wait for its actual exit; otherwise wait for explicit channel removal.
+            if owned_process is not None:
+                if owned_process.poll() is not None:
+                    self.process = None
+                    return
+            elif not (self.control / "heartbeat").exists():
+                return
+            if self.control.exists():
+                temporary = self.control / "desktop-request.tmp"
+                temporary.write_text(
+                    json.dumps({"mode": "all", "not_before": time.time()}),
+                    encoding="utf-8",
+                )
+                temporary.replace(self.control / "request.json")
             time.sleep(0.2)
-        if self.alive():
-            raise RuntimeError(
-                "Shutdown is still pending. Check logs before restarting."
-            )
+        raise RuntimeError("Shutdown is still pending. Check logs before restarting.")
