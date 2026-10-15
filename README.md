@@ -9,15 +9,17 @@ role or remove anyone from the clan.
 [Guide utilisateur en français](docs/user-guide.md#francais).**
 
 This README is the technical reference for developers, administrators, and curious
-users. Updated: **2026-10-07** · Document version: **1.2.1** (documentation only).
+users. Updated: **2026-10-15** · Document version: **1.3.0** (documentation only).
 
-Current application version: **1.1.0rc1** (candidate tag **v1.1.0-rc.1**). On October 7 the operator
+Current application version: **1.1.0** (stable release tag **v1.1.0**). On October 7 the operator
 reported successful launcher builds, installed update/synchronization, and
 completed-history confirmation of race 137/0. These are operator-reported
 acceptance results; the retained October 6 JSON samples still say pending.
-[Candidate downloads](https://github.com/RaphaelDP/clash-royale-manager/actions/workflows/launchers.yml)
-are available as **complete-downloads** artifacts after all builds pass. Candidate
-tags do not publish a stable GitHub Release. The previous stable tag remains v1.0.0.
+[Release downloads](https://github.com/RaphaelDP/clash-royale-manager/releases/tag/v1.1.0)
+provide standalone Windows/Linux packages, optional Docker packages, and bilingual
+PDF guides. The stable tag rebuilds all packages and publishes only after all
+checks pass. Windows and Linux standalone lifecycle/GUI checks passed in
+[the pre-release workflow](https://github.com/RaphaelDP/clash-royale-manager/actions/runs/38726055248).
 See the [roadmap and release record](docs/roadmap.md#operator-acceptance--2026-10-07).
 Forecasting and dedicated player comparison are optional later improvements.
 

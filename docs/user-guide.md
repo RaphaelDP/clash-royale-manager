@@ -1,6 +1,6 @@
 # User guide / Guide utilisateur
 
-Updated / Mise à jour : **2026-10-07** · Version : **1.2.1** (guide only / guide uniquement)
+Updated / Mise à jour : **2026-10-15** · Version : **1.3.0** (guide only / guide uniquement)
 
 [English](#english) · [Français](#francais) · [Technical reference](../README.md)
 
@@ -27,11 +27,10 @@ Ask the maintainer for the standalone package for your computer, or open the
 | Windows, Intel/AMD 64-bit | standalone-windows.zip |
 | Linux, Intel/AMD 64-bit | standalone-linux-x86_64.zip |
 
-For candidate **v1.1.0-rc.1**, download **complete-downloads** from its successful
-[GitHub Actions run](https://github.com/RaphaelDP/clash-royale-manager/actions/workflows/launchers.yml),
-then select the standalone ZIP inside. GitHub sign-in is required for candidate
-artifacts; ask the maintainer for the ZIP if needed. Older v1.0.0 downloads
-do not contain standalone packages. Do not choose a package marked **docker** for these instructions.
+Choose **v1.1.0 or newer** from the release downloads. Download the standalone ZIP
+for your computer; no GitHub account is needed for public release downloads.
+Older v1.0.0 downloads do not contain standalone packages.
+Do not choose a package marked **docker** for these instructions.
 macOS does not yet have a standalone build; ask the maintainer about its optional
 Docker deployment.
 
@@ -232,12 +231,10 @@ Demandez la version autonome au responsable ou ouvrez les
 | Windows, Intel/AMD 64 bits | standalone-windows.zip |
 | Linux, Intel/AMD 64 bits | standalone-linux-x86_64.zip |
 
-Pour la candidate **v1.1.0-rc.1**, téléchargez **complete-downloads** depuis son
-[exécution GitHub Actions réussie](https://github.com/RaphaelDP/clash-royale-manager/actions/workflows/launchers.yml),
-puis choisissez le ZIP standalone à l’intérieur. Une connexion GitHub est requise
-pour ces fichiers candidats ; demandez le ZIP au responsable si nécessaire.
-Les anciens téléchargements v1.0.0 ne contiennent pas de version autonome. Pour ce guide, ne choisissez
-pas un fichier marqué **docker**. macOS n'a pas encore de version autonome :
+Choisissez **v1.1.0 ou une version plus récente** dans les téléchargements.
+Téléchargez le ZIP standalone pour votre ordinateur ; aucun compte GitHub n’est
+nécessaire pour les versions publiques. Les téléchargements v1.0.0 ne contiennent
+pas de version autonome. Pour ce guide, ne choisissez pas un fichier marqué **docker**. macOS n'a pas encore de version autonome :
 demandez conseil pour son déploiement Docker facultatif.
 
 1. Téléchargez un ZIP et **extrayez tous les fichiers** dans un emplacement permanent.

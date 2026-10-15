@@ -1,16 +1,25 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-07 · Document version: 1.1.0
+Updated: 2026-10-15 · Document version: 1.2.0
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
-Application version: **1.1.0rc1**, candidate tag **v1.1.0-rc.1**.
-The previous stable tag remains v1.0.0. Candidate pushes build the Windows/Linux
-standalone applications, optional Docker launchers and PDF guides; they do not
-publish a stable Release. Download **complete-downloads** from the matching
-[workflow run](https://github.com/RaphaelDP/clash-royale-manager/actions/workflows/launchers.yml).
+Application version: **1.1.0**, stable release tag **v1.1.0**.
+Publication is gated by fresh tests and all platform builds on the tagged commit.
 
-## v1.1.0-rc.1 standalone candidate
+## v1.1.0 stable standalone release
+
+- Windows and Linux standalone builds, lifecycle checks and GUI smoke checks passed
+  in [run 38726055248](https://github.com/RaphaelDP/clash-royale-manager/actions/runs/38726055248)
+  for commit `6771917`; optional Docker builds and complete package assembly passed too.
+- Local suite: 259 tests; Black and Pylint pass.
+- Windows startup explicitly disables Streamlit's interactive startup; failed smoke
+  runs preserve diagnostic artifacts before temporary data cleanup.
+- User requested stable publication after reviewing the successful workflow.
+  This records automated validation, not a new clean-machine Windows operator test.
+- Stable user guides link directly to Releases; macOS remains Docker-based.
+
+## v1.1.0-rc.1 standalone candidate (historical)
 
 - Standalone is the primary Windows/Linux desktop path, with its own Python runtime.
 - Per-user data survives application replacement; existing Docker data is not imported.
@@ -31,7 +40,7 @@ Windows testing with a nontechnical user exposed WSL/virtualization setup fricti
 This qualifies the earlier acceptance: a successful build does not prove easy
 installation on a clean Windows machine. Standalone is now the primary Windows/Linux desktop implementation; Docker
 remains optional. Linux runtime and GUI smoke checks passed locally. Windows
-build/smoke coverage is configured in Actions and awaits a run for this revision.
+build/smoke coverage subsequently passed in the workflow linked above.
 
 The updated workflow assembles standalone Windows/Linux ZIPs with Python included,
 plus explicitly named Docker ZIPs. Both include English/French PDF guides.
