@@ -4,7 +4,7 @@ Description: Control a bundled Python application without Docker or a system int
 Author: Raphael Smilet
 Date Created: 2026-10-07
 Last Modified: 2026-10-15
-Version: 0.1.1
+Version: 0.1.2
 """
 
 import json
@@ -123,6 +123,7 @@ class NativeBackend:
             env.update(
                 PYTHONPATH=str(self.application),
                 PYTHONNOUSERSITE="1",
+                PYTHONUNBUFFERED="1",
                 CLAN_DESKTOP_CONTROL=str(self.control),
                 CLAN_DASHBOARD_SCRIPT=str(self.application / "dashboard/navigation.py"),
                 CLAN_DASHBOARD_PORT=str(self.port),

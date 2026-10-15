@@ -4,8 +4,8 @@ Filename: run_app.py
 Description: Supervise dashboard and scheduler with safe startup and graceful shutdown.
 Author: Raphael Smilet
 Date Created: 2026-09-30
-Last Modified: 2026-10-07
-Version: 0.2.0
+Last Modified: 2026-10-15
+Version: 0.2.1
 Python Version: 3.12
 ================================================================================
 """
@@ -51,6 +51,7 @@ def run_supervisor():
     Returns:
         None.
     """
+    print("Supervisor: initializing database", flush=True)
     init_db()  # Never launch against an incompatible schema.
     try:
         if os.getenv("CLAN_SKIP_STARTUP_COLLECTION") != "1":
@@ -58,6 +59,7 @@ def run_supervisor():
     except Exception:
         # Keep the dashboard available to inspect persisted sync failures.
         logger.exception("Initial collection failed; serving existing data.")
+    print("Supervisor: starting scheduler and dashboard", flush=True)
     stop = Event()
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, lambda *_: stop.set())
@@ -89,6 +91,7 @@ def run_supervisor():
                 ),
             )
             processes["dashboard"] = start_dashboard(control)
+            print("Supervisor: monitoring children", flush=True)
             supervise_processes(processes, stop, control)
         finally:
             stop_processes(processes.values())
@@ -110,6 +113,7 @@ def start_dashboard(control):
             "-m",
             "streamlit",
             "run",
+            "--server.headless=true",
             os.getenv("CLAN_DASHBOARD_SCRIPT", "dashboard/navigation.py"),
             f"--server.port={os.getenv('CLAN_DASHBOARD_PORT', '8501')}",
             "--server.address="

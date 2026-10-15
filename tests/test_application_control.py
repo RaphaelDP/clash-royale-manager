@@ -4,8 +4,8 @@ Filename: test_application_control.py
 Description: Verify confirmed shutdown, owned-process cleanup, and released web ports.
 Author: Raphael Smilet
 Date Created: 2026-10-05
-Last Modified: 2026-10-06
-Version: 0.1.1
+Last Modified: 2026-10-15
+Version: 0.1.2
 Python Version: 3.12
 ================================================================================
 """
@@ -22,7 +22,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from app.services import application_control as control
-from scripts.run_app import stop_processes, supervise_processes
+from scripts.run_app import start_dashboard, stop_processes, supervise_processes
 
 
 def test_missing_supervisor_rejects_shutdown(monkeypatch):
@@ -217,3 +217,20 @@ def test_dashboard_resume_preserves_scheduler(tmp_path, monkeypatch):
     supervise_processes(processes, stop, directory)
     start.assert_called_once()
     scheduler.terminate.assert_not_called()
+
+
+def test_dashboard_disables_interactive_streamlit_startup(tmp_path, monkeypatch):
+    """Force noninteractive startup even when the host enables browser integration.
+
+    Args:
+        tmp_path: Isolated supervisor control path.
+        monkeypatch: Environment and subprocess replacement fixture.
+
+    Returns:
+        None. Confirms the child command overrides the host headless default.
+    """
+    monkeypatch.setenv("STREAMLIT_SERVER_HEADLESS", "false")
+    spawn = MagicMock()
+    monkeypatch.setattr("scripts.run_app.subprocess.Popen", spawn)
+    start_dashboard(tmp_path)
+    assert "--server.headless=true" in spawn.call_args.args[0]

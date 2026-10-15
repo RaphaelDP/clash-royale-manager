@@ -4,7 +4,7 @@ Description: Verify standalone path selection and protection of foreign services
 Author: Raphael Smilet
 Date Created: 2026-10-07
 Last Modified: 2026-10-15
-Version: 0.1.1
+Version: 0.1.2
 """
 
 import socket
@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 import pytest
 from launch.native_backend import NativeBackend, user_directory
-from scripts.smoke_standalone import cleanup
+from scripts.smoke_standalone import cleanup, save_diagnostics
 
 
 def test_native_storage_is_separate_from_bundle(tmp_path, monkeypatch):
@@ -136,3 +136,30 @@ def test_smoke_cleanup_retains_files_if_shutdown_fails(tmp_path, failed):
         with pytest.raises(RuntimeError, match="still running"):
             cleanup(backend, tmp_path, failed=False)
     assert marker.read_text(encoding="utf-8") == "test data"
+
+
+def test_smoke_diagnostics_preserve_logs_without_configuration(tmp_path):
+    """Keep synthetic startup evidence outside the disposable data directory.
+
+    Args:
+        tmp_path: Isolated test files and output directory.
+
+    Returns:
+        None. Verifies log persistence and exclusion of configuration/database files.
+    """
+    backend = MagicMock()
+    backend.root = tmp_path / "user"
+    backend.url = "http://127.0.0.1:12345"
+    backend.alive.return_value = True
+    backend.process.poll.return_value = None
+    logs = backend.root / "logs"
+    logs.mkdir(parents=True)
+    (logs / "desktop-startup.log").write_text("starting dashboard", encoding="utf-8")
+    (backend.root / ".env").write_text("synthetic configuration", encoding="utf-8")
+    destination = tmp_path / "diagnostics"
+    save_diagnostics(backend, destination)
+    assert (destination / "desktop-startup.log").read_text() == "starting dashboard"
+    assert {path.name for path in destination.iterdir()} == {
+        "desktop-startup.log",
+        "status.json",
+    }

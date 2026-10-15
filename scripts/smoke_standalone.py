@@ -4,7 +4,7 @@ Description: Verify an extracted standalone runtime with isolated data and no AP
 Author: Raphael Smilet
 Date Created: 2026-10-07
 Last Modified: 2026-10-15
-Version: 0.1.1
+Version: 0.1.2
 """
 
 import argparse
@@ -49,6 +49,34 @@ def cleanup(backend, directory, failed):
                 raise
 
 
+def save_diagnostics(backend, destination):
+    """Preserve isolated smoke logs before cleanup removes temporary test data.
+
+    Args:
+        backend: Backend for the synthetic test installation only.
+        destination: Output directory for diagnostic artifacts.
+
+    Returns:
+        None. Writes logs and a small process/heartbeat status report.
+    """
+    destination.mkdir(parents=True, exist_ok=True)
+    state = {
+        "url": backend.url,
+        "heartbeat_alive": backend.alive(),
+        "supervisor_exit_code": (
+            backend.process.poll() if backend.process is not None else None
+        ),
+    }
+    (destination / "status.json").write_text(
+        json.dumps(state, indent=2), encoding="utf-8"
+    )
+    print(f"Standalone diagnostic status: {state}", flush=True)
+    for source in sorted((backend.root / "logs").glob("*.log")):
+        shutil.copyfile(source, destination / source.name)
+        print(f"--- {source.name} ({source.stat().st_size} bytes) ---", flush=True)
+        print(source.read_text(encoding="utf-8", errors="replace")[-12000:], flush=True)
+
+
 def main():
     """Check startup, dashboard resume, persistence and shutdown without user data.
 
@@ -60,6 +88,9 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Isolated standalone lifecycle check.")
     parser.add_argument("bundle", type=Path)
+    parser.add_argument(
+        "--diagnostics-dir", type=Path, default=Path("build/smoke-diagnostics")
+    )
     args = parser.parse_args()
     os.environ.update(
         CLAN_SKIP_STARTUP_COLLECTION="1",
@@ -118,9 +149,10 @@ def main():
                 "Standalone lifecycle passed: startup, dashboard resume, persistent data, full shutdown."
             )
         except Exception:
-            log = backend.root / "logs/desktop-startup.log"
-            if log.exists():
-                print(log.read_text(encoding="utf-8", errors="replace")[-12000:])
+            try:
+                save_diagnostics(backend, args.diagnostics_dir)
+            except OSError as error:
+                print(f"Could not preserve smoke diagnostics: {error}", flush=True)
             raise
         finally:
             cleanup(backend, directory, failed=sys.exc_info()[0] is not None)
