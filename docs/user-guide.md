@@ -1,6 +1,6 @@
 # User guide / Guide utilisateur
 
-Updated / Mise à jour : **2026-10-19** · Version : **1.3.1** (guide only / guide uniquement)
+Updated / Mise à jour : **2026-10-19** · Version : **1.3.2** (guide only / guide uniquement)
 
 [English](#english) · [Français](#francais) · [Technical reference](../README.md)
 
@@ -27,7 +27,7 @@ Ask the maintainer for the standalone package for your computer, or open the
 | Windows, Intel/AMD 64-bit | standalone-windows.zip |
 | Linux, Intel/AMD 64-bit | standalone-linux-x86_64.zip |
 
-Choose **v1.1.0 or newer** from the release downloads. Download the standalone ZIP
+Choose **v1.1.1 or newer** from the release downloads. Download the standalone ZIP
 for your computer; no GitHub account is needed for public release downloads.
 Older v1.0.0 downloads do not contain standalone packages.
 Do not choose a package marked **docker** for these instructions.
@@ -233,7 +233,7 @@ Demandez la version autonome au responsable ou ouvrez les
 | Windows, Intel/AMD 64 bits | standalone-windows.zip |
 | Linux, Intel/AMD 64 bits | standalone-linux-x86_64.zip |
 
-Choisissez **v1.1.0 ou une version plus récente** dans les téléchargements.
+Choisissez **v1.1.1 ou une version plus récente** dans les téléchargements.
 Téléchargez le ZIP standalone pour votre ordinateur ; aucun compte GitHub n’est
 nécessaire pour les versions publiques. Les téléchargements v1.0.0 ne contiennent
 pas de version autonome. Pour ce guide, ne choisissez pas un fichier marqué **docker**. macOS n'a pas encore de version autonome :

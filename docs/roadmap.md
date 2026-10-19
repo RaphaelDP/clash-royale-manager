@@ -1,11 +1,23 @@
 # Clash Royale Clan Manager — Roadmap
 
-Updated: 2026-10-15 · Document version: 1.2.0
+Updated: 2026-10-19 · Document version: 1.2.1
 
 This replaces the assessment in `git-history.txt`; that historical file is
 unchanged. Status describes local implementation, not a published release.
-Application version: **1.1.0**, stable release tag **v1.1.0**.
+Application version: **1.1.1**, stable release tag **v1.1.1**.
 Publication is gated by fresh tests and all platform builds on the tagged commit.
+
+## v1.1.1 desktop fixes
+
+- Standalone startup loads the exact user-data `.env` edited by the launcher;
+  the settings dialog displays its location. Source/Docker loading remains unchanged.
+- Host browser startup removes incompatible Snap editor library/module overrides.
+- `make standalone` prepares the runtime and builds locally; `make standalone-check`
+  verifies the isolated lifecycle. Existing output is protected.
+- Local validation: 263 tests, Black and Pylint pass. The tagged workflow must
+  rebuild and validate all platform packages before publication. Desktop verification
+  of the Snap browser fix remains an operator check.
+- Earlier release tags remain unchanged.
 
 ## v1.1.0 stable standalone release
 

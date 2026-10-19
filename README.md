@@ -9,13 +9,13 @@ role or remove anyone from the clan.
 [Guide utilisateur en français](docs/user-guide.md#francais).**
 
 This README is the technical reference for developers, administrators, and curious
-users. Updated: **2026-10-19** · Document version: **1.3.1** (documentation only).
+users. Updated: **2026-10-19** · Document version: **1.3.2** (documentation only).
 
-Current application version: **1.1.0** (stable release tag **v1.1.0**). On October 7 the operator
+Current application version: **1.1.1** (stable release tag **v1.1.1**). On October 7 the operator
 reported successful launcher builds, installed update/synchronization, and
 completed-history confirmation of race 137/0. These are operator-reported
 acceptance results; the retained October 6 JSON samples still say pending.
-[Release downloads](https://github.com/RaphaelDP/clash-royale-manager/releases/tag/v1.1.0)
+[Release downloads](https://github.com/RaphaelDP/clash-royale-manager/releases/tag/v1.1.1)
 provide standalone Windows/Linux packages, optional Docker packages, and bilingual
 PDF guides. The stable tag rebuilds all packages and publishes only after all
 checks pass. Windows and Linux standalone lifecycle/GUI checks passed in
