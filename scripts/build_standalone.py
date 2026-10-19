@@ -3,8 +3,8 @@ Filename: build_standalone.py
 Description: Build a native GUI plus relocatable Python application directory.
 Author: Raphael Smilet
 Date Created: 2026-10-07
-Last Modified: 2026-10-07
-Version: 0.1.0
+Last Modified: 2026-10-19
+Version: 0.1.1
 """
 
 import argparse
@@ -16,11 +16,62 @@ import sys
 from scripts.package_release import source_files
 
 
+def prepare_runtime(root):
+    """Download an isolated relocatable interpreter and install application dependencies.
+
+    Args:
+        root: Project directory containing requirements.txt.
+
+    Returns:
+        Path: Managed CPython installation ready to copy into the distribution.
+    """
+    runtime_dir = root / "build/python"
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "uv",
+            "python",
+            "install",
+            "3.12",
+            "--install-dir",
+            str(runtime_dir),
+            "--no-bin",
+        ],
+        check=True,
+    )
+    installations = {
+        path.resolve() for path in runtime_dir.glob("cpython-*") if path.is_dir()
+    }
+    if len(installations) != 1:
+        raise ValueError(
+            "Expected one managed runtime under build/python; use --python-dir to select one."
+        )
+    runtime = installations.pop()
+    python = runtime / ("python.exe" if sys.platform == "win32" else "bin/python3")
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "uv",
+            "pip",
+            "install",
+            "--break-system-packages",
+            "--python",
+            str(python),
+            "-r",
+            str(root / "requirements.txt"),
+        ],
+        check=True,
+    )
+    return runtime
+
+
 def main():
     """Package a native launcher, managed Python runtime, and reviewed source files.
 
     Args:
-        None. CLI requires a relocatable Python installation directory.
+        None. CLI optionally accepts an existing relocatable Python installation.
 
     Returns:
         None. Writes a standalone directory; never reads personal configuration.
@@ -28,14 +79,18 @@ def main():
     parser = argparse.ArgumentParser(
         description="Build a Docker-free desktop application."
     )
-    parser.add_argument("--python-dir", type=Path, required=True)
+    parser.add_argument(
+        "--python-dir",
+        type=Path,
+        help="Existing runtime; otherwise download CPython 3.12 with uv.",
+    )
     parser.add_argument("--output", type=Path, default=Path("dist/ClanManager"))
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     output = args.output.resolve()
     if output.exists():
         raise ValueError("Choose an output directory that does not already exist.")
-    runtime = args.python_dir.resolve()
+    runtime = args.python_dir.resolve() if args.python_dir else prepare_runtime(root)
     python = runtime / ("python.exe" if sys.platform == "win32" else "bin/python3")
     if not python.is_file():
         raise ValueError(

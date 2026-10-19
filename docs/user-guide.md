@@ -1,6 +1,6 @@
 # User guide / Guide utilisateur
 
-Updated / Mise à jour : **2026-10-15** · Version : **1.3.0** (guide only / guide uniquement)
+Updated / Mise à jour : **2026-10-19** · Version : **1.3.1** (guide only / guide uniquement)
 
 [English](#english) · [Français](#francais) · [Technical reference](../README.md)
 
@@ -50,7 +50,9 @@ for all downloads.
 ### 2. Set up your clan
 
 On the first start, the launcher opens **Application settings** if required fields
-are missing. You can reopen these settings at any time.
+are missing. You can reopen these settings at any time. The dialog shows the exact
+`.env` file it edits, inside **Your data** (not the downloaded program or source
+folder). Confirm the dialog to save, then click **Start and open** to apply changes.
 
 | Field | What to enter |
 | --- | --- |
@@ -251,6 +253,10 @@ sa provenance auprès du responsable avant d'autoriser cette application.
 Ne désactivez pas la protection générale.
 
 ### 2. Configurer votre clan
+
+La fenêtre de configuration indique le fichier `.env` modifié, situé dans
+**Your data**, et non dans le dossier du programme téléchargé ou du code source.
+Validez pour enregistrer, puis cliquez sur **Start and open** pour appliquer les changements.
 
 Au premier lancement, **Application settings** s'ouvre si des champs obligatoires
 manquent. Vous pouvez rouvrir cette fenêtre à tout moment.

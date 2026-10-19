@@ -3,8 +3,8 @@ Filename: configuration.py
 Description: Template-based private launcher configuration and graphical editing.
 Author: Raphael Smilet
 Date Created: 2026-10-06
-Last Modified: 2026-10-06
-Version: 0.1.0
+Last Modified: 2026-10-19
+Version: 0.1.1
 """
 
 import os
@@ -137,8 +137,10 @@ class ConfigurationDialog(simpledialog.Dialog):
             master,
             text=(
                 "Complete required fields. Discord is optional.\n"
-                "API token: developer.clashroyale.com (allow your public IP)."
+                "API token: developer.clashroyale.com (allow your public IP).\n"
+                f"Settings file: {self.root / '.env'}"
             ),
+            wraplength=600,
         ).grid(row=0, columnspan=2, pady=8)
         for row, (key, default) in enumerate(self.defaults.items(), start=1):
             label = key + (" (optional)" if key in OPTIONAL else " *")

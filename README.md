@@ -9,7 +9,7 @@ role or remove anyone from the clan.
 [Guide utilisateur en français](docs/user-guide.md#francais).**
 
 This README is the technical reference for developers, administrators, and curious
-users. Updated: **2026-10-15** · Document version: **1.3.0** (documentation only).
+users. Updated: **2026-10-19** · Document version: **1.3.1** (documentation only).
 
 Current application version: **1.1.0** (stable release tag **v1.1.0**). On October 7 the operator
 reported successful launcher builds, installed update/synchronization, and
@@ -117,6 +117,34 @@ optional Docker backend. The native GUI starts a bundled interpreter, which runs
 the same application supervisor, migration code and scheduler as Python/Docker.
 Frozen GUI library paths are removed before launching the independent interpreter.
 
+On Linux, build locally from the project root with:
+
+```bash
+make standalone
+make standalone-check
+./dist/ClanManager/ClanManager
+```
+
+`make standalone` prepares build tools under `build/standalone-tools`, downloads
+managed CPython 3.12, installs runtime dependencies, generates both PDF guides,
+and packages the current source. It needs Internet access, `/usr/bin/python3`
+with venv/Tk/shared-library support, and DejaVu fonts for PDFs. Override the build
+interpreter with `BUILD_PYTHON=/path/to/python` if necessary.
+
+Existing output is protected: stop the previous application and move its program
+folder aside, or use `make standalone STANDALONE_OUTPUT=dist/test/ClanManager`.
+Use the same output override for `make standalone-check`. User data and credentials
+are not removed. There is no need to run `make clean` first.
+
+This local command builds for the current Linux computer. GitHub Actions remains
+the release pipeline: it checks code, builds all supported platforms, tests the
+packages, and publishes stable tagged releases. A local build does not publish.
+
+When launched from VS Code installed through Snap, the launcher removes inherited
+Snap library and GTK/GIO module overrides before opening the host browser. This
+avoids mixing the editor’s bundled libraries with host desktop modules. Desktop
+session access and browser errors remain visible; no system libraries are changed.
+
 Build with a relocatable Python installation (the CI workflow uses uv-managed
 CPython 3.12) containing the dependencies from `requirements.txt`. Do not copy a
 normal virtual environment: its interpreter/configuration paths may point to
@@ -128,7 +156,8 @@ python -m scripts.build_standalone --python-dir PATH_TO_RELOCATABLE_PYTHON
 python -m scripts.smoke_standalone dist/ClanManager
 ```
 
-`build_standalone` supports `--output` (default `dist/ClanManager`, must not exist).
+`build_standalone` downloads a runtime with uv when `--python-dir` is omitted.
+It supports `--output` (default `dist/ClanManager`, must not exist).
 It copies reviewed source files, the runtime, native GUI, and generated PDFs.
 `smoke_standalone BUNDLE` uses a temporary database and port, disables API
 collection and Discord, and checks startup, dashboard resume, persistence,

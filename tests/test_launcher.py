@@ -3,8 +3,8 @@ Filename: test_launcher.py
 Description: Verify private first-run settings and safe Docker launcher failures.
 Author: Raphael Smilet
 Date Created: 2026-10-06
-Last Modified: 2026-10-06
-Version: 0.1.3
+Last Modified: 2026-10-19
+Version: 0.1.4
 """
 
 from unittest.mock import MagicMock
@@ -153,3 +153,48 @@ def test_platform_folder_finds_application_root(tmp_path, monkeypatch, executabl
         monkeypatch.setenv("APPIMAGE", str(binary))
         monkeypatch.setattr(launcher.sys, "executable", "/tmp/extracted/python")
         assert launcher.project_root() == tmp_path
+
+
+def test_browser_drops_snap_editor_modules_but_keeps_desktop_access(monkeypatch):
+    """Keep the host browser from loading incompatible editor Snap libraries.
+
+    Args:
+        monkeypatch: Fixture restoring synthetic environment and process overrides.
+
+    Returns:
+        None. Verifies browser-only sanitation without mutating the parent environment.
+    """
+    monkeypatch.setattr(launcher.sys, "platform", "linux")
+    monkeypatch.setenv("SNAP", "/snap/code/current")
+    monkeypatch.setenv("LD_LIBRARY_PATH_ORIG", "/snap/core20/current/lib:/opt/host/lib")
+    monkeypatch.setenv(
+        "GIO_MODULE_DIR", "/home/test/snap/code/common/.cache/gio-modules"
+    )
+    monkeypatch.setenv("GTK_MODULES", "atk-bridge:canberra-gtk-module:custom-module")
+    monkeypatch.setenv("DISPLAY", ":42")
+    monkeypatch.setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/run/user/test/bus")
+    spawn = MagicMock()
+    monkeypatch.setattr(launcher.subprocess, "Popen", spawn)
+    launcher.open_dashboard()
+    env = spawn.call_args.kwargs["env"]
+    assert env["LD_LIBRARY_PATH"] == "/opt/host/lib"
+    assert "GIO_MODULE_DIR" not in env
+    assert env["GTK_MODULES"] == "custom-module"
+    assert env["DISPLAY"] == ":42"
+    assert env["DBUS_SESSION_BUS_ADDRESS"] == "unix:path=/run/user/test/bus"
+    assert launcher.os.environ["GTK_MODULES"].startswith("atk-bridge:")
+
+
+def test_non_snap_desktop_settings_are_preserved():
+    """Avoid changing desktop module preferences outside a Snap environment.
+
+    Args:
+        None.
+
+    Returns:
+        None. Confirms custom native library/module paths remain intact.
+    """
+    env = {"GTK_MODULES": "atk-bridge", "GIO_MODULE_DIR": "/opt/modules"}
+    original = dict(env)
+    launcher.clean_snap_desktop_environment(env)
+    assert env == original

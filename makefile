@@ -1,9 +1,11 @@
 # =========================================
 # Project: clash-royale-manager
-# Purpose: Formatting & linting utilities
+# Purpose: Development checks, local packaging and application commands
+# Last Modified: 2026-10-19
+# Version: 0.1.1
 # =========================================
 
-.PHONY: install format lint check format-check lint-ci ci test run tree zip commit clean clean-db
+.PHONY: install format lint check format-check lint-ci ci test run tree zip commit clean clean-db standalone standalone-check
 
 # Python executable (assumes venv is activated)
 PYTHON := python
@@ -27,6 +29,21 @@ PYLINT_IGNORE := $(subst $(space),,$(IGNORE))
 #
 install:
 	$(PYTHON) -m pip install -r requirements-dev.txt
+
+# Local Linux packaging: use a shared-library Python with Tk support.
+BUILD_PYTHON ?= /usr/bin/python3
+BUILD_TOOLS := build/standalone-tools
+STANDALONE_OUTPUT ?= dist/ClanManager
+
+standalone:
+	@test ! -e "$(STANDALONE_OUTPUT)" || { echo "Output exists. Stop the old app and move it aside, or set STANDALONE_OUTPUT=dist/test/ClanManager."; exit 1; }
+	"$(BUILD_PYTHON)" -m venv "$(BUILD_TOOLS)"
+	"$(BUILD_TOOLS)/bin/python" -m pip install pyinstaller==6.16.0 python-dotenv==1.2.2 uv reportlab==4.4.4
+	"$(BUILD_TOOLS)/bin/python" -m scripts.build_user_guides
+	"$(BUILD_TOOLS)/bin/python" -m scripts.build_standalone --output "$(STANDALONE_OUTPUT)"
+
+standalone-check:
+	"$(BUILD_TOOLS)/bin/python" -m scripts.smoke_standalone "$(STANDALONE_OUTPUT)"
 
 # -----------------------------------------
 # Formatting

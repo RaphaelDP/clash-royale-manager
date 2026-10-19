@@ -4,8 +4,8 @@ Filename: config.py
 Description: Centralized configuration settings for the application, loaded from environment variables.
 Author: Raphael Smilet
 Date Created: 2026-06-06
-Last Modified: 2026-10-01
-Version: 0.1.2
+Last Modified: 2026-10-19
+Version: 0.1.3
 Python Version: 3.11
 Dependencies: python-dotenv
 ================================================================================
@@ -16,7 +16,13 @@ from dotenv import load_dotenv
 from app import __version__
 
 if os.getenv("PYTHON_DOTENV_DISABLED") != "1":
-    load_dotenv()
+    # The standalone editor owns this explicit file; source/Docker installations
+    # retain their existing environment-first configuration behavior.
+    configuration_file = os.getenv("CLAN_ENV_FILE")
+    if configuration_file:
+        load_dotenv(configuration_file, override=True)
+    else:
+        load_dotenv()
 
 
 class Settings:

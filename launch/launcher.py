@@ -4,8 +4,8 @@ Filename: launcher.py
 Description: Shared desktop control panel with standalone and optional Docker backends.
 Author: Raphael Smilet
 Date Created: 2026-10-06
-Last Modified: 2026-10-07
-Version: 0.2.0
+Last Modified: 2026-10-19
+Version: 0.2.1
 Python Version: 3.12
 ================================================================================
 """
@@ -32,6 +32,53 @@ from launch.configuration import ConfigurationDialog, missing_fields, read_confi
 URL = "http://localhost:8501"
 
 
+def clean_snap_desktop_environment(env):
+    """Remove Snap editor library/module overrides before starting host desktop tools.
+
+    Args:
+        env: Copied subprocess environment to sanitize on Linux.
+
+    Returns:
+        None. Updates only inherited library/module overrides, preserving desktop access.
+    """
+    path_keys = (
+        "LD_LIBRARY_PATH",
+        "LD_LIBRARY_PATH_ORIG",
+        "GIO_MODULE_DIR",
+        "GIO_EXTRA_MODULES",
+        "GTK_PATH",
+        "GSETTINGS_SCHEMA_DIR",
+    )
+    inherited_snap = bool(env.get("SNAP")) or any(
+        "/snap/" in env.get(key, "") for key in path_keys
+    )
+    if not inherited_snap:
+        return
+    for key in path_keys:
+        if key in env:
+            paths = [
+                path
+                for path in env[key].split(os.pathsep)
+                if path and "/snap/" not in path
+            ]
+            if paths:
+                env[key] = os.pathsep.join(paths)
+            else:
+                env.pop(key, None)
+    # These optional modules injected by desktop wrappers are not portable across
+    # GTK versions; GTK handles accessibility itself and sound hooks are optional.
+    if "GTK_MODULES" in env:
+        modules = [
+            module
+            for module in env["GTK_MODULES"].split(":")
+            if module not in {"atk-bridge", "canberra-gtk-module"}
+        ]
+        if modules:
+            env["GTK_MODULES"] = ":".join(modules)
+        else:
+            env.pop("GTK_MODULES", None)
+
+
 def external_environment():
     """Restore host library paths before invoking Docker or a browser.
 
@@ -48,6 +95,7 @@ def external_environment():
         else:
             env.pop(name, None)
     if sys.platform.startswith("linux"):
+        clean_snap_desktop_environment(env)
         env.update(CLAN_UID=str(os.getuid()), CLAN_GID=str(os.getgid()))
     return env
 
